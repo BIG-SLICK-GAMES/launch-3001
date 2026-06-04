@@ -14,8 +14,9 @@ export class LaunchScene extends Phaser.Scene {
   private rocket?: Rocket;
   private landingPad?: LandingPad;
   private hud?: Hud;
-  private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
-  private keys?: Record<string, Phaser.Input.Keyboard.Key>;
+  private readonly pressedCodes = new Set<string>();
+  private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
+  private readonly onKeyUp = (event: KeyboardEvent): void => this.handleKeyUp(event);
   private currentProfileIndex = 1;
   private result: GameResult = 'flying';
   private resultMessage = 'Guide the rocket to the glowing pad.';
@@ -46,8 +47,12 @@ export class LaunchScene extends Phaser.Scene {
     this.add.rectangle(WORLD_WIDTH / 2, FLOOR_Y + 72, WORLD_WIDTH, 144, 0x4b2e24, 0.78).setDepth(-1);
 
     this.hud = new Hud(this);
-    this.cursors = this.input.keyboard?.createCursorKeys();
-    this.keys = this.input.keyboard?.addKeys('A,D,W,SPACE,R,ONE,TWO,THREE') as Record<string, Phaser.Input.Keyboard.Key>;
+    window.addEventListener('keydown', this.onKeyDown);
+    window.addEventListener('keyup', this.onKeyUp);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      window.removeEventListener('keydown', this.onKeyDown);
+      window.removeEventListener('keyup', this.onKeyUp);
+    });
 
     this.restartWithProfile(this.currentProfileIndex);
   }
@@ -58,7 +63,6 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     const deltaSeconds = delta / 1000;
-    this.checkRestartAndProfileKeys();
 
     if (this.result === 'flying') {
       this.rocket.update(deltaSeconds, this.readControls());
@@ -99,9 +103,9 @@ export class LaunchScene extends Phaser.Scene {
 
   private readControls(): RocketControls {
     return {
-      rotateLeft: Boolean(this.cursors?.left.isDown || this.keys?.A.isDown),
-      rotateRight: Boolean(this.cursors?.right.isDown || this.keys?.D.isDown),
-      thrust: Boolean(this.cursors?.up.isDown || this.keys?.W.isDown || this.keys?.SPACE.isDown)
+      rotateLeft: this.pressedCodes.has('ArrowLeft') || this.pressedCodes.has('KeyA'),
+      rotateRight: this.pressedCodes.has('ArrowRight') || this.pressedCodes.has('KeyD'),
+      thrust: this.pressedCodes.has('ArrowUp') || this.pressedCodes.has('KeyW') || this.pressedCodes.has('Space')
     };
   }
 
@@ -159,29 +163,57 @@ export class LaunchScene extends Phaser.Scene {
     });
   }
 
-  private checkRestartAndProfileKeys(): void {
-    if (!this.keys) {
+  private handleKeyDown(event: KeyboardEvent): void {
+    if (this.isGameKey(event.code)) {
+      event.preventDefault();
+      this.pressedCodes.add(event.code);
+    }
+
+    if (event.repeat) {
       return;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keys.R)) {
+    if (event.code === 'KeyR') {
       this.restartWithProfile(this.currentProfileIndex);
       return;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keys.ONE)) {
+    if (event.code === 'Digit1' || event.code === 'Numpad1') {
       this.restartWithProfile(0);
       return;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keys.TWO)) {
+    if (event.code === 'Digit2' || event.code === 'Numpad2') {
       this.restartWithProfile(1);
       return;
     }
 
-    if (Phaser.Input.Keyboard.JustDown(this.keys.THREE)) {
+    if (event.code === 'Digit3' || event.code === 'Numpad3') {
       this.restartWithProfile(2);
     }
+  }
+
+  private handleKeyUp(event: KeyboardEvent): void {
+    this.pressedCodes.delete(event.code);
+  }
+
+  private isGameKey(code: string): boolean {
+    return [
+      'ArrowLeft',
+      'ArrowRight',
+      'ArrowUp',
+      'KeyA',
+      'KeyD',
+      'KeyW',
+      'Space',
+      'KeyR',
+      'Digit1',
+      'Digit2',
+      'Digit3',
+      'Numpad1',
+      'Numpad2',
+      'Numpad3'
+    ].includes(code);
   }
 
   private get profile(): RocketProfile {
