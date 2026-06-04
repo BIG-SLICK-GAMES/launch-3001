@@ -10,6 +10,14 @@ This is a quick playable browser prototype built with Vite, TypeScript, Phaser, 
 - R: restart.
 - 1 / 2 / 3: switch rocket profile.
 
+## Tuning
+
+The top-right sliders tune the active run live:
+
+- Gravity defaults to 100%.
+- Steering defaults to 5% of the original prototype value.
+- Boost defaults to 100%.
+
 ## Assets
 
 Current placeholder rendered assets are stored at:

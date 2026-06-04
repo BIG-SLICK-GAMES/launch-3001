@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import type { RocketProfile } from '../config/rocketProfiles';
+import type { TuningValues } from '../ui/TuningPanel';
 import { LINEAR_DAMPING, ROCKET_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from './PhysicsConfig';
 
 export type RocketControls = {
@@ -37,25 +38,28 @@ export class Rocket {
     this.sprite.setSize(ROCKET_SIZE.width, ROCKET_SIZE.height);
   }
 
-  update(deltaSeconds: number, controls: RocketControls): void {
+  update(deltaSeconds: number, controls: RocketControls, tuning: TuningValues): void {
     this.isThrusting = controls.thrust;
+    const steering = this.profile.steering * tuning.steeringMultiplier;
+    const gravity = this.profile.gravity * tuning.gravityMultiplier;
+    const thrust = this.profile.thrust * tuning.thrustMultiplier;
 
     if (controls.rotateLeft) {
-      this.angularVelocity -= this.profile.steering * deltaSeconds;
+      this.angularVelocity -= steering * deltaSeconds;
     }
 
     if (controls.rotateRight) {
-      this.angularVelocity += this.profile.steering * deltaSeconds;
+      this.angularVelocity += steering * deltaSeconds;
     }
 
     this.angularVelocity -= this.angularVelocity * this.profile.angularDamping * deltaSeconds;
     this.sprite.rotation += this.angularVelocity;
 
-    this.velocity.y += this.profile.gravity * deltaSeconds;
+    this.velocity.y += gravity * deltaSeconds;
 
     if (controls.thrust) {
-      this.velocity.x += Math.sin(this.sprite.rotation) * this.profile.thrust * deltaSeconds;
-      this.velocity.y -= Math.cos(this.sprite.rotation) * this.profile.thrust * deltaSeconds;
+      this.velocity.x += Math.sin(this.sprite.rotation) * thrust * deltaSeconds;
+      this.velocity.y -= Math.cos(this.sprite.rotation) * thrust * deltaSeconds;
     }
 
     this.velocity.scale(Math.pow(LINEAR_DAMPING, deltaSeconds * 60));

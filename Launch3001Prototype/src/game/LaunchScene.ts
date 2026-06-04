@@ -3,6 +3,7 @@ import canyonBackgroundUrl from '../assets/backgrounds/canyon_background.png';
 import canyonFloorUrl from '../assets/terrain/canyon_floor.png';
 import { rocketProfiles, type RocketProfile } from '../config/rocketProfiles';
 import { Hud } from '../ui/Hud';
+import { TuningPanel } from '../ui/TuningPanel';
 import { FLOOR_Y, ROCKET_SIZE, SAFE_LANDING, WORLD_HEIGHT, WORLD_WIDTH } from './PhysicsConfig';
 import { LandingPad } from './LandingPad';
 import { Rocket, type RocketControls } from './Rocket';
@@ -14,6 +15,7 @@ export class LaunchScene extends Phaser.Scene {
   private rocket?: Rocket;
   private landingPad?: LandingPad;
   private hud?: Hud;
+  private tuningPanel?: TuningPanel;
   private readonly pressedCodes = new Set<string>();
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
   private readonly onKeyUp = (event: KeyboardEvent): void => this.handleKeyUp(event);
@@ -47,6 +49,7 @@ export class LaunchScene extends Phaser.Scene {
     this.add.rectangle(WORLD_WIDTH / 2, FLOOR_Y + 72, WORLD_WIDTH, 144, 0x4b2e24, 0.78).setDepth(-1);
 
     this.hud = new Hud(this);
+    this.tuningPanel = new TuningPanel(document.getElementById('tuning-panel'));
     window.addEventListener('keydown', this.onKeyDown);
     window.addEventListener('keyup', this.onKeyUp);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -65,7 +68,11 @@ export class LaunchScene extends Phaser.Scene {
     const deltaSeconds = delta / 1000;
 
     if (this.result === 'flying') {
-      this.rocket.update(deltaSeconds, this.readControls());
+      this.rocket.update(deltaSeconds, this.readControls(), this.tuningPanel?.getValues() ?? {
+        gravityMultiplier: 1,
+        steeringMultiplier: 0.05,
+        thrustMultiplier: 1
+      });
       this.checkLandingOrCrash();
     }
 
