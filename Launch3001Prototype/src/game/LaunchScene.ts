@@ -1,4 +1,5 @@
 import Phaser from 'phaser';
+import canyonBackgroundUrl from '../assets/backgrounds/canyon_background.png';
 import canyonFloorUrl from '../assets/terrain/canyon_floor.png';
 import { rocketProfiles, type RocketProfile } from '../config/rocketProfiles';
 import { sceneLayout } from '../config/sceneLayout';
@@ -33,6 +34,7 @@ export class LaunchScene extends Phaser.Scene {
   }
 
   preload(): void {
+    this.load.image('canyonBackground', canyonBackgroundUrl);
     this.load.image('canyonFloor', canyonFloorUrl);
   }
 
@@ -40,6 +42,12 @@ export class LaunchScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.cameras.main.setScroll(0, 0);
     this.physics.world?.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+
+    this.add.image(sceneLayout.layers.back.x, sceneLayout.layers.back.y, 'canyonBackground')
+      .setOrigin(0, 0)
+      .setDisplaySize(this.scale.width, this.scale.height)
+      .setScrollFactor(sceneLayout.layers.back.scrollFactorX, sceneLayout.layers.back.scrollFactorY)
+      .setDepth(sceneLayout.layers.back.depth);
 
     this.terrain = this.add.image(0, FLOOR_Y + sceneLayout.layers.terrain.yOffsetFromFloor, 'canyonFloor')
       .setOrigin(0, 0)

@@ -24,10 +24,12 @@ Scene positioning and scale are controlled from `src/config/sceneLayout.ts`. See
 
 Current placeholder rendered assets are stored at:
 
+- `src/assets/backgrounds/canyon_background.png`
 - `src/assets/terrain/canyon_floor.png`
 
-The scene currently uses one rendered image layer:
+The scene currently uses two rendered image layers:
 
+- Back: canyon background image, fixed to the camera and filling the viewport.
 - Terrain: canyon floor image, fixed to the viewport and tweened from right-aligned to left-aligned over `rocketFlightDurationMs`.
 
 The rocket is a Phaser-drawn placeholder sprite. A final rocket PNG can be added later under `src/assets/rockets/` and wired into `Rocket.ts`.

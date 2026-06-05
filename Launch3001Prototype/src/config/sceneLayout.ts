@@ -25,6 +25,13 @@ export const sceneLayout = {
     followOffsetY: 0
   },
   layers: {
+    back: {
+      x: 0,
+      y: 0,
+      scrollFactorX: 0,
+      scrollFactorY: 0,
+      depth: -10
+    },
     terrain: {
       yOffsetFromFloor: -38,
       alpha: 1,

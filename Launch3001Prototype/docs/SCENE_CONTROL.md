@@ -9,7 +9,7 @@ This is the master scene control file. Values in it are imported by the Phaser s
 - `x` increases left to right.
 - `y` increases top to bottom.
 - The camera is fixed for this version.
-- `layers.terrain` uses viewport coordinates because it is not camera-scrolled.
+- `layers.back` and `layers.terrain` use viewport coordinates because neither is camera-scrolled.
 - Layer `yOffsetFromFloor` values are added to `gameplay.floorY`.
 
 ## Main Controls
@@ -19,6 +19,7 @@ This is the master scene control file. Values in it are imported by the Phaser s
 - `gameplay.floorY`: collision floor height used for landing and crash checks.
 - `level.rocketFlightDurationMs`: duration for the terrain to move from right-aligned to left-aligned.
 - `level.terrainScale`: terrain width scale above the minimum needed to fill the viewport.
+- `layers.back`: fixed background image, locked to the camera.
 - `layers.terrain`: timed terrain image that starts right-aligned and tweens to `x: 0`.
 - `rocketSpawn`: rocket start position and starting velocity.
 - `landingPad`: landing pad position and size.
