@@ -52,7 +52,7 @@ export const sceneLayout = {
     velocityY: -10
   },
   landingPad: {
-    x: 980,
+    x: 1120,
     yOffsetFromFloor: 0,
     width: 230,
     height: 18
