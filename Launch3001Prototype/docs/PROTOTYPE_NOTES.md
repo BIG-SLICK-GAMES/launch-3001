@@ -31,6 +31,7 @@ The scene currently uses two rendered image layers:
 
 - Back: canyon background image, fixed to the camera and filling the viewport.
 - Terrain: canyon floor image, camera-locked and oversized. It moves left/right opposite the camera, clamped to its right-side overhang.
+- Camera: locked directly to the rocket horizontally, with vertical scroll fixed.
 
 The rocket is a Phaser-drawn placeholder sprite. A final rocket PNG can be added later under `src/assets/rockets/` and wired into `Rocket.ts`.
 

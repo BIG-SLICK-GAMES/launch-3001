@@ -15,14 +15,7 @@ export const sceneLayout = {
     terrainPanStrength: 0.25
   },
   camera: {
-    lookAheadX: 180,
-    centerY: 430,
-    minCenterX: 640,
-    maxCenterX: 1760,
-    followLerpX: 0.08,
-    followLerpY: 0.08,
-    followOffsetX: 120,
-    followOffsetY: 0
+    verticalScrollY: 0
   },
   layers: {
     back: {

@@ -91,7 +91,7 @@ export class LaunchScene extends Phaser.Scene {
       this.checkLandingOrCrash();
     }
 
-    this.cameras.main.setScroll(this.cameras.main.scrollX, 0);
+    this.lockCameraToRocket();
     this.updateTerrainPan();
     this.updateTerrainDebugText();
 
@@ -125,14 +125,8 @@ export class LaunchScene extends Phaser.Scene {
     );
     this.rocket = new Rocket(this, sceneLayout.rocketSpawn.x, sceneLayout.rocketSpawn.y, this.profile);
     this.rocket.velocity.set(sceneLayout.rocketSpawn.velocityX, sceneLayout.rocketSpawn.velocityY);
-    this.cameras.main.startFollow(
-      this.rocket.sprite,
-      true,
-      sceneLayout.camera.followLerpX,
-      sceneLayout.camera.followLerpY,
-      sceneLayout.camera.followOffsetX,
-      sceneLayout.camera.followOffsetY
-    );
+    this.cameras.main.stopFollow();
+    this.lockCameraToRocket();
     this.sizeAndAlignTerrain();
   }
 
@@ -168,6 +162,19 @@ export class LaunchScene extends Phaser.Scene {
     );
   }
 
+  private lockCameraToRocket(): void {
+    if (!this.rocket) {
+      return;
+    }
+
+    const targetScrollX = Phaser.Math.Clamp(
+      this.rocket.sprite.x - this.scale.width / 2,
+      0,
+      WORLD_WIDTH - this.scale.width
+    );
+    this.cameras.main.setScroll(targetScrollX, sceneLayout.camera.verticalScrollY);
+  }
+
   private updateTerrainDebugText(): void {
     if (!this.terrainDebugText || !this.terrain) {
       return;
@@ -179,6 +186,7 @@ export class LaunchScene extends Phaser.Scene {
       `viewportWidth: ${this.scale.width}`,
       `right overhang: ${(this.terrain.displayWidth - this.scale.width).toFixed(1)}`,
       `camera.scrollX: ${this.cameras.main.scrollX.toFixed(1)}`,
+      `rocket.x: ${this.rocket?.sprite.x.toFixed(1) ?? '0.0'}`,
       `pan strength: ${sceneLayout.level.terrainPanStrength}`,
       `terrainScale: ${sceneLayout.level.terrainScale}`
     ]);

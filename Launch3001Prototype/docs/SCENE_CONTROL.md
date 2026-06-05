@@ -19,6 +19,7 @@ This is the master scene control file. Values in it are imported by the Phaser s
 - `gameplay.floorY`: collision floor height used for landing and crash checks.
 - `level.terrainScale`: terrain width scale above the minimum needed to fill the viewport.
 - `level.terrainPanStrength`: multiplier for inverse camera movement on the terrain image.
+- `camera.verticalScrollY`: fixed camera Y position.
 - `layers.back`: fixed background image, locked to the camera.
 - `layers.terrain`: camera-locked terrain image. It starts at `x: 0` with extra width hanging off the right edge, then moves opposite the camera.
 - `rocketSpawn`: rocket start position and starting velocity.
