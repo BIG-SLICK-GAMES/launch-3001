@@ -43,12 +43,19 @@ export class LaunchScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(-10);
 
-    this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 56, 'canyonFloor')
-      .setDisplaySize(WORLD_WIDTH, 170)
+    this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 34, 'canyonFloor')
+      .setDisplaySize(WORLD_WIDTH, 140)
+      .setAlpha(0.72)
+      .setTint(0x917164)
       .setScrollFactor(0.5, 1)
+      .setDepth(-3);
+
+    this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 62, 'canyonFloor')
+      .setDisplaySize(WORLD_WIDTH, 178)
+      .setScrollFactor(1, 1)
       .setDepth(-2);
 
-    this.add.rectangle(WORLD_WIDTH / 2, FLOOR_Y + 72, WORLD_WIDTH, 144, 0x4b2e24, 0.78).setDepth(-1);
+    this.add.rectangle(WORLD_WIDTH / 2, FLOOR_Y + 94, WORLD_WIDTH, 124, 0x4b2e24, 0.78).setDepth(-1);
 
     this.hud = new Hud(this);
     this.tuningPanel = new TuningPanel(document.getElementById('tuning-panel'));
