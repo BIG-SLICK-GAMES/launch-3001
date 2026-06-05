@@ -158,6 +158,7 @@ export class LaunchScene extends Phaser.Scene {
       `terrain.x: ${this.terrain.x.toFixed(1)}`,
       `terrain.displayWidth: ${this.terrain.displayWidth.toFixed(1)}`,
       `viewportWidth: ${this.scale.width}`,
+      `right overhang: ${(this.terrain.displayWidth - this.scale.width).toFixed(1)}`,
       `terrainScale: ${sceneLayout.level.terrainScale}`
     ]);
   }
