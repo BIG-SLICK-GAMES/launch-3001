@@ -17,10 +17,9 @@ This is the master scene control file. Values in it are imported by the Phaser s
 - `view`: browser game viewport size.
 - `world`: physics bounds.
 - `gameplay.floorY`: collision floor height used for landing and crash checks.
-- `level.rocketFlightDurationMs`: duration for the terrain to move from right-aligned to left-aligned.
 - `level.terrainScale`: terrain width scale above the minimum needed to fill the viewport.
 - `layers.back`: fixed background image, locked to the camera.
-- `layers.terrain`: timed terrain image that starts right-aligned and tweens to `x: 0`.
+- `layers.terrain`: terrain image locked to the left edge at `x: 0`.
 - `rocketSpawn`: rocket start position and starting velocity.
 - `landingPad`: landing pad position and size.
 - `resultBanner`: crash/landed text placement.
@@ -38,11 +37,10 @@ landingPad: {
 }
 ```
 
-To tune the terrain tween:
+To tune the terrain scale:
 
 ```ts
 level: {
-  rocketFlightDurationMs: 18000,
   terrainScale: 1.15
 }
 ```

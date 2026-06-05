@@ -18,7 +18,6 @@ export class LaunchScene extends Phaser.Scene {
   private hud?: Hud;
   private tuningPanel?: TuningPanel;
   private terrain?: Phaser.GameObjects.Image;
-  private terrainTween?: Phaser.Tweens.Tween;
   private terrainDebugText?: Phaser.GameObjects.Text;
   private readonly pressedCodes = new Set<string>();
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
@@ -128,7 +127,7 @@ export class LaunchScene extends Phaser.Scene {
     this.rocket.velocity.set(sceneLayout.rocketSpawn.velocityX, sceneLayout.rocketSpawn.velocityY);
     this.cameras.main.stopFollow();
     this.cameras.main.setScroll(0, 0);
-    this.startTerrainTween();
+    this.sizeAndAlignTerrain();
   }
 
   private readControls(): RocketControls {
@@ -147,22 +146,7 @@ export class LaunchScene extends Phaser.Scene {
     const viewportWidth = this.scale.width;
     const minScale = viewportWidth / this.terrain.width;
     this.terrain.setScale(minScale * sceneLayout.level.terrainScale);
-    this.terrain.x = viewportWidth - this.terrain.displayWidth;
-  }
-
-  private startTerrainTween(): void {
-    if (!this.terrain) {
-      return;
-    }
-
-    this.terrainTween?.stop();
-    this.sizeAndAlignTerrain();
-    this.terrainTween = this.tweens.add({
-      targets: this.terrain,
-      x: 0,
-      duration: sceneLayout.level.rocketFlightDurationMs,
-      ease: 'Linear'
-    });
+    this.terrain.x = 0;
   }
 
   private updateTerrainDebugText(): void {
@@ -174,8 +158,7 @@ export class LaunchScene extends Phaser.Scene {
       `terrain.x: ${this.terrain.x.toFixed(1)}`,
       `terrain.displayWidth: ${this.terrain.displayWidth.toFixed(1)}`,
       `viewportWidth: ${this.scale.width}`,
-      `tween progress: ${((this.terrainTween?.progress ?? 0) * 100).toFixed(1)}%`,
-      `rocketFlightDurationMs: ${sceneLayout.level.rocketFlightDurationMs}`
+      `terrainScale: ${sceneLayout.level.terrainScale}`
     ]);
   }
 

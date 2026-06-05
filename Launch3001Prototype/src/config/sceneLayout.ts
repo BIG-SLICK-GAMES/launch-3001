@@ -11,7 +11,6 @@ export const sceneLayout = {
     floorY: 640
   },
   level: {
-    rocketFlightDurationMs: 18000,
     terrainScale: 1.15
   },
   camera: {
