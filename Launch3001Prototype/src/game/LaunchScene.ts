@@ -2,6 +2,7 @@ import Phaser from 'phaser';
 import canyonBackgroundUrl from '../assets/backgrounds/canyon_background.png';
 import canyonFloorUrl from '../assets/terrain/canyon_floor.png';
 import { rocketProfiles, type RocketProfile } from '../config/rocketProfiles';
+import { sceneLayout } from '../config/sceneLayout';
 import { Hud } from '../ui/Hud';
 import { TuningPanel } from '../ui/TuningPanel';
 import { FLOOR_Y, ROCKET_SIZE, SAFE_LANDING, WORLD_HEIGHT, WORLD_WIDTH } from './PhysicsConfig';
@@ -10,9 +11,6 @@ import { Rocket, type RocketControls } from './Rocket';
 import { calculateLandingScore } from './Scoring';
 
 type GameResult = 'flying' | 'landed' | 'crashed';
-const VIEW_WIDTH = 1280;
-const VIEW_HEIGHT = 720;
-const MIDDLE_LAYER_SCALE = 1.2;
 
 export class LaunchScene extends Phaser.Scene {
   private rocket?: Rocket;
@@ -41,24 +39,31 @@ export class LaunchScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.physics.world?.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    this.add.image(VIEW_WIDTH / 2, VIEW_HEIGHT / 2, 'canyonBackground')
-      .setDisplaySize(VIEW_WIDTH, VIEW_HEIGHT)
-      .setScrollFactor(0)
-      .setDepth(-10);
+    this.add.image(sceneLayout.layers.back.x, sceneLayout.layers.back.y, 'canyonBackground')
+      .setDisplaySize(sceneLayout.layers.back.width, sceneLayout.layers.back.height)
+      .setScrollFactor(sceneLayout.layers.back.scrollFactorX, sceneLayout.layers.back.scrollFactorY)
+      .setDepth(sceneLayout.layers.back.depth);
 
-    this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 34, 'canyonFloor')
-      .setDisplaySize(WORLD_WIDTH * MIDDLE_LAYER_SCALE, 168)
-      .setAlpha(0.72)
-      .setTint(0x917164)
-      .setScrollFactor(1, 1)
-      .setDepth(-3);
+    this.add.image(sceneLayout.layers.middle.x, FLOOR_Y + sceneLayout.layers.middle.yOffsetFromFloor, 'canyonFloor')
+      .setDisplaySize(sceneLayout.layers.middle.width, sceneLayout.layers.middle.height)
+      .setAlpha(sceneLayout.layers.middle.alpha)
+      .setTint(sceneLayout.layers.middle.tint)
+      .setScrollFactor(sceneLayout.layers.middle.scrollFactorX, sceneLayout.layers.middle.scrollFactorY)
+      .setDepth(sceneLayout.layers.middle.depth);
 
-    this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 62, 'canyonFloor')
-      .setDisplaySize(WORLD_WIDTH, 178)
-      .setScrollFactor(1, 1)
-      .setDepth(-2);
+    this.add.image(sceneLayout.layers.front.x, FLOOR_Y + sceneLayout.layers.front.yOffsetFromFloor, 'canyonFloor')
+      .setDisplaySize(sceneLayout.layers.front.width, sceneLayout.layers.front.height)
+      .setScrollFactor(sceneLayout.layers.front.scrollFactorX, sceneLayout.layers.front.scrollFactorY)
+      .setDepth(sceneLayout.layers.front.depth);
 
-    this.add.rectangle(WORLD_WIDTH / 2, FLOOR_Y + 94, WORLD_WIDTH, 124, 0x4b2e24, 0.78).setDepth(-1);
+    this.add.rectangle(
+      sceneLayout.layers.groundFill.x,
+      FLOOR_Y + sceneLayout.layers.groundFill.yOffsetFromFloor,
+      sceneLayout.layers.groundFill.width,
+      sceneLayout.layers.groundFill.height,
+      sceneLayout.layers.groundFill.color,
+      sceneLayout.layers.groundFill.alpha
+    ).setDepth(sceneLayout.layers.groundFill.depth);
 
     this.hud = new Hud(this);
     this.tuningPanel = new TuningPanel(document.getElementById('tuning-panel'));
@@ -89,8 +94,8 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     this.cameras.main.centerOn(
-      Phaser.Math.Clamp(this.rocket.sprite.x + 180, 640, WORLD_WIDTH - 640),
-      430
+      Phaser.Math.Clamp(this.rocket.sprite.x + sceneLayout.camera.lookAheadX, sceneLayout.camera.minCenterX, sceneLayout.camera.maxCenterX),
+      sceneLayout.camera.centerY
     );
 
     this.hud.update({
@@ -114,10 +119,23 @@ export class LaunchScene extends Phaser.Scene {
     this.resultBanner?.destroy();
     this.resultBanner = undefined;
 
-    this.landingPad = new LandingPad(this, 1840, FLOOR_Y, 230, 18);
-    this.rocket = new Rocket(this, 250, 270, this.profile);
-    this.rocket.velocity.set(95, -10);
-    this.cameras.main.startFollow(this.rocket.sprite, true, 0.08, 0.08, 120, 0);
+    this.landingPad = new LandingPad(
+      this,
+      sceneLayout.landingPad.x,
+      FLOOR_Y + sceneLayout.landingPad.yOffsetFromFloor,
+      sceneLayout.landingPad.width,
+      sceneLayout.landingPad.height
+    );
+    this.rocket = new Rocket(this, sceneLayout.rocketSpawn.x, sceneLayout.rocketSpawn.y, this.profile);
+    this.rocket.velocity.set(sceneLayout.rocketSpawn.velocityX, sceneLayout.rocketSpawn.velocityY);
+    this.cameras.main.startFollow(
+      this.rocket.sprite,
+      true,
+      sceneLayout.camera.followLerpX,
+      sceneLayout.camera.followLerpY,
+      sceneLayout.camera.followOffsetX,
+      sceneLayout.camera.followOffsetY
+    );
   }
 
   private readControls(): RocketControls {
@@ -164,7 +182,7 @@ export class LaunchScene extends Phaser.Scene {
 
   private addResultText(label: string, color: number): void {
     this.resultBanner?.destroy();
-    this.resultBanner = this.add.text(this.rocket?.sprite.x ?? 0, (this.rocket?.sprite.y ?? 0) - 105, label, {
+    this.resultBanner = this.add.text(this.rocket?.sprite.x ?? 0, (this.rocket?.sprite.y ?? 0) + sceneLayout.resultBanner.yOffsetFromRocket, label, {
       fontFamily: 'Arial, sans-serif',
       fontSize: '44px',
       color: Phaser.Display.Color.IntegerToColor(color).rgba,
@@ -172,10 +190,10 @@ export class LaunchScene extends Phaser.Scene {
       strokeThickness: 8
     });
     this.resultBanner.setOrigin(0.5);
-    this.resultBanner.setDepth(40);
+    this.resultBanner.setDepth(sceneLayout.resultBanner.depth);
     this.tweens.add({
       targets: this.resultBanner,
-      y: this.resultBanner.y - 26,
+      y: this.resultBanner.y - sceneLayout.resultBanner.floatUpDistance,
       alpha: 0.92,
       duration: 500,
       ease: 'Sine.easeOut'

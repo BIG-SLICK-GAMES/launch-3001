@@ -1,6 +1,8 @@
-export const WORLD_WIDTH = 2400;
-export const WORLD_HEIGHT = 900;
-export const FLOOR_Y = 790;
+import { sceneLayout } from '../config/sceneLayout';
+
+export const WORLD_WIDTH = sceneLayout.world.width;
+export const WORLD_HEIGHT = sceneLayout.world.height;
+export const FLOOR_Y = sceneLayout.gameplay.floorY;
 
 export const SAFE_LANDING = {
   verticalSpeed: 90,
