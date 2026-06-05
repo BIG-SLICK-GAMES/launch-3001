@@ -19,7 +19,6 @@ export class LaunchScene extends Phaser.Scene {
   private landingPad?: LandingPad;
   private hud?: Hud;
   private tuningPanel?: TuningPanel;
-  private middleLayer?: Phaser.GameObjects.Image;
   private readonly pressedCodes = new Set<string>();
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
   private readonly onKeyUp = (event: KeyboardEvent): void => this.handleKeyUp(event);
@@ -47,13 +46,12 @@ export class LaunchScene extends Phaser.Scene {
       .setScrollFactor(0)
       .setDepth(-10);
 
-    this.middleLayer = this.add.image(0, VIEW_HEIGHT - 72, 'canyonFloor')
-      .setDisplaySize(VIEW_WIDTH * MIDDLE_LAYER_SCALE, 168)
+    this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 34, 'canyonFloor')
+      .setDisplaySize(WORLD_WIDTH * MIDDLE_LAYER_SCALE, 168)
       .setAlpha(0.72)
       .setTint(0x917164)
-      .setScrollFactor(0)
+      .setScrollFactor(1, 1)
       .setDepth(-3);
-    this.updateMiddleLayerPosition();
 
     this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 62, 'canyonFloor')
       .setDisplaySize(WORLD_WIDTH, 178)
@@ -94,7 +92,6 @@ export class LaunchScene extends Phaser.Scene {
       Phaser.Math.Clamp(this.rocket.sprite.x + 180, 640, WORLD_WIDTH - 640),
       430
     );
-    this.updateMiddleLayerPosition();
 
     this.hud.update({
       verticalSpeed: this.rocket.velocity.y,
@@ -129,19 +126,6 @@ export class LaunchScene extends Phaser.Scene {
       rotateRight: this.pressedCodes.has('ArrowRight') || this.pressedCodes.has('KeyD'),
       thrust: this.pressedCodes.has('ArrowUp') || this.pressedCodes.has('KeyW') || this.pressedCodes.has('Space')
     };
-  }
-
-  private updateMiddleLayerPosition(): void {
-    if (!this.middleLayer) {
-      return;
-    }
-
-    const progress = Phaser.Math.Clamp((this.rocket?.sprite.x ?? 0) / WORLD_WIDTH, 0, 1);
-    const middleWidth = VIEW_WIDTH * MIDDLE_LAYER_SCALE;
-    const rightAlignedX = VIEW_WIDTH - middleWidth / 2;
-    const leftAlignedX = middleWidth / 2;
-
-    this.middleLayer.x = Phaser.Math.Linear(rightAlignedX, leftAlignedX, progress);
   }
 
   private checkLandingOrCrash(): void {
