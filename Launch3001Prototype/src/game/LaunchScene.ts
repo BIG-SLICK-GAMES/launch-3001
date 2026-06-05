@@ -45,6 +45,7 @@ export class LaunchScene extends Phaser.Scene {
 
     this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 56, 'canyonFloor')
       .setDisplaySize(WORLD_WIDTH, 170)
+      .setScrollFactor(0.5, 1)
       .setDepth(-2);
 
     this.add.rectangle(WORLD_WIDTH / 2, FLOOR_Y + 72, WORLD_WIDTH, 144, 0x4b2e24, 0.78).setDepth(-1);
