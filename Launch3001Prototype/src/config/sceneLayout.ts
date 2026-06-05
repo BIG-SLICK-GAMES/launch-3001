@@ -11,7 +11,8 @@ export const sceneLayout = {
     floorY: 640
   },
   level: {
-    terrainScale: 1.15
+    terrainScale: 1.3,
+    terrainPanStrength: 1
   },
   camera: {
     lookAheadX: 180,
@@ -52,7 +53,7 @@ export const sceneLayout = {
     velocityY: -10
   },
   landingPad: {
-    x: 1120,
+    x: 1840,
     yOffsetFromFloor: 0,
     width: 230,
     height: 18

@@ -39,7 +39,6 @@ export class LaunchScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
-    this.cameras.main.setScroll(0, 0);
     this.physics.world?.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
     this.add.image(sceneLayout.layers.back.x, sceneLayout.layers.back.y, 'canyonBackground')
@@ -92,7 +91,8 @@ export class LaunchScene extends Phaser.Scene {
       this.checkLandingOrCrash();
     }
 
-    this.cameras.main.setScroll(0, 0);
+    this.cameras.main.setScroll(this.cameras.main.scrollX, 0);
+    this.updateTerrainPan();
     this.updateTerrainDebugText();
 
     this.hud.update({
@@ -125,8 +125,14 @@ export class LaunchScene extends Phaser.Scene {
     );
     this.rocket = new Rocket(this, sceneLayout.rocketSpawn.x, sceneLayout.rocketSpawn.y, this.profile);
     this.rocket.velocity.set(sceneLayout.rocketSpawn.velocityX, sceneLayout.rocketSpawn.velocityY);
-    this.cameras.main.stopFollow();
-    this.cameras.main.setScroll(0, 0);
+    this.cameras.main.startFollow(
+      this.rocket.sprite,
+      true,
+      sceneLayout.camera.followLerpX,
+      sceneLayout.camera.followLerpY,
+      sceneLayout.camera.followOffsetX,
+      sceneLayout.camera.followOffsetY
+    );
     this.sizeAndAlignTerrain();
   }
 
@@ -149,6 +155,17 @@ export class LaunchScene extends Phaser.Scene {
     this.terrain.x = 0;
   }
 
+  private updateTerrainPan(): void {
+    if (!this.terrain) {
+      return;
+    }
+
+    const maxCameraScrollX = Math.max(WORLD_WIDTH - this.scale.width, 1);
+    const scrollProgress = Phaser.Math.Clamp(this.cameras.main.scrollX / maxCameraScrollX, 0, 1);
+    const rightOverhang = Math.max(this.terrain.displayWidth - this.scale.width, 0);
+    this.terrain.x = -rightOverhang * sceneLayout.level.terrainPanStrength * scrollProgress;
+  }
+
   private updateTerrainDebugText(): void {
     if (!this.terrainDebugText || !this.terrain) {
       return;
@@ -159,6 +176,7 @@ export class LaunchScene extends Phaser.Scene {
       `terrain.displayWidth: ${this.terrain.displayWidth.toFixed(1)}`,
       `viewportWidth: ${this.scale.width}`,
       `right overhang: ${(this.terrain.displayWidth - this.scale.width).toFixed(1)}`,
+      `camera.scrollX: ${this.cameras.main.scrollX.toFixed(1)}`,
       `terrainScale: ${sceneLayout.level.terrainScale}`
     ]);
   }
