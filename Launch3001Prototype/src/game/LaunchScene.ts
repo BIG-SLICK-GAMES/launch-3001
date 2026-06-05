@@ -38,8 +38,9 @@ export class LaunchScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.physics.world?.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    this.add.image(WORLD_WIDTH / 2, WORLD_HEIGHT / 2, 'canyonBackground')
-      .setDisplaySize(WORLD_WIDTH, WORLD_HEIGHT)
+    this.add.image(640, 360, 'canyonBackground')
+      .setDisplaySize(1280, 720)
+      .setScrollFactor(0)
       .setDepth(-10);
 
     this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 56, 'canyonFloor')
