@@ -8,7 +8,11 @@ export const sceneLayout = {
     height: 900
   },
   gameplay: {
-    floorY: 790
+    floorY: 640
+  },
+  level: {
+    rocketFlightDurationMs: 18000,
+    terrainScale: 1.15
   },
   camera: {
     lookAheadX: 180,
@@ -22,52 +26,34 @@ export const sceneLayout = {
   },
   layers: {
     back: {
-      x: 640,
-      y: 360,
-      width: 1280,
-      height: 720,
+      x: 0,
+      y: 0,
       scrollFactorX: 0,
       scrollFactorY: 0,
       depth: -10
     },
-    middle: {
-      x: 1200,
-      yOffsetFromFloor: 34,
-      width: 2880,
-      height: 168,
-      alpha: 0.72,
-      tint: 0x917164,
-      scrollFactorX: 1,
-      scrollFactorY: 1,
-      depth: -3
-    },
-    front: {
-      x: 1200,
-      yOffsetFromFloor: 62,
-      width: 2400,
-      height: 178,
-      scrollFactorX: 1,
-      scrollFactorY: 1,
-      depth: -2
-    },
-    groundFill: {
-      x: 1200,
-      yOffsetFromFloor: 94,
-      width: 2400,
-      height: 124,
-      color: 0x4b2e24,
-      alpha: 0.78,
+    terrain: {
+      yOffsetFromFloor: -38,
+      alpha: 1,
+      tint: 0xffffff,
+      scrollFactorX: 0,
+      scrollFactorY: 0,
       depth: -1
+    },
+    terrainDebug: {
+      x: 18,
+      y: 180,
+      depth: 100
     }
   },
   rocketSpawn: {
     x: 250,
     y: 270,
-    velocityX: 95,
+    velocityX: 0,
     velocityY: -10
   },
   landingPad: {
-    x: 1840,
+    x: 980,
     yOffsetFromFloor: 0,
     width: 230,
     height: 18

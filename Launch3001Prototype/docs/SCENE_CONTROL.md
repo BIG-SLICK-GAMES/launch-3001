@@ -8,20 +8,19 @@ This is the master scene control file. Values in it are imported by the Phaser s
 
 - `x` increases left to right.
 - `y` increases top to bottom.
-- Most gameplay/world positions use world coordinates.
-- `layers.back` uses camera/screen coordinates because it is fixed to the camera.
+- The camera is fixed for this version.
+- `layers.back` and `layers.terrain` use viewport coordinates because neither is camera-scrolled.
 - Layer `yOffsetFromFloor` values are added to `gameplay.floorY`.
 
 ## Main Controls
 
 - `view`: browser game viewport size.
-- `world`: full side-scrolling level size.
+- `world`: physics bounds.
 - `gameplay.floorY`: collision floor height used for landing and crash checks.
-- `camera`: follow behavior, look-ahead, and fixed camera center.
+- `level.rocketFlightDurationMs`: duration for the terrain to move from right-aligned to left-aligned.
+- `level.terrainScale`: terrain width scale above the minimum needed to fill the viewport.
 - `layers.back`: fixed background image.
-- `layers.middle`: zoomed world-space midground image.
-- `layers.front`: world-space gameplay terrain image.
-- `layers.groundFill`: solid visual fill below the terrain.
+- `layers.terrain`: timed terrain image that starts right-aligned and tweens to `x: 0`.
 - `rocketSpawn`: rocket start position and starting velocity.
 - `landingPad`: landing pad position and size.
 - `resultBanner`: crash/landed text placement.
@@ -32,21 +31,19 @@ To move the landing pad:
 
 ```ts
 landingPad: {
-  x: 1840,
+  x: 980,
   yOffsetFromFloor: 0,
   width: 230,
   height: 18
 }
 ```
 
-To scale or position the middle image:
+To tune the terrain tween:
 
 ```ts
-middle: {
-  x: 1200,
-  yOffsetFromFloor: 34,
-  width: 2880,
-  height: 168
+level: {
+  rocketFlightDurationMs: 18000,
+  terrainScale: 1.15
 }
 ```
 
@@ -54,7 +51,7 @@ To move the whole floor collision line:
 
 ```ts
 gameplay: {
-  floorY: 790
+  floorY: 640
 }
 ```
 

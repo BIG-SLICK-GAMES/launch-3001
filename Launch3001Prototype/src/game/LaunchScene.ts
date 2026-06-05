@@ -17,6 +17,9 @@ export class LaunchScene extends Phaser.Scene {
   private landingPad?: LandingPad;
   private hud?: Hud;
   private tuningPanel?: TuningPanel;
+  private terrain?: Phaser.GameObjects.Image;
+  private terrainTween?: Phaser.Tweens.Tween;
+  private terrainDebugText?: Phaser.GameObjects.Text;
   private readonly pressedCodes = new Set<string>();
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
   private readonly onKeyUp = (event: KeyboardEvent): void => this.handleKeyUp(event);
@@ -37,33 +40,30 @@ export class LaunchScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
+    this.cameras.main.setScroll(0, 0);
     this.physics.world?.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
     this.add.image(sceneLayout.layers.back.x, sceneLayout.layers.back.y, 'canyonBackground')
-      .setDisplaySize(sceneLayout.layers.back.width, sceneLayout.layers.back.height)
+      .setOrigin(0, 0)
+      .setDisplaySize(this.scale.width, this.scale.height)
       .setScrollFactor(sceneLayout.layers.back.scrollFactorX, sceneLayout.layers.back.scrollFactorY)
       .setDepth(sceneLayout.layers.back.depth);
 
-    this.add.image(sceneLayout.layers.middle.x, FLOOR_Y + sceneLayout.layers.middle.yOffsetFromFloor, 'canyonFloor')
-      .setDisplaySize(sceneLayout.layers.middle.width, sceneLayout.layers.middle.height)
-      .setAlpha(sceneLayout.layers.middle.alpha)
-      .setTint(sceneLayout.layers.middle.tint)
-      .setScrollFactor(sceneLayout.layers.middle.scrollFactorX, sceneLayout.layers.middle.scrollFactorY)
-      .setDepth(sceneLayout.layers.middle.depth);
+    this.terrain = this.add.image(0, FLOOR_Y + sceneLayout.layers.terrain.yOffsetFromFloor, 'canyonFloor')
+      .setOrigin(0, 0)
+      .setAlpha(sceneLayout.layers.terrain.alpha)
+      .setTint(sceneLayout.layers.terrain.tint)
+      .setScrollFactor(sceneLayout.layers.terrain.scrollFactorX, sceneLayout.layers.terrain.scrollFactorY)
+      .setDepth(sceneLayout.layers.terrain.depth);
+    this.sizeAndAlignTerrain();
 
-    this.add.image(sceneLayout.layers.front.x, FLOOR_Y + sceneLayout.layers.front.yOffsetFromFloor, 'canyonFloor')
-      .setDisplaySize(sceneLayout.layers.front.width, sceneLayout.layers.front.height)
-      .setScrollFactor(sceneLayout.layers.front.scrollFactorX, sceneLayout.layers.front.scrollFactorY)
-      .setDepth(sceneLayout.layers.front.depth);
-
-    this.add.rectangle(
-      sceneLayout.layers.groundFill.x,
-      FLOOR_Y + sceneLayout.layers.groundFill.yOffsetFromFloor,
-      sceneLayout.layers.groundFill.width,
-      sceneLayout.layers.groundFill.height,
-      sceneLayout.layers.groundFill.color,
-      sceneLayout.layers.groundFill.alpha
-    ).setDepth(sceneLayout.layers.groundFill.depth);
+    this.terrainDebugText = this.add.text(sceneLayout.layers.terrainDebug.x, sceneLayout.layers.terrainDebug.y, '', {
+      fontFamily: 'Consolas, monospace',
+      fontSize: '14px',
+      color: '#ffffff',
+      backgroundColor: 'rgba(0, 0, 0, 0.55)',
+      padding: { x: 8, y: 6 }
+    }).setScrollFactor(0).setDepth(sceneLayout.layers.terrainDebug.depth);
 
     this.hud = new Hud(this);
     this.tuningPanel = new TuningPanel(document.getElementById('tuning-panel'));
@@ -93,10 +93,8 @@ export class LaunchScene extends Phaser.Scene {
       this.checkLandingOrCrash();
     }
 
-    this.cameras.main.centerOn(
-      Phaser.Math.Clamp(this.rocket.sprite.x + sceneLayout.camera.lookAheadX, sceneLayout.camera.minCenterX, sceneLayout.camera.maxCenterX),
-      sceneLayout.camera.centerY
-    );
+    this.cameras.main.setScroll(0, 0);
+    this.updateTerrainDebugText();
 
     this.hud.update({
       verticalSpeed: this.rocket.velocity.y,
@@ -128,14 +126,9 @@ export class LaunchScene extends Phaser.Scene {
     );
     this.rocket = new Rocket(this, sceneLayout.rocketSpawn.x, sceneLayout.rocketSpawn.y, this.profile);
     this.rocket.velocity.set(sceneLayout.rocketSpawn.velocityX, sceneLayout.rocketSpawn.velocityY);
-    this.cameras.main.startFollow(
-      this.rocket.sprite,
-      true,
-      sceneLayout.camera.followLerpX,
-      sceneLayout.camera.followLerpY,
-      sceneLayout.camera.followOffsetX,
-      sceneLayout.camera.followOffsetY
-    );
+    this.cameras.main.stopFollow();
+    this.cameras.main.setScroll(0, 0);
+    this.startTerrainTween();
   }
 
   private readControls(): RocketControls {
@@ -144,6 +137,46 @@ export class LaunchScene extends Phaser.Scene {
       rotateRight: this.pressedCodes.has('ArrowRight') || this.pressedCodes.has('KeyD'),
       thrust: this.pressedCodes.has('ArrowUp') || this.pressedCodes.has('KeyW') || this.pressedCodes.has('Space')
     };
+  }
+
+  private sizeAndAlignTerrain(): void {
+    if (!this.terrain) {
+      return;
+    }
+
+    const viewportWidth = this.scale.width;
+    const minScale = viewportWidth / this.terrain.width;
+    this.terrain.setScale(minScale * sceneLayout.level.terrainScale);
+    this.terrain.x = viewportWidth - this.terrain.displayWidth;
+  }
+
+  private startTerrainTween(): void {
+    if (!this.terrain) {
+      return;
+    }
+
+    this.terrainTween?.stop();
+    this.sizeAndAlignTerrain();
+    this.terrainTween = this.tweens.add({
+      targets: this.terrain,
+      x: 0,
+      duration: sceneLayout.level.rocketFlightDurationMs,
+      ease: 'Linear'
+    });
+  }
+
+  private updateTerrainDebugText(): void {
+    if (!this.terrainDebugText || !this.terrain) {
+      return;
+    }
+
+    this.terrainDebugText.setText([
+      `terrain.x: ${this.terrain.x.toFixed(1)}`,
+      `terrain.displayWidth: ${this.terrain.displayWidth.toFixed(1)}`,
+      `viewportWidth: ${this.scale.width}`,
+      `tween progress: ${((this.terrainTween?.progress ?? 0) * 100).toFixed(1)}%`,
+      `rocketFlightDurationMs: ${sceneLayout.level.rocketFlightDurationMs}`
+    ]);
   }
 
   private checkLandingOrCrash(): void {
