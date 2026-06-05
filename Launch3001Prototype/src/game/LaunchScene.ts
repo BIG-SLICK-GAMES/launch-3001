@@ -160,10 +160,12 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
-    const maxCameraScrollX = Math.max(WORLD_WIDTH - this.scale.width, 1);
-    const scrollProgress = Phaser.Math.Clamp(this.cameras.main.scrollX / maxCameraScrollX, 0, 1);
     const rightOverhang = Math.max(this.terrain.displayWidth - this.scale.width, 0);
-    this.terrain.x = -rightOverhang * sceneLayout.level.terrainPanStrength * scrollProgress;
+    this.terrain.x = Phaser.Math.Clamp(
+      -this.cameras.main.scrollX * sceneLayout.level.terrainPanStrength,
+      -rightOverhang,
+      0
+    );
   }
 
   private updateTerrainDebugText(): void {
@@ -177,6 +179,7 @@ export class LaunchScene extends Phaser.Scene {
       `viewportWidth: ${this.scale.width}`,
       `right overhang: ${(this.terrain.displayWidth - this.scale.width).toFixed(1)}`,
       `camera.scrollX: ${this.cameras.main.scrollX.toFixed(1)}`,
+      `pan strength: ${sceneLayout.level.terrainPanStrength}`,
       `terrainScale: ${sceneLayout.level.terrainScale}`
     ]);
   }

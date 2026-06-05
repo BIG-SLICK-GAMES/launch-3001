@@ -12,7 +12,7 @@ export const sceneLayout = {
   },
   level: {
     terrainScale: 1.3,
-    terrainPanStrength: 1
+    terrainPanStrength: 0.25
   },
   camera: {
     lookAheadX: 180,
