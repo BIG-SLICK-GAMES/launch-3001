@@ -10,12 +10,16 @@ import { Rocket, type RocketControls } from './Rocket';
 import { calculateLandingScore } from './Scoring';
 
 type GameResult = 'flying' | 'landed' | 'crashed';
+const VIEW_WIDTH = 1280;
+const VIEW_HEIGHT = 720;
+const MIDDLE_LAYER_SCALE = 1.2;
 
 export class LaunchScene extends Phaser.Scene {
   private rocket?: Rocket;
   private landingPad?: LandingPad;
   private hud?: Hud;
   private tuningPanel?: TuningPanel;
+  private middleLayer?: Phaser.GameObjects.Image;
   private readonly pressedCodes = new Set<string>();
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
   private readonly onKeyUp = (event: KeyboardEvent): void => this.handleKeyUp(event);
@@ -38,17 +42,18 @@ export class LaunchScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.physics.world?.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    this.add.image(640, 360, 'canyonBackground')
-      .setDisplaySize(1280, 720)
+    this.add.image(VIEW_WIDTH / 2, VIEW_HEIGHT / 2, 'canyonBackground')
+      .setDisplaySize(VIEW_WIDTH, VIEW_HEIGHT)
       .setScrollFactor(0)
       .setDepth(-10);
 
-    this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 34, 'canyonFloor')
-      .setDisplaySize(WORLD_WIDTH, 140)
+    this.middleLayer = this.add.image(0, VIEW_HEIGHT - 72, 'canyonFloor')
+      .setDisplaySize(VIEW_WIDTH * MIDDLE_LAYER_SCALE, 168)
       .setAlpha(0.72)
       .setTint(0x917164)
-      .setScrollFactor(0.5, 1)
+      .setScrollFactor(0)
       .setDepth(-3);
+    this.updateMiddleLayerPosition();
 
     this.add.image(WORLD_WIDTH / 2, FLOOR_Y + 62, 'canyonFloor')
       .setDisplaySize(WORLD_WIDTH, 178)
@@ -89,6 +94,7 @@ export class LaunchScene extends Phaser.Scene {
       Phaser.Math.Clamp(this.rocket.sprite.x + 180, 640, WORLD_WIDTH - 640),
       430
     );
+    this.updateMiddleLayerPosition();
 
     this.hud.update({
       verticalSpeed: this.rocket.velocity.y,
@@ -123,6 +129,19 @@ export class LaunchScene extends Phaser.Scene {
       rotateRight: this.pressedCodes.has('ArrowRight') || this.pressedCodes.has('KeyD'),
       thrust: this.pressedCodes.has('ArrowUp') || this.pressedCodes.has('KeyW') || this.pressedCodes.has('Space')
     };
+  }
+
+  private updateMiddleLayerPosition(): void {
+    if (!this.middleLayer) {
+      return;
+    }
+
+    const progress = Phaser.Math.Clamp((this.rocket?.sprite.x ?? 0) / WORLD_WIDTH, 0, 1);
+    const middleWidth = VIEW_WIDTH * MIDDLE_LAYER_SCALE;
+    const rightAlignedX = VIEW_WIDTH - middleWidth / 2;
+    const leftAlignedX = middleWidth / 2;
+
+    this.middleLayer.x = Phaser.Math.Linear(rightAlignedX, leftAlignedX, progress);
   }
 
   private checkLandingOrCrash(): void {

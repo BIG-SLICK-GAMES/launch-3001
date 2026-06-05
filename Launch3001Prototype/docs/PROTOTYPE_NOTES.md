@@ -28,7 +28,7 @@ Current placeholder rendered assets are stored at:
 The scene currently uses three visual layers:
 
 - Back: canyon background image, fixed to the camera.
-- Middle: canyon floor image reused as a parallax midground, moving at half camera speed.
+- Middle: canyon floor image reused as a parallax midground, scaled to 120%. It starts right-aligned and pans to left-aligned as the rocket crosses the full front image length.
 - Front: canyon floor image in world space, matching the rocket, landing pad, and collision floor.
 
 The rocket is a Phaser-drawn placeholder sprite. A final rocket PNG can be added later under `src/assets/rockets/` and wired into `Rocket.ts`.
