@@ -50,7 +50,7 @@ export class LaunchScene extends Phaser.Scene {
       .setScrollFactor(sceneLayout.layers.back.scrollFactorX, sceneLayout.layers.back.scrollFactorY)
       .setDepth(sceneLayout.layers.back.depth);
 
-    this.midLayer = this.add.image(0, FLOOR_Y + sceneLayout.layers.mid.yOffsetFromFloor, 'midImage')
+    this.midLayer = this.add.image(sceneLayout.layers.mid.x, sceneLayout.layers.mid.y, 'midImage')
       .setOrigin(0, 0)
       .setAlpha(sceneLayout.layers.mid.alpha)
       .setTint(sceneLayout.layers.mid.tint)
@@ -58,7 +58,7 @@ export class LaunchScene extends Phaser.Scene {
       .setDepth(sceneLayout.layers.mid.depth);
     this.sizeAndAlignMidLayer();
 
-    this.groundFront = this.add.image(0, FLOOR_Y + sceneLayout.layers.groundFront.yOffsetFromFloor, 'frontGround')
+    this.groundFront = this.add.image(sceneLayout.layers.groundFront.x, sceneLayout.layers.groundFront.y, 'frontGround')
       .setOrigin(0, 0)
       .setAlpha(sceneLayout.layers.groundFront.alpha)
       .setTint(sceneLayout.layers.groundFront.tint)
@@ -156,7 +156,8 @@ export class LaunchScene extends Phaser.Scene {
 
     const worldScale = WORLD_WIDTH / this.midLayer.width;
     this.midLayer.setScale(worldScale * sceneLayout.level.terrainScale);
-    this.midLayer.x = 0;
+    this.midLayer.x = sceneLayout.layers.mid.x;
+    this.midLayer.y = sceneLayout.layers.mid.y;
   }
 
   private sizeAndAlignGroundFront(): void {
@@ -166,7 +167,8 @@ export class LaunchScene extends Phaser.Scene {
 
     const worldScale = WORLD_WIDTH / this.groundFront.width;
     this.groundFront.setScale(worldScale * sceneLayout.layers.groundFront.widthScale);
-    this.groundFront.x = 0;
+    this.groundFront.x = sceneLayout.layers.groundFront.x;
+    this.groundFront.y = sceneLayout.layers.groundFront.y;
   }
 
   private lockCameraToRocket(): void {

@@ -25,7 +25,8 @@ export const sceneLayout = {
       depth: -10
     },
     mid: {
-      yOffsetFromFloor: -820,
+      x: 0,
+      y: -180,
       alpha: 1,
       tint: 0xffffff,
       scrollFactorX: 0.5,
@@ -33,7 +34,8 @@ export const sceneLayout = {
       depth: -5
     },
     groundFront: {
-      yOffsetFromFloor: 280,
+      x: 0,
+      y: 640,
       widthScale: 1,
       alpha: 1,
       tint: 0xffffff,

@@ -21,6 +21,7 @@ The top-right sliders tune the active run live:
 ## Assets
 
 Scene positioning and scale are controlled from `src/config/sceneLayout.ts`. See `docs/SCENE_CONTROL.md`.
+Image layers expose direct `x` and `y` positions in that config.
 
 Current placeholder rendered assets are stored at:
 
