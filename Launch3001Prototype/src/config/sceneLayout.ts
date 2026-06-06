@@ -11,8 +11,7 @@ export const sceneLayout = {
     floorY: 640
   },
   level: {
-    terrainScale: 1.3,
-    terrainPanStrength: 0.25
+    terrainScale: 1
   },
   camera: {
     verticalScrollY: 0
@@ -21,17 +20,26 @@ export const sceneLayout = {
     back: {
       x: 0,
       y: 0,
-      scrollFactorX: 0,
-      scrollFactorY: 0,
+      scrollFactorX: 1,
+      scrollFactorY: 1,
       depth: -10
     },
     terrain: {
       yOffsetFromFloor: -38,
       alpha: 1,
       tint: 0xffffff,
-      scrollFactorX: 0,
-      scrollFactorY: 0,
+      scrollFactorX: 1,
+      scrollFactorY: 1,
       depth: -1
+    },
+    groundFront: {
+      yOffsetFromFloor: -440,
+      widthScale: 1,
+      alpha: 1,
+      tint: 0xffffff,
+      scrollFactorX: 1,
+      scrollFactorY: 1,
+      depth: -0.5
     },
     terrainDebug: {
       x: 18,

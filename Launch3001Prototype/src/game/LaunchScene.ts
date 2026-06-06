@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import canyonBackgroundUrl from '../assets/backgrounds/canyon_background.png';
 import canyonFloorUrl from '../assets/terrain/canyon_floor.png';
+import canyonGroundFrontUrl from '../assets/terrain/canyon_ground_front.png';
 import { rocketProfiles, type RocketProfile } from '../config/rocketProfiles';
 import { sceneLayout } from '../config/sceneLayout';
 import { Hud } from '../ui/Hud';
@@ -18,6 +19,7 @@ export class LaunchScene extends Phaser.Scene {
   private hud?: Hud;
   private tuningPanel?: TuningPanel;
   private terrain?: Phaser.GameObjects.Image;
+  private groundFront?: Phaser.GameObjects.Image;
   private terrainDebugText?: Phaser.GameObjects.Text;
   private readonly pressedCodes = new Set<string>();
   private readonly onKeyDown = (event: KeyboardEvent): void => this.handleKeyDown(event);
@@ -35,6 +37,7 @@ export class LaunchScene extends Phaser.Scene {
   preload(): void {
     this.load.image('canyonBackground', canyonBackgroundUrl);
     this.load.image('canyonFloor', canyonFloorUrl);
+    this.load.image('canyonGroundFront', canyonGroundFrontUrl);
   }
 
   create(): void {
@@ -43,7 +46,7 @@ export class LaunchScene extends Phaser.Scene {
 
     this.add.image(sceneLayout.layers.back.x, sceneLayout.layers.back.y, 'canyonBackground')
       .setOrigin(0, 0)
-      .setDisplaySize(this.scale.width, this.scale.height)
+      .setDisplaySize(WORLD_WIDTH, this.scale.height)
       .setScrollFactor(sceneLayout.layers.back.scrollFactorX, sceneLayout.layers.back.scrollFactorY)
       .setDepth(sceneLayout.layers.back.depth);
 
@@ -54,6 +57,14 @@ export class LaunchScene extends Phaser.Scene {
       .setScrollFactor(sceneLayout.layers.terrain.scrollFactorX, sceneLayout.layers.terrain.scrollFactorY)
       .setDepth(sceneLayout.layers.terrain.depth);
     this.sizeAndAlignTerrain();
+
+    this.groundFront = this.add.image(0, FLOOR_Y + sceneLayout.layers.groundFront.yOffsetFromFloor, 'canyonGroundFront')
+      .setOrigin(0, 0)
+      .setAlpha(sceneLayout.layers.groundFront.alpha)
+      .setTint(sceneLayout.layers.groundFront.tint)
+      .setScrollFactor(sceneLayout.layers.groundFront.scrollFactorX, sceneLayout.layers.groundFront.scrollFactorY)
+      .setDepth(sceneLayout.layers.groundFront.depth);
+    this.sizeAndAlignGroundFront();
 
     this.terrainDebugText = this.add.text(sceneLayout.layers.terrainDebug.x, sceneLayout.layers.terrainDebug.y, '', {
       fontFamily: 'Consolas, monospace',
@@ -92,7 +103,6 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     this.lockCameraToRocket();
-    this.updateTerrainPan();
     this.updateTerrainDebugText();
 
     this.hud.update({
@@ -128,6 +138,7 @@ export class LaunchScene extends Phaser.Scene {
     this.cameras.main.stopFollow();
     this.lockCameraToRocket();
     this.sizeAndAlignTerrain();
+    this.sizeAndAlignGroundFront();
   }
 
   private readControls(): RocketControls {
@@ -143,23 +154,19 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
-    const viewportWidth = this.scale.width;
-    const minScale = viewportWidth / this.terrain.width;
-    this.terrain.setScale(minScale * sceneLayout.level.terrainScale);
+    const worldScale = WORLD_WIDTH / this.terrain.width;
+    this.terrain.setScale(worldScale * sceneLayout.level.terrainScale);
     this.terrain.x = 0;
   }
 
-  private updateTerrainPan(): void {
-    if (!this.terrain) {
+  private sizeAndAlignGroundFront(): void {
+    if (!this.groundFront) {
       return;
     }
 
-    const rightOverhang = Math.max(this.terrain.displayWidth - this.scale.width, 0);
-    this.terrain.x = Phaser.Math.Clamp(
-      -this.cameras.main.scrollX * sceneLayout.level.terrainPanStrength,
-      -rightOverhang,
-      0
-    );
+    const worldScale = WORLD_WIDTH / this.groundFront.width;
+    this.groundFront.setScale(worldScale * sceneLayout.layers.groundFront.widthScale);
+    this.groundFront.x = 0;
   }
 
   private lockCameraToRocket(): void {
@@ -183,11 +190,10 @@ export class LaunchScene extends Phaser.Scene {
     this.terrainDebugText.setText([
       `terrain.x: ${this.terrain.x.toFixed(1)}`,
       `terrain.displayWidth: ${this.terrain.displayWidth.toFixed(1)}`,
+      `frontGround.width: ${this.groundFront?.displayWidth.toFixed(1) ?? '0.0'}`,
       `viewportWidth: ${this.scale.width}`,
-      `right overhang: ${(this.terrain.displayWidth - this.scale.width).toFixed(1)}`,
       `camera.scrollX: ${this.cameras.main.scrollX.toFixed(1)}`,
       `rocket.x: ${this.rocket?.sprite.x.toFixed(1) ?? '0.0'}`,
-      `pan strength: ${sceneLayout.level.terrainPanStrength}`,
       `terrainScale: ${sceneLayout.level.terrainScale}`
     ]);
   }

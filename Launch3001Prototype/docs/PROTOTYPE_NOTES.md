@@ -26,11 +26,13 @@ Current placeholder rendered assets are stored at:
 
 - `src/assets/backgrounds/canyon_background.png`
 - `src/assets/terrain/canyon_floor.png`
+- `src/assets/terrain/canyon_ground_front.png`
 
 The scene currently uses two rendered image layers:
 
-- Back: canyon background image, fixed to the camera and filling the viewport.
-- Terrain: canyon floor image, camera-locked and oversized. It moves left/right opposite the camera, clamped to its right-side overhang.
+- Back: canyon background image, locked to the world and sized across the level.
+- Terrain: canyon floor image, locked to the world and sized across the level.
+- Front ground: canyon ground image, locked to the world and drawn as the front-most image layer.
 - Camera: locked directly to the rocket horizontally, with vertical scroll fixed.
 
 The rocket is a Phaser-drawn placeholder sprite. A final rocket PNG can be added later under `src/assets/rockets/` and wired into `Rocket.ts`.
