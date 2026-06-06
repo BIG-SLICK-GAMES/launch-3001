@@ -25,13 +25,13 @@ Scene positioning and scale are controlled from `src/config/sceneLayout.ts`. See
 Current placeholder rendered assets are stored at:
 
 - `src/assets/backgrounds/backimage.png`
-- `src/assets/backgrounds/midimage.png`
+- `src/assets/backgrounds/midtrans.png`
 - `src/assets/backgrounds/frontGround.png`
 
 The scene currently uses three rendered image layers:
 
 - Back: background image, locked to the camera and filling the viewport.
-- Mid: midimage, moving at half camera speed with `scrollFactorX: 0.5`.
+- Mid: midtrans, moving at half camera speed with `scrollFactorX: 0.5`.
 - Front: frontGround image, locked to world coordinates with `scrollFactorX: 1`.
 - Camera: locked directly to the rocket horizontally, with vertical scroll fixed.
 

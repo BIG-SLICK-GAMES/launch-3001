@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import backImageUrl from '../assets/backgrounds/backimage.png';
 import frontGroundUrl from '../assets/backgrounds/frontGround.png';
-import midImageUrl from '../assets/backgrounds/midimage.png';
+import midImageUrl from '../assets/backgrounds/midtrans.png';
 import { rocketProfiles, type RocketProfile } from '../config/rocketProfiles';
 import { sceneLayout } from '../config/sceneLayout';
 import { Hud } from '../ui/Hud';
