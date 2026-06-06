@@ -29,7 +29,7 @@ export const sceneLayout = {
       y: -180,
       alpha: 1,
       tint: 0xffffff,
-      scrollFactorX: 0.5,
+      scrollFactorX: 0.25,
       scrollFactorY: 1,
       depth: -5
     },
