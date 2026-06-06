@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
-import canyonBackgroundUrl from '../assets/backgrounds/canyon_background.png';
-import canyonFloorUrl from '../assets/terrain/canyon_floor.png';
-import canyonGroundFrontUrl from '../assets/terrain/canyon_ground_front.png';
+import backImageUrl from '../assets/backgrounds/backimage.png';
+import frontGroundUrl from '../assets/backgrounds/frontGround.png';
+import midImageUrl from '../assets/backgrounds/midimage.png';
 import { rocketProfiles, type RocketProfile } from '../config/rocketProfiles';
 import { sceneLayout } from '../config/sceneLayout';
 import { Hud } from '../ui/Hud';
@@ -18,7 +18,7 @@ export class LaunchScene extends Phaser.Scene {
   private landingPad?: LandingPad;
   private hud?: Hud;
   private tuningPanel?: TuningPanel;
-  private terrain?: Phaser.GameObjects.Image;
+  private midLayer?: Phaser.GameObjects.Image;
   private groundFront?: Phaser.GameObjects.Image;
   private terrainDebugText?: Phaser.GameObjects.Text;
   private readonly pressedCodes = new Set<string>();
@@ -35,30 +35,30 @@ export class LaunchScene extends Phaser.Scene {
   }
 
   preload(): void {
-    this.load.image('canyonBackground', canyonBackgroundUrl);
-    this.load.image('canyonFloor', canyonFloorUrl);
-    this.load.image('canyonGroundFront', canyonGroundFrontUrl);
+    this.load.image('backImage', backImageUrl);
+    this.load.image('midImage', midImageUrl);
+    this.load.image('frontGround', frontGroundUrl);
   }
 
   create(): void {
     this.cameras.main.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
     this.physics.world?.setBounds(0, 0, WORLD_WIDTH, WORLD_HEIGHT);
 
-    this.add.image(sceneLayout.layers.back.x, sceneLayout.layers.back.y, 'canyonBackground')
+    this.add.image(sceneLayout.layers.back.x, sceneLayout.layers.back.y, 'backImage')
       .setOrigin(0, 0)
-      .setDisplaySize(WORLD_WIDTH, this.scale.height)
+      .setDisplaySize(this.scale.width, this.scale.height)
       .setScrollFactor(sceneLayout.layers.back.scrollFactorX, sceneLayout.layers.back.scrollFactorY)
       .setDepth(sceneLayout.layers.back.depth);
 
-    this.terrain = this.add.image(0, FLOOR_Y + sceneLayout.layers.terrain.yOffsetFromFloor, 'canyonFloor')
+    this.midLayer = this.add.image(0, FLOOR_Y + sceneLayout.layers.mid.yOffsetFromFloor, 'midImage')
       .setOrigin(0, 0)
-      .setAlpha(sceneLayout.layers.terrain.alpha)
-      .setTint(sceneLayout.layers.terrain.tint)
-      .setScrollFactor(sceneLayout.layers.terrain.scrollFactorX, sceneLayout.layers.terrain.scrollFactorY)
-      .setDepth(sceneLayout.layers.terrain.depth);
-    this.sizeAndAlignTerrain();
+      .setAlpha(sceneLayout.layers.mid.alpha)
+      .setTint(sceneLayout.layers.mid.tint)
+      .setScrollFactor(sceneLayout.layers.mid.scrollFactorX, sceneLayout.layers.mid.scrollFactorY)
+      .setDepth(sceneLayout.layers.mid.depth);
+    this.sizeAndAlignMidLayer();
 
-    this.groundFront = this.add.image(0, FLOOR_Y + sceneLayout.layers.groundFront.yOffsetFromFloor, 'canyonGroundFront')
+    this.groundFront = this.add.image(0, FLOOR_Y + sceneLayout.layers.groundFront.yOffsetFromFloor, 'frontGround')
       .setOrigin(0, 0)
       .setAlpha(sceneLayout.layers.groundFront.alpha)
       .setTint(sceneLayout.layers.groundFront.tint)
@@ -137,7 +137,7 @@ export class LaunchScene extends Phaser.Scene {
     this.rocket.velocity.set(sceneLayout.rocketSpawn.velocityX, sceneLayout.rocketSpawn.velocityY);
     this.cameras.main.stopFollow();
     this.lockCameraToRocket();
-    this.sizeAndAlignTerrain();
+    this.sizeAndAlignMidLayer();
     this.sizeAndAlignGroundFront();
   }
 
@@ -149,14 +149,14 @@ export class LaunchScene extends Phaser.Scene {
     };
   }
 
-  private sizeAndAlignTerrain(): void {
-    if (!this.terrain) {
+  private sizeAndAlignMidLayer(): void {
+    if (!this.midLayer) {
       return;
     }
 
-    const worldScale = WORLD_WIDTH / this.terrain.width;
-    this.terrain.setScale(worldScale * sceneLayout.level.terrainScale);
-    this.terrain.x = 0;
+    const worldScale = WORLD_WIDTH / this.midLayer.width;
+    this.midLayer.setScale(worldScale * sceneLayout.level.terrainScale);
+    this.midLayer.x = 0;
   }
 
   private sizeAndAlignGroundFront(): void {
@@ -183,13 +183,13 @@ export class LaunchScene extends Phaser.Scene {
   }
 
   private updateTerrainDebugText(): void {
-    if (!this.terrainDebugText || !this.terrain) {
+    if (!this.terrainDebugText || !this.midLayer) {
       return;
     }
 
     this.terrainDebugText.setText([
-      `terrain.x: ${this.terrain.x.toFixed(1)}`,
-      `terrain.displayWidth: ${this.terrain.displayWidth.toFixed(1)}`,
+      `mid.x: ${this.midLayer.x.toFixed(1)}`,
+      `mid.width: ${this.midLayer.displayWidth.toFixed(1)}`,
       `frontGround.width: ${this.groundFront?.displayWidth.toFixed(1) ?? '0.0'}`,
       `viewportWidth: ${this.scale.width}`,
       `camera.scrollX: ${this.cameras.main.scrollX.toFixed(1)}`,

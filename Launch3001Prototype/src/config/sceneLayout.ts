@@ -20,26 +20,26 @@ export const sceneLayout = {
     back: {
       x: 0,
       y: 0,
-      scrollFactorX: 1,
-      scrollFactorY: 1,
+      scrollFactorX: 0,
+      scrollFactorY: 0,
       depth: -10
     },
-    terrain: {
-      yOffsetFromFloor: -38,
+    mid: {
+      yOffsetFromFloor: -390,
       alpha: 1,
       tint: 0xffffff,
-      scrollFactorX: 1,
+      scrollFactorX: 0.5,
       scrollFactorY: 1,
-      depth: -1
+      depth: -5
     },
     groundFront: {
-      yOffsetFromFloor: -440,
+      yOffsetFromFloor: -354,
       widthScale: 1,
       alpha: 1,
       tint: 0xffffff,
       scrollFactorX: 1,
       scrollFactorY: 1,
-      depth: -0.5
+      depth: -1
     },
     terrainDebug: {
       x: 18,
