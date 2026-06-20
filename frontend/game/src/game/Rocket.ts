@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import type { RocketProfile } from '../config/rocketProfiles';
 import type { TuningValues } from '../ui/TuningPanel';
-import { FLOOR_Y, LINEAR_DAMPING, ROCKET_COLLISION_SIZE, ROCKET_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from './PhysicsConfig';
-import rocketUrl from '../assets/rockets/training-rocket.png';
+import { LINEAR_DAMPING, WORLD_HEIGHT, WORLD_WIDTH } from './PhysicsConfig';
+import rocketUrl from '../assets/rockets/flat-lander.svg';
 import flameAUrl from '../assets/effects/booster-flame-a.png';
 import flameBUrl from '../assets/effects/booster-flame-b.png';
 import smokePuffUrl from '../assets/effects/smoke-puff.png';
@@ -21,9 +21,9 @@ const TILT_STEERING_MULTIPLIER = 3.4;
 const TILT_DAMPING_MULTIPLIER = 0.72;
 const BOOST_THRUST_MULTIPLIER = 1.55;
 const BOOSTER_SEPARATION_THRUST_SECONDS = 2.6;
-const BOOSTER_LOCAL_X = 27;
-const BOOSTER_LOCAL_Y = 18;
-const FLAME_LOCAL_Y = 44;
+const ROCKET_DISPLAY_WIDTH = 72;
+const ROCKET_DISPLAY_HEIGHT = 96;
+const FLAME_LOCAL_Y = 49;
 
 export class Rocket {
   readonly sprite: Phaser.GameObjects.Container;
@@ -34,10 +34,8 @@ export class Rocket {
 
   private readonly flame: Phaser.GameObjects.Container;
   private readonly boosterFlames: Phaser.GameObjects.Image[];
-  private readonly sideBoosters: Phaser.GameObjects.Container;
   private readonly scene: Phaser.Scene;
   private readonly profile: RocketProfile;
-  private readonly detachedBoosters: Phaser.GameObjects.Container[] = [];
   private boosterThrustSeconds = 0;
   private boostersDetached = false;
 
@@ -46,24 +44,21 @@ export class Rocket {
     this.profile = profile;
 
     Rocket.preload(scene);
-    const rocketArt = scene.add.image(0, -4, 'rocketShip').setOrigin(0.5);
-    rocketArt.setDisplaySize(88, 66);
+    const rocketArt = scene.add.image(0, 0, 'rocketShip').setOrigin(0.5);
+    rocketArt.setDisplaySize(ROCKET_DISPLAY_WIDTH, ROCKET_DISPLAY_HEIGHT);
 
-    const leftFlame = this.createBoosterFlame(scene, -20, 'boosterFlameA');
-    const rightFlame = this.createBoosterFlame(scene, 20, 'boosterFlameB');
+    const leftFlame = this.createBoosterFlame(scene, -12, 'boosterFlameA');
+    const rightFlame = this.createBoosterFlame(scene, 12, 'boosterFlameB');
     this.boosterFlames = [leftFlame, rightFlame];
     this.flame = scene.add.container(0, 0, [leftFlame, rightFlame]);
     this.flame.setVisible(false);
 
-    this.sideBoosters = scene.add.container(0, BOOSTER_LOCAL_Y);
-
     this.sprite = scene.add.container(x, y, [
       this.flame,
-      rocketArt,
-      this.sideBoosters
+      rocketArt
     ]);
-    this.sprite.setSize(ROCKET_SIZE.width, ROCKET_SIZE.height);
-    this.sprite.setScale(0.5);
+    this.sprite.setSize(ROCKET_DISPLAY_WIDTH, ROCKET_DISPLAY_HEIGHT);
+    this.sprite.setScale(0.72);
     this.sprite.setDepth(10);
   }
 
@@ -124,11 +119,11 @@ export class Rocket {
   }
 
   get bottom(): number {
-    return this.sprite.y + ROCKET_COLLISION_SIZE.height / 2;
+    return this.getLandingFootY();
   }
 
   get top(): number {
-    return this.sprite.y - ROCKET_COLLISION_SIZE.height / 2;
+    return this.sprite.y - this.getVisualHalfHeight();
   }
 
   getAngleFromUprightDegrees(): number {
@@ -168,7 +163,6 @@ export class Rocket {
   }
 
   destroy(): void {
-    this.detachedBoosters.forEach((booster) => booster.destroy(true));
     this.sprite.destroy(true);
   }
 
@@ -180,59 +174,30 @@ export class Rocket {
 
   private detachSideBoosters(): void {
     this.boostersDetached = true;
-    this.sideBoosters.setVisible(false);
   }
 
-  private spawnDetachedBooster(localX: number, direction: -1 | 1): void {
-    const position = this.getLocalWorldPosition(localX, BOOSTER_LOCAL_Y);
-    const booster = this.scene.add.image(0, 0, 'sideBooster').setOrigin(0.5);
-    const canopy = this.scene.add.arc(0, -54, 28, 180, 360, false, 0xf6f1e7, 0.88);
-    const leftLine = this.scene.add.line(0, 0, -22, -52, -6, -18, 0xf6f1e7, 0.8).setLineWidth(1);
-    const rightLine = this.scene.add.line(0, 0, 22, -52, 6, -18, 0xf6f1e7, 0.8).setLineWidth(1);
-    const chute = this.scene.add.container(0, 0, [canopy, leftLine, rightLine]);
-    chute.setVisible(false);
-
-    const detached = this.scene.add.container(position.x, position.y, [chute, booster]);
-    detached.setRotation(this.sprite.rotation + direction * 0.22);
-    detached.setDepth(9);
-    this.detachedBoosters.push(detached);
-
-    this.scene.tweens.add({
-      targets: detached,
-      x: position.x + direction * 155,
-      y: Math.min(FLOOR_Y - 28, position.y + 160),
-      rotation: direction * 0.7,
-      duration: 620,
-      ease: 'Sine.easeOut',
-      onComplete: () => {
-        chute.setVisible(true);
-        this.scene.tweens.add({
-          targets: detached,
-          x: detached.x + direction * 120,
-          y: FLOOR_Y - 30,
-          rotation: direction * 0.08,
-          duration: 2600,
-          ease: 'Sine.easeInOut'
-        });
-      }
-    });
+  getVisualHalfHeight(): number {
+    return (ROCKET_DISPLAY_HEIGHT * this.sprite.scaleY) / 2;
   }
 
-  private getLocalWorldPosition(localX: number, localY: number): Phaser.Math.Vector2 {
-    const local = new Phaser.Math.Vector2(localX, localY);
-    local.rotate(this.sprite.rotation);
-    return new Phaser.Math.Vector2(this.sprite.x + local.x, this.sprite.y + local.y);
+  getLandingFootY(): number {
+    const localFoot = new Phaser.Math.Vector2(0, ROCKET_DISPLAY_HEIGHT / 2);
+    localFoot.rotate(this.sprite.rotation);
+    return this.sprite.y + localFoot.y * this.sprite.scaleY;
   }
 
   private getNozzleWorldPosition(): Phaser.Math.Vector2 {
-    const localNozzle = new Phaser.Math.Vector2(0, ROCKET_COLLISION_SIZE.height / 2);
+    const localNozzle = new Phaser.Math.Vector2(0, ROCKET_DISPLAY_HEIGHT / 2);
     localNozzle.rotate(this.sprite.rotation);
-    return new Phaser.Math.Vector2(this.sprite.x + localNozzle.x, this.sprite.y + localNozzle.y);
+    return new Phaser.Math.Vector2(
+      this.sprite.x + localNozzle.x * this.sprite.scaleX,
+      this.sprite.y + localNozzle.y * this.sprite.scaleY
+    );
   }
 
   static preload(scene: Phaser.Scene): void {
     if (!scene.textures.exists('rocketShip')) {
-      scene.load.image('rocketShip', rocketUrl);
+      scene.load.svg('rocketShip', rocketUrl, { width: ROCKET_DISPLAY_WIDTH, height: ROCKET_DISPLAY_HEIGHT });
     }
     if (!scene.textures.exists('boosterFlameA')) {
       scene.load.image('boosterFlameA', flameAUrl);
@@ -245,25 +210,4 @@ export class Rocket {
     }
   }
 
-  private static ensureBoosterTexture(scene: Phaser.Scene): void {
-    if (scene.textures.exists('sideBooster')) {
-      return;
-    }
-
-    const graphics = scene.add.graphics();
-    const cx = 8;
-
-    graphics.fillStyle(0xe7edf2, 1);
-    graphics.lineStyle(2, 0x40515d, 1);
-    graphics.fillRoundedRect(cx - 5, 0, 10, 62, 5);
-    graphics.strokeRoundedRect(cx - 5, 0, 10, 62, 5);
-    graphics.fillStyle(0xffffff, 0.42);
-    graphics.fillRoundedRect(cx - 2, 7, 3, 42, 2);
-    graphics.fillStyle(0xffc85d, 1);
-    graphics.fillRoundedRect(cx - 4, 50, 8, 12, 4);
-    graphics.fillStyle(0xd94f42, 1);
-    graphics.fillTriangle(cx - 5, 11, cx + 5, 11, cx, -6);
-    graphics.generateTexture('sideBooster', 16, 68);
-    graphics.destroy();
-  }
 }

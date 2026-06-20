@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="128" viewBox="0 0 96 128">
+  <defs>
+    <linearGradient id="body" x1="18" x2="78" y1="12" y2="112" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#f7fbff"/>
+      <stop offset="0.55" stop-color="#dfe7ef"/>
+      <stop offset="1" stop-color="#aebbc8"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="33" x2="63" y1="25" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9ff0ff"/>
+      <stop offset="1" stop-color="#347ab5"/>
+    </linearGradient>
+  </defs>
+  <ellipse cx="53" cy="67" rx="27" ry="57" fill="#02050a" opacity="0.28"/>
+  <path d="M48 4C38 14 29 31 27 49L22 89C21 100 29 110 40 110H56C67 110 75 100 74 89L69 49C67 31 58 14 48 4Z" fill="url(#body)" stroke="#253140" stroke-width="4"/>
+  <path d="M48 4C41 15 36 31 35 49L32 92C31 101 36 108 44 110H40C29 110 21 100 22 89L27 49C29 31 38 14 48 4Z" fill="#ffffff" opacity="0.34"/>
+  <circle cx="48" cy="43" r="14" fill="#1d3148" stroke="#223246" stroke-width="4"/>
+  <circle cx="48" cy="43" r="9" fill="url(#glass)"/>
+  <circle cx="44" cy="39" r="3" fill="#ffffff" opacity="0.72"/>
+  <path d="M27 74L8 104L30 98L35 78Z" fill="#d54a39" stroke="#5c2020" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M69 74L88 104L66 98L61 78Z" fill="#d54a39" stroke="#5c2020" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M32 91H64V113H32Z" fill="#303b47" stroke="#18212b" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M24 111H72V122H24Z" fill="#222b35" stroke="#0d141c" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M32 116H64" stroke="#ffce5d" stroke-width="4" stroke-linecap="round"/>
+</svg>

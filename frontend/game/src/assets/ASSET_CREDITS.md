@@ -10,13 +10,18 @@
   - `levels/training-orbit/mid-nebula.png`
   - `levels/training-orbit/front-stars.png`
 
-## Rocket and Booster Flames
+## Rocket
+
+- Source: Created for Launch 3001
+- File used:
+  - `rockets/flat-lander.svg`
+
+## Booster Flames
 
 - Source: Space Shooter Redux, Kenney via OpenGameArt
 - URL: https://opengameart.org/content/space-shooter-redux
 - License: CC0
 - Files used:
-  - `rockets/training-rocket.png`
   - `effects/booster-flame-a.png`
   - `effects/booster-flame-b.png`
 

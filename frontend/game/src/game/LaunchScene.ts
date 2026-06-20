@@ -7,7 +7,7 @@ import {
   BACKGROUND_WORLD_WIDTH,
   HangarBackgroundLayer
 } from './HangarBackgroundLayer';
-import { ROCKET_COLLISION_SIZE, SAFE_LANDING } from './PhysicsConfig';
+import { SAFE_LANDING } from './PhysicsConfig';
 import { Rocket, type RocketControls } from './Rocket';
 import { calculateLandingScore, LANDING_TIME_LIMIT_SECONDS } from './Scoring';
 
@@ -27,9 +27,20 @@ const DEFAULT_TUNING_VALUES = {
   thrustMultiplier: 1.5965
 };
 
+type LevelConfig = {
+  name: string;
+  fuelSeconds: number;
+  landingPadWidth: number;
+  gravityMultiplier: number;
+};
+
 const LAUNCH_PAD_X = 520;
 const LANDING_PAD_X = 1780;
-const MAX_FUEL_SECONDS = 14;
+const LEVELS: LevelConfig[] = [
+  { name: 'Training Orbit', fuelSeconds: 14, landingPadWidth: 250, gravityMultiplier: 1 },
+  { name: 'Red Drift', fuelSeconds: 12, landingPadWidth: 210, gravityMultiplier: 1.08 },
+  { name: 'Tight Approach', fuelSeconds: 10, landingPadWidth: 175, gravityMultiplier: 1.16 }
+];
 const THRUST_FUEL_DRAIN_PER_SECOND = 1;
 const BOOST_FUEL_DRAIN_PER_SECOND = 2.35;
 const TILT_DEAD_ZONE = 0.08;
@@ -60,7 +71,8 @@ export class LaunchScene extends Phaser.Scene {
   private hasClearedLaunchPad = false;
   private result: GameResult = 'flying';
   private resultBanner?: Phaser.GameObjects.Text;
-  private fuelSeconds = MAX_FUEL_SECONDS;
+  private currentLevelIndex = 0;
+  private fuelSeconds = LEVELS[0].fuelSeconds;
   private flightElapsedSeconds = 0;
   private score = 0;
   private boostPointerDown = false;
@@ -82,8 +94,7 @@ export class LaunchScene extends Phaser.Scene {
 
     this.hangarBackgroundLayer?.destroy();
     this.hangarBackgroundLayer = new HangarBackgroundLayer(this);
-    this.launchPad = this.createPad(LAUNCH_PAD_X, BACKGROUND_FLOOR_Y - 26, 220, 0xffb54a);
-    this.landingPad = this.createPad(LANDING_PAD_X, BACKGROUND_FLOOR_Y - 26, 250, 0x73e6ff);
+    this.createLevelPads();
 
     this.cursors = this.input.keyboard?.createCursorKeys();
     this.keyA = this.input.keyboard?.addKey('A');
@@ -131,7 +142,8 @@ export class LaunchScene extends Phaser.Scene {
         this.hasLaunched = true;
         this.flightElapsedSeconds += deltaSeconds;
         this.drainFuel(deltaSeconds, controls);
-        this.rocket.update(deltaSeconds, controls, DEFAULT_TUNING_VALUES);
+        const previousBottom = this.rocket.bottom;
+        this.rocket.update(deltaSeconds, controls, this.getCurrentTuningValues());
 
         if (this.rocket.bottom < this.launchPad.surfaceY - 22) {
           this.hasClearedLaunchPad = true;
@@ -141,7 +153,7 @@ export class LaunchScene extends Phaser.Scene {
           this.holdRocketOnLaunchPad();
         }
 
-        this.checkLandingOrCrash();
+        this.checkLandingOrCrash(previousBottom);
         this.checkBoundsCrash();
       }
     }
@@ -157,14 +169,34 @@ export class LaunchScene extends Phaser.Scene {
     this.result = 'flying';
     this.hasLaunched = false;
     this.hasClearedLaunchPad = false;
-    this.fuelSeconds = MAX_FUEL_SECONDS;
+    this.fuelSeconds = this.getCurrentLevel().fuelSeconds;
     this.flightElapsedSeconds = 0;
     this.score = 0;
 
     const surfaceY = this.launchPad?.surfaceY ?? BACKGROUND_FLOOR_Y;
-    this.rocket = new Rocket(this, LAUNCH_PAD_X, surfaceY - ROCKET_COLLISION_SIZE.height / 2, rocketProfiles[1]);
-    this.rocket.sprite.setScale(0.72);
+    this.rocket = new Rocket(this, LAUNCH_PAD_X, surfaceY, rocketProfiles[1]);
+    this.rocket.sprite.y = surfaceY - this.rocket.getVisualHalfHeight();
     this.lockCameraToRocket();
+  }
+
+  private getCurrentLevel(): LevelConfig {
+    return LEVELS[this.currentLevelIndex];
+  }
+
+  private getCurrentTuningValues(): typeof DEFAULT_TUNING_VALUES {
+    const level = this.getCurrentLevel();
+    return {
+      ...DEFAULT_TUNING_VALUES,
+      gravityMultiplier: DEFAULT_TUNING_VALUES.gravityMultiplier * level.gravityMultiplier
+    };
+  }
+
+  private createLevelPads(): void {
+    this.launchPad?.destroy();
+    this.landingPad?.destroy();
+    const level = this.getCurrentLevel();
+    this.launchPad = this.createPad(LAUNCH_PAD_X, BACKGROUND_FLOOR_Y - 26, 220, 0xffb54a);
+    this.landingPad = this.createPad(LANDING_PAD_X, BACKGROUND_FLOOR_Y - 26, level.landingPadWidth, 0x73e6ff);
   }
 
   private readControls(): RocketControls {
@@ -370,7 +402,7 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
-    const fuelPercent = Phaser.Math.Clamp(this.fuelSeconds / MAX_FUEL_SECONDS, 0, 1);
+    const fuelPercent = Phaser.Math.Clamp(this.fuelSeconds / this.getCurrentLevel().fuelSeconds, 0, 1);
     this.fuelBarFill?.setScale(fuelPercent, 1);
     this.fuelBarFill?.setFillStyle(fuelPercent < 0.2 ? 0xff675d : controls.boost ? 0xffb84d : 0x57e389, 1);
     this.fuelText?.setText(`FUEL ${(fuelPercent * 100).toFixed(0)}%`);
@@ -381,7 +413,7 @@ export class LaunchScene extends Phaser.Scene {
         horizontalSpeed: this.rocket.velocity.x,
         angleDegrees: this.rocket.getAngleFromUprightDegrees(),
         profile: rocketProfiles[1],
-        level: 1,
+        level: this.currentLevelIndex + 1,
         message: this.result,
         elapsedSeconds: this.flightElapsedSeconds,
         remainingSeconds: Math.max(0, LANDING_TIME_LIMIT_SECONDS - this.flightElapsedSeconds),
@@ -400,13 +432,13 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     this.rocket.sprite.x = this.launchPad.x;
-    this.rocket.sprite.y = this.launchPad.surfaceY - ROCKET_COLLISION_SIZE.height / 2;
+    this.rocket.sprite.y = this.launchPad.surfaceY - this.rocket.getVisualHalfHeight();
     this.rocket.sprite.rotation = 0;
     this.rocket.velocity.set(0, 0);
     this.rocket.angularVelocity = 0;
   }
 
-  private checkLandingOrCrash(): void {
+  private checkLandingOrCrash(previousBottom: number): void {
     if (!this.rocket || !this.landingPad || !this.hasClearedLaunchPad) {
       return;
     }
@@ -417,7 +449,8 @@ export class LaunchScene extends Phaser.Scene {
 
     const onLandingPad = this.landingPad.containsX(this.rocket.sprite.x);
     const contactY = onLandingPad ? this.landingPad.surfaceY : BACKGROUND_FLOOR_Y - 26;
-    if (this.rocket.bottom < contactY) {
+    const crossedLandingSurface = previousBottom <= contactY && this.rocket.bottom >= contactY;
+    if (!crossedLandingSurface && this.rocket.bottom < contactY) {
       return;
     }
 
@@ -430,7 +463,8 @@ export class LaunchScene extends Phaser.Scene {
       horizontalSpeed < SAFE_LANDING.horizontalSpeed &&
       angleDegrees < SAFE_LANDING.angleDegrees;
 
-    this.rocket.sprite.y = contactY - ROCKET_COLLISION_SIZE.height / 2;
+    this.rocket.sprite.y = contactY - this.rocket.getVisualHalfHeight();
+    this.rocket.sprite.rotation = 0;
     this.rocket.stop();
 
     if (safe) {
@@ -438,11 +472,24 @@ export class LaunchScene extends Phaser.Scene {
       this.score = calculateLandingScore(this.flightElapsedSeconds);
       this.rocket.emitLandingSmoke();
       this.addResultText('LANDED', 0x7dffb2);
+      this.queueNextLevel();
       return;
     }
 
     this.result = 'crashed';
     this.addResultText('CRASH', 0xff675d);
+  }
+
+  private queueNextLevel(): void {
+    this.time.delayedCall(1600, () => {
+      if (this.result !== 'landed') {
+        return;
+      }
+
+      this.currentLevelIndex = Math.min(this.currentLevelIndex + 1, LEVELS.length - 1);
+      this.createLevelPads();
+      this.resetRocket();
+    });
   }
 
   private checkBoundsCrash(): void {
