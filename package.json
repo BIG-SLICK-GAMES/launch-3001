@@ -1,0 +1,18 @@
+{
+  "name": "launcher3001",
+  "version": "0.1.0",
+  "private": true,
+  "workspaces": [
+    "frontend/game",
+    "backend",
+    "shared"
+  ],
+  "scripts": {
+    "dev:game": "npm run dev --workspace frontend/game",
+    "dev:game:https": "npm run dev:https --workspace frontend/game",
+    "build:game": "npm run build --workspace frontend/game",
+    "dev:backend": "npm run dev --workspace backend",
+    "start:backend": "npm run start --workspace backend",
+    "build": "npm run build:game"
+  }
+}

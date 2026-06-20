@@ -1,0 +1,7 @@
+node_modules/
+dist/
+*.log
+
+frontend/game/node_modules/
+frontend/game/dist/
+frontend/game/*.log
