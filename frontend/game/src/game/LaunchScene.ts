@@ -73,6 +73,7 @@ export class LaunchScene extends Phaser.Scene {
 
   preload(): void {
     HangarBackgroundLayer.preload(this);
+    Rocket.preload(this);
   }
 
   create(): void {

@@ -2,6 +2,10 @@ import Phaser from 'phaser';
 import type { RocketProfile } from '../config/rocketProfiles';
 import type { TuningValues } from '../ui/TuningPanel';
 import { FLOOR_Y, LINEAR_DAMPING, ROCKET_COLLISION_SIZE, ROCKET_SIZE, WORLD_HEIGHT, WORLD_WIDTH } from './PhysicsConfig';
+import rocketUrl from '../assets/rockets/training-rocket.png';
+import flameAUrl from '../assets/effects/booster-flame-a.png';
+import flameBUrl from '../assets/effects/booster-flame-b.png';
+import smokePuffUrl from '../assets/effects/smoke-puff.png';
 
 export type RocketControls = {
   rotateLeft: boolean;
@@ -19,7 +23,7 @@ const BOOST_THRUST_MULTIPLIER = 1.55;
 const BOOSTER_SEPARATION_THRUST_SECONDS = 2.6;
 const BOOSTER_LOCAL_X = 27;
 const BOOSTER_LOCAL_Y = 18;
-const FLAME_LOCAL_Y = 60;
+const FLAME_LOCAL_Y = 44;
 
 export class Rocket {
   readonly sprite: Phaser.GameObjects.Container;
@@ -29,10 +33,7 @@ export class Rocket {
   isThrusting = false;
 
   private readonly flame: Phaser.GameObjects.Container;
-  private readonly boosterFlames: Array<{
-    core: Phaser.GameObjects.Triangle;
-    outer: Phaser.GameObjects.Triangle;
-  }>;
+  private readonly boosterFlames: Phaser.GameObjects.Image[];
   private readonly sideBoosters: Phaser.GameObjects.Container;
   private readonly scene: Phaser.Scene;
   private readonly profile: RocketProfile;
@@ -44,20 +45,17 @@ export class Rocket {
     this.scene = scene;
     this.profile = profile;
 
-    Rocket.ensureRocketTexture(scene);
-    Rocket.ensureBoosterTexture(scene);
-    const rocketArt = scene.add.image(0, 0, 'rocketShip').setOrigin(0.5);
+    Rocket.preload(scene);
+    const rocketArt = scene.add.image(0, -4, 'rocketShip').setOrigin(0.5);
+    rocketArt.setDisplaySize(88, 66);
 
-    const leftFlame = this.createBoosterFlame(scene, -BOOSTER_LOCAL_X);
-    const rightFlame = this.createBoosterFlame(scene, BOOSTER_LOCAL_X);
-    this.boosterFlames = [leftFlame.parts, rightFlame.parts];
-    this.flame = scene.add.container(0, 0, [leftFlame.root, rightFlame.root]);
+    const leftFlame = this.createBoosterFlame(scene, -20, 'boosterFlameA');
+    const rightFlame = this.createBoosterFlame(scene, 20, 'boosterFlameB');
+    this.boosterFlames = [leftFlame, rightFlame];
+    this.flame = scene.add.container(0, 0, [leftFlame, rightFlame]);
     this.flame.setVisible(false);
 
-    this.sideBoosters = scene.add.container(0, BOOSTER_LOCAL_Y, [
-      scene.add.image(-BOOSTER_LOCAL_X, 0, 'sideBooster').setOrigin(0.5),
-      scene.add.image(BOOSTER_LOCAL_X, 0, 'sideBooster').setOrigin(0.5)
-    ]);
+    this.sideBoosters = scene.add.container(0, BOOSTER_LOCAL_Y);
 
     this.sprite = scene.add.container(x, y, [
       this.flame,
@@ -118,9 +116,9 @@ export class Rocket {
       }
 
       const flicker = 0.82 + Math.random() * 0.42;
-      this.boosterFlames.forEach(({ outer, core }) => {
-        outer.setScale(0.78 + Math.random() * 0.18, flicker);
-        core.setScale(0.72 + Math.random() * 0.16, 0.68 + Math.random() * 0.28);
+      this.boosterFlames.forEach((flame) => {
+        flame.setScale(1.1 + Math.random() * 0.24, flicker);
+        flame.setAlpha(0.76 + Math.random() * 0.24);
       });
     }
   }
@@ -146,21 +144,23 @@ export class Rocket {
 
   emitLandingSmoke(): void {
     const nozzle = this.getNozzleWorldPosition();
-    for (let index = 0; index < 5; index += 1) {
-      const smoke = this.scene.add.circle(
-        nozzle.x + (index - 2) * 10,
-        nozzle.y + 8 + Math.abs(index - 2) * 3,
-        10 + index * 2,
-        0xd4d0c2,
-        0.24
+    for (let index = 0; index < 7; index += 1) {
+      const smoke = this.scene.add.image(
+        nozzle.x + (index - 3) * 12,
+        nozzle.y + 12 + Math.abs(index - 3) * 4,
+        'smokePuff'
       );
+      smoke.setOrigin(0.5, 0.55);
+      smoke.setScale(0.06 + index * 0.008);
+      smoke.setAlpha(0.42);
+      smoke.setTint(0xd9d4c9);
       smoke.setDepth(2);
       this.scene.tweens.add({
         targets: smoke,
-        y: smoke.y - 18,
+        y: smoke.y - 24,
         alpha: 0,
-        scale: 1.8,
-        duration: 360,
+        scale: smoke.scaleX * 1.9,
+        duration: 560,
         ease: 'Sine.easeOut',
         onComplete: () => smoke.destroy()
       });
@@ -172,30 +172,15 @@ export class Rocket {
     this.sprite.destroy(true);
   }
 
-  private createBoosterFlame(scene: Phaser.Scene, x: number): {
-    root: Phaser.GameObjects.Container;
-    parts: {
-      core: Phaser.GameObjects.Triangle;
-      outer: Phaser.GameObjects.Triangle;
-    };
-  } {
-    const glow = scene.add.ellipse(x, FLAME_LOCAL_Y - 2, 22, 34, 0xffaa35, 0.22);
-    const outer = scene.add.triangle(x, FLAME_LOCAL_Y, -9, 0, 9, 0, 0, 34, 0xff6a1c, 0.9);
-    const core = scene.add.triangle(x, FLAME_LOCAL_Y - 2, -5, 0, 5, 0, 0, 24, 0xfff4a8, 0.95);
-
-    return {
-      root: scene.add.container(0, 0, [glow, outer, core]),
-      parts: { core, outer }
-    };
+  private createBoosterFlame(scene: Phaser.Scene, x: number, key: string): Phaser.GameObjects.Image {
+    const flame = scene.add.image(x, FLAME_LOCAL_Y, key).setOrigin(0.5, 0);
+    flame.setDisplaySize(20, 50);
+    return flame;
   }
 
   private detachSideBoosters(): void {
     this.boostersDetached = true;
     this.sideBoosters.setVisible(false);
-    this.flame.setVisible(false);
-
-    this.spawnDetachedBooster(-BOOSTER_LOCAL_X, -1);
-    this.spawnDetachedBooster(BOOSTER_LOCAL_X, 1);
   }
 
   private spawnDetachedBooster(localX: number, direction: -1 | 1): void {
@@ -245,92 +230,19 @@ export class Rocket {
     return new Phaser.Math.Vector2(this.sprite.x + localNozzle.x, this.sprite.y + localNozzle.y);
   }
 
-  private static ensureRocketTexture(scene: Phaser.Scene): void {
-    if (scene.textures.exists('rocketShip')) {
-      return;
+  static preload(scene: Phaser.Scene): void {
+    if (!scene.textures.exists('rocketShip')) {
+      scene.load.image('rocketShip', rocketUrl);
     }
-
-    const graphics = scene.add.graphics();
-    const cx = 42;
-    const cy = 68;
-
-    graphics.fillStyle(0x05070b, 0.28);
-    graphics.fillEllipse(cx + 5, cy + 7, 48, 126);
-
-    graphics.fillStyle(0xd83f34, 1);
-    graphics.lineStyle(3, 0x5f1d1b, 1);
-    graphics.beginPath();
-    graphics.moveTo(cx, 2);
-    graphics.lineTo(cx - 17, 33);
-    graphics.lineTo(cx - 7, 28);
-    graphics.lineTo(cx + 7, 28);
-    graphics.lineTo(cx + 17, 33);
-    graphics.closePath();
-    graphics.fillPath();
-    graphics.strokePath();
-
-    graphics.fillStyle(0xf6f1e7, 1);
-    graphics.lineStyle(3, 0x263241, 1);
-    graphics.beginPath();
-    graphics.moveTo(cx - 17, 31);
-    graphics.lineTo(cx - 22, 62);
-    graphics.lineTo(cx - 19, 91);
-    graphics.lineTo(cx - 14, 114);
-    graphics.lineTo(cx + 14, 114);
-    graphics.lineTo(cx + 19, 91);
-    graphics.lineTo(cx + 22, 62);
-    graphics.lineTo(cx + 17, 31);
-    graphics.closePath();
-    graphics.fillPath();
-    graphics.strokePath();
-
-    graphics.fillStyle(0xb9c2c8, 0.55);
-    graphics.fillRect(cx + 5, 36, 7, 72);
-    graphics.fillStyle(0xffffff, 0.42);
-    graphics.fillRect(cx - 10, 38, 5, 55);
-
-    graphics.fillStyle(0x2f84d8, 0.95);
-    graphics.fillRoundedRect(cx - 4, 49, 8, 52, 4);
-    graphics.fillStyle(0xffc85d, 0.95);
-    graphics.fillRoundedRect(cx - 17, 86, 34, 8, 4);
-
-    graphics.fillStyle(0xd94f42, 1);
-    graphics.lineStyle(2, 0x6c2420, 1);
-    graphics.beginPath();
-    graphics.moveTo(cx - 14, 95);
-    graphics.lineTo(cx - 38, 124);
-    graphics.lineTo(cx - 15, 117);
-    graphics.closePath();
-    graphics.fillPath();
-    graphics.strokePath();
-    graphics.beginPath();
-    graphics.moveTo(cx + 14, 95);
-    graphics.lineTo(cx + 38, 124);
-    graphics.lineTo(cx + 15, 117);
-    graphics.closePath();
-    graphics.fillPath();
-    graphics.strokePath();
-
-    graphics.fillStyle(0x1a2630, 1);
-    graphics.fillRoundedRect(cx - 12, 111, 24, 9, 4);
-    graphics.fillStyle(0x5b6770, 1);
-    graphics.fillRoundedRect(cx - 7, 115, 14, 7, 3);
-
-    graphics.fillStyle(0x5ce4ff, 0.2);
-    graphics.fillCircle(cx, 48, 15);
-    graphics.fillStyle(0x8fe9ff, 1);
-    graphics.lineStyle(3, 0x1f3948, 1);
-    graphics.fillCircle(cx, 48, 9);
-    graphics.strokeCircle(cx, 48, 9);
-    graphics.fillStyle(0xffffff, 0.75);
-    graphics.fillCircle(cx - 3, 45, 3);
-
-    graphics.lineStyle(1, 0x9daab2, 0.55);
-    graphics.strokeLineShape(new Phaser.Geom.Line(cx - 13, 67, cx + 13, 67));
-    graphics.strokeLineShape(new Phaser.Geom.Line(cx - 12, 79, cx + 12, 79));
-
-    graphics.generateTexture('rocketShip', 84, 136);
-    graphics.destroy();
+    if (!scene.textures.exists('boosterFlameA')) {
+      scene.load.image('boosterFlameA', flameAUrl);
+    }
+    if (!scene.textures.exists('boosterFlameB')) {
+      scene.load.image('boosterFlameB', flameBUrl);
+    }
+    if (!scene.textures.exists('smokePuff')) {
+      scene.load.image('smokePuff', smokePuffUrl);
+    }
   }
 
   private static ensureBoosterTexture(scene: Phaser.Scene): void {

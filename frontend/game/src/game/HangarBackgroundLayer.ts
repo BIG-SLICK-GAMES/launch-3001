@@ -1,8 +1,8 @@
 import Phaser from 'phaser';
 import { sceneLayout } from '../config/sceneLayout';
-import spaceUrl from '../../../../art-source/backgrounds/launch3001SpaceBG.png';
-import hangarUrl from '../../../../art-source/backgrounds/launch3001hangerBG.png';
-import floorUrl from '../../../../art-source/backgrounds/launch3001floorBG.png';
+import backStarsUrl from '../assets/levels/training-orbit/back-stars.png';
+import midNebulaUrl from '../assets/levels/training-orbit/mid-nebula.png';
+import frontStarsUrl from '../assets/levels/training-orbit/front-stars.png';
 
 type LayerSpec = {
   key: string;
@@ -25,8 +25,8 @@ export const BACKGROUND_FLOOR_Y = VIEW_HEIGHT - FLOOR_HEIGHT;
 
 const layerSpecs: LayerSpec[] = [
   {
-    key: 'background-space',
-    url: spaceUrl,
+    key: 'training-orbit-back-stars',
+    url: backStarsUrl,
     depth: -30,
     scrollFactorX: 0,
     scrollFactorY: 0,
@@ -36,24 +36,26 @@ const layerSpecs: LayerSpec[] = [
     preserveAspectRatio: true
   },
   {
-    key: 'background-hangar',
-    url: hangarUrl,
+    key: 'training-orbit-mid-nebula',
+    url: midNebulaUrl,
     depth: -12,
-    scrollFactorX: 0.35,
-    scrollFactorY: 1,
-    y: 0,
+    scrollFactorX: 0.16,
+    scrollFactorY: 0,
+    y: -115,
     width: BACKGROUND_WORLD_WIDTH,
-    height: VIEW_HEIGHT - FLOOR_HEIGHT
+    height: VIEW_HEIGHT,
+    preserveAspectRatio: true
   },
   {
-    key: 'background-floor',
-    url: floorUrl,
-    depth: 1,
-    scrollFactorX: 1,
-    scrollFactorY: 1,
-    y: BACKGROUND_FLOOR_Y,
+    key: 'training-orbit-front-stars',
+    url: frontStarsUrl,
+    depth: -4,
+    scrollFactorX: 0.42,
+    scrollFactorY: 0,
+    y: -60,
     width: BACKGROUND_WORLD_WIDTH,
-    height: FLOOR_HEIGHT
+    height: VIEW_HEIGHT,
+    preserveAspectRatio: true
   }
 ];
 
@@ -85,7 +87,7 @@ export class HangarBackgroundLayer {
     image.setOrigin(0, 0);
     if (spec.preserveAspectRatio) {
       const source = scene.textures.get(spec.key).getSourceImage() as HTMLImageElement;
-      const scale = spec.width / source.width;
+      const scale = Math.max(spec.width / source.width, spec.height / source.height);
       image.setScale(scale);
     } else {
       image.setDisplaySize(spec.width, spec.height);
