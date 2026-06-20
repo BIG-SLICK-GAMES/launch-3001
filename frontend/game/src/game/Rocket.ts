@@ -181,9 +181,13 @@ export class Rocket {
   }
 
   getLandingFootY(): number {
+    return this.sprite.y + this.getLandingFootOffsetY();
+  }
+
+  getLandingFootOffsetY(): number {
     const localFoot = new Phaser.Math.Vector2(0, ROCKET_DISPLAY_HEIGHT / 2);
     localFoot.rotate(this.sprite.rotation);
-    return this.sprite.y + localFoot.y * this.sprite.scaleY;
+    return localFoot.y * this.sprite.scaleY;
   }
 
   private getNozzleWorldPosition(): Phaser.Math.Vector2 {

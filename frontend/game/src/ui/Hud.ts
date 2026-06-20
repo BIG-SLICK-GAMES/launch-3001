@@ -7,6 +7,7 @@ export type HudState = {
   angleDegrees: number;
   profile: RocketProfile;
   level: number;
+  levelName: string;
   message: string;
   elapsedSeconds: number;
   remainingSeconds: number;
@@ -43,6 +44,7 @@ export class Hud {
     const nextText =
       [
         `Level: ${state.level}`,
+        `Zone: ${state.levelName}`,
         `Timer: ${state.remainingSeconds.toFixed(1)}s`,
         `Fuel: ${state.fuelPercent.toFixed(0)}%`,
         `Boost: ${state.boostActive ? 'ON' : 'OFF'}`,

@@ -16,6 +16,14 @@ type LayerSpec = {
   preserveAspectRatio?: boolean;
 };
 
+export type BackgroundTheme = {
+  backTint: number;
+  midTint: number;
+  frontTint: number;
+  midAlpha: number;
+  frontAlpha: number;
+};
+
 const VIEW_WIDTH = sceneLayout.view.width;
 const VIEW_HEIGHT = sceneLayout.view.height;
 const FLOOR_HEIGHT = 72;
@@ -75,6 +83,15 @@ export class HangarBackgroundLayer {
   constructor(scene: Phaser.Scene) {
     this.root = scene.add.container(0, 0);
     this.layers = layerSpecs.map((layer) => this.createLayer(scene, layer));
+  }
+
+  applyTheme(theme: BackgroundTheme): void {
+    const [back, mid, front] = this.layers;
+    back.setTint(theme.backTint);
+    mid.setTint(theme.midTint);
+    front.setTint(theme.frontTint);
+    mid.setAlpha(theme.midAlpha);
+    front.setAlpha(theme.frontAlpha);
   }
 
   destroy(): void {

@@ -5,6 +5,7 @@ import {
   BACKGROUND_FLOOR_Y,
   BACKGROUND_WORLD_HEIGHT,
   BACKGROUND_WORLD_WIDTH,
+  type BackgroundTheme,
   HangarBackgroundLayer
 } from './HangarBackgroundLayer';
 import { SAFE_LANDING } from './PhysicsConfig';
@@ -29,17 +30,30 @@ const DEFAULT_TUNING_VALUES = {
 
 type LevelConfig = {
   name: string;
-  fuelSeconds: number;
-  landingPadWidth: number;
-  gravityMultiplier: number;
+  theme: BackgroundTheme;
+  padColor: number;
 };
 
 const LAUNCH_PAD_X = 520;
 const LANDING_PAD_X = 1780;
+const LEVEL_FUEL_SECONDS = 14;
+const LANDING_PAD_WIDTH = 250;
 const LEVELS: LevelConfig[] = [
-  { name: 'Training Orbit', fuelSeconds: 14, landingPadWidth: 250, gravityMultiplier: 1 },
-  { name: 'Red Drift', fuelSeconds: 12, landingPadWidth: 210, gravityMultiplier: 1.08 },
-  { name: 'Tight Approach', fuelSeconds: 10, landingPadWidth: 175, gravityMultiplier: 1.16 }
+  {
+    name: 'Training Orbit',
+    padColor: 0x73e6ff,
+    theme: { backTint: 0xffffff, midTint: 0xffffff, frontTint: 0xffffff, midAlpha: 0.78, frontAlpha: 0.55 }
+  },
+  {
+    name: 'Red Drift',
+    padColor: 0xff8f55,
+    theme: { backTint: 0xffd8c5, midTint: 0xff735f, frontTint: 0xffc67a, midAlpha: 0.92, frontAlpha: 0.68 }
+  },
+  {
+    name: 'Violet Debris',
+    padColor: 0xd56dff,
+    theme: { backTint: 0xd8dbff, midTint: 0xa36dff, frontTint: 0xfff0a8, midAlpha: 1, frontAlpha: 0.82 }
+  }
 ];
 const THRUST_FUEL_DRAIN_PER_SECOND = 1;
 const BOOST_FUEL_DRAIN_PER_SECOND = 2.35;
@@ -53,6 +67,7 @@ export class LaunchScene extends Phaser.Scene {
   private launchPad?: PadSurface;
   private landingPad?: PadSurface;
   private hud?: Hud;
+  private levelBanner?: Phaser.GameObjects.Text;
   private fuelBarBack?: Phaser.GameObjects.Rectangle;
   private fuelBarFill?: Phaser.GameObjects.Rectangle;
   private fuelText?: Phaser.GameObjects.Text;
@@ -72,7 +87,7 @@ export class LaunchScene extends Phaser.Scene {
   private result: GameResult = 'flying';
   private resultBanner?: Phaser.GameObjects.Text;
   private currentLevelIndex = 0;
-  private fuelSeconds = LEVELS[0].fuelSeconds;
+  private fuelSeconds = LEVEL_FUEL_SECONDS;
   private flightElapsedSeconds = 0;
   private score = 0;
   private boostPointerDown = false;
@@ -94,6 +109,7 @@ export class LaunchScene extends Phaser.Scene {
 
     this.hangarBackgroundLayer?.destroy();
     this.hangarBackgroundLayer = new HangarBackgroundLayer(this);
+    this.applyCurrentLevelTheme();
     this.createLevelPads();
 
     this.cursors = this.input.keyboard?.createCursorKeys();
@@ -115,6 +131,7 @@ export class LaunchScene extends Phaser.Scene {
       this.launchPad?.destroy();
       this.landingPad?.destroy();
       this.resultBanner?.destroy();
+      this.levelBanner?.destroy();
       this.hud?.destroy();
       this.controlAbortController?.abort();
       window.removeEventListener('deviceorientation', this.handleDeviceOrientation);
@@ -169,13 +186,14 @@ export class LaunchScene extends Phaser.Scene {
     this.result = 'flying';
     this.hasLaunched = false;
     this.hasClearedLaunchPad = false;
-    this.fuelSeconds = this.getCurrentLevel().fuelSeconds;
+    this.fuelSeconds = LEVEL_FUEL_SECONDS;
     this.flightElapsedSeconds = 0;
     this.score = 0;
 
     const surfaceY = this.launchPad?.surfaceY ?? BACKGROUND_FLOOR_Y;
     this.rocket = new Rocket(this, LAUNCH_PAD_X, surfaceY, rocketProfiles[1]);
     this.rocket.sprite.y = surfaceY - this.rocket.getVisualHalfHeight();
+    this.showLevelBanner();
     this.lockCameraToRocket();
   }
 
@@ -184,11 +202,7 @@ export class LaunchScene extends Phaser.Scene {
   }
 
   private getCurrentTuningValues(): typeof DEFAULT_TUNING_VALUES {
-    const level = this.getCurrentLevel();
-    return {
-      ...DEFAULT_TUNING_VALUES,
-      gravityMultiplier: DEFAULT_TUNING_VALUES.gravityMultiplier * level.gravityMultiplier
-    };
+    return DEFAULT_TUNING_VALUES;
   }
 
   private createLevelPads(): void {
@@ -196,7 +210,11 @@ export class LaunchScene extends Phaser.Scene {
     this.landingPad?.destroy();
     const level = this.getCurrentLevel();
     this.launchPad = this.createPad(LAUNCH_PAD_X, BACKGROUND_FLOOR_Y - 26, 220, 0xffb54a);
-    this.landingPad = this.createPad(LANDING_PAD_X, BACKGROUND_FLOOR_Y - 26, level.landingPadWidth, 0x73e6ff);
+    this.landingPad = this.createPad(LANDING_PAD_X, BACKGROUND_FLOOR_Y - 26, LANDING_PAD_WIDTH, level.padColor);
+  }
+
+  private applyCurrentLevelTheme(): void {
+    this.hangarBackgroundLayer?.applyTheme(this.getCurrentLevel().theme);
   }
 
   private readControls(): RocketControls {
@@ -402,7 +420,7 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
-    const fuelPercent = Phaser.Math.Clamp(this.fuelSeconds / this.getCurrentLevel().fuelSeconds, 0, 1);
+    const fuelPercent = Phaser.Math.Clamp(this.fuelSeconds / LEVEL_FUEL_SECONDS, 0, 1);
     this.fuelBarFill?.setScale(fuelPercent, 1);
     this.fuelBarFill?.setFillStyle(fuelPercent < 0.2 ? 0xff675d : controls.boost ? 0xffb84d : 0x57e389, 1);
     this.fuelText?.setText(`FUEL ${(fuelPercent * 100).toFixed(0)}%`);
@@ -414,6 +432,7 @@ export class LaunchScene extends Phaser.Scene {
         angleDegrees: this.rocket.getAngleFromUprightDegrees(),
         profile: rocketProfiles[1],
         level: this.currentLevelIndex + 1,
+        levelName: this.getCurrentLevel().name,
         message: this.result,
         elapsedSeconds: this.flightElapsedSeconds,
         remainingSeconds: Math.max(0, LANDING_TIME_LIMIT_SECONDS - this.flightElapsedSeconds),
@@ -443,10 +462,6 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
-    if (this.rocket.bottom < BACKGROUND_FLOOR_Y - 26) {
-      return;
-    }
-
     const onLandingPad = this.landingPad.containsX(this.rocket.sprite.x);
     const contactY = onLandingPad ? this.landingPad.surfaceY : BACKGROUND_FLOOR_Y - 26;
     const crossedLandingSurface = previousBottom <= contactY && this.rocket.bottom >= contactY;
@@ -463,15 +478,17 @@ export class LaunchScene extends Phaser.Scene {
       horizontalSpeed < SAFE_LANDING.horizontalSpeed &&
       angleDegrees < SAFE_LANDING.angleDegrees;
 
-    this.rocket.sprite.y = contactY - this.rocket.getVisualHalfHeight();
+    this.rocket.sprite.y = contactY - this.rocket.getLandingFootOffsetY();
     this.rocket.sprite.rotation = 0;
+    this.rocket.sprite.y = contactY - this.rocket.getVisualHalfHeight();
     this.rocket.stop();
 
     if (safe) {
       this.result = 'landed';
       this.score = calculateLandingScore(this.flightElapsedSeconds);
       this.rocket.emitLandingSmoke();
-      this.addResultText('LANDED', 0x7dffb2);
+      const hasNextLevel = this.currentLevelIndex < LEVELS.length - 1;
+      this.addResultText(hasNextLevel ? 'LANDED - NEXT LEVEL' : 'LANDED - FINAL LEVEL', 0x7dffb2);
       this.queueNextLevel();
       return;
     }
@@ -486,7 +503,10 @@ export class LaunchScene extends Phaser.Scene {
         return;
       }
 
-      this.currentLevelIndex = Math.min(this.currentLevelIndex + 1, LEVELS.length - 1);
+      if (this.currentLevelIndex < LEVELS.length - 1) {
+        this.currentLevelIndex += 1;
+      }
+      this.applyCurrentLevelTheme();
       this.createLevelPads();
       this.resetRocket();
     });
@@ -553,5 +573,33 @@ export class LaunchScene extends Phaser.Scene {
     });
     this.resultBanner.setOrigin(0.5);
     this.resultBanner.setDepth(40);
+  }
+
+  private showLevelBanner(): void {
+    this.levelBanner?.destroy();
+    const level = this.getCurrentLevel();
+    this.levelBanner = this.add.text(this.scale.width / 2, 86, `LEVEL ${this.currentLevelIndex + 1}: ${level.name}`, {
+      fontFamily: 'Arial, sans-serif',
+      fontSize: '28px',
+      color: '#f3f7ff',
+      stroke: '#071018',
+      strokeThickness: 6
+    });
+    this.levelBanner.setOrigin(0.5);
+    this.levelBanner.setScrollFactor(0);
+    this.levelBanner.setDepth(60);
+
+    this.tweens.add({
+      targets: this.levelBanner,
+      alpha: 0,
+      y: 66,
+      delay: 950,
+      duration: 650,
+      ease: 'Sine.easeInOut',
+      onComplete: () => {
+        this.levelBanner?.destroy();
+        this.levelBanner = undefined;
+      }
+    });
   }
 }
