@@ -81,7 +81,7 @@ const LEVELS: LevelConfig[] = [
     terrainLevel: 2,
     obstacleLevel: 1,
     launchX: 400,
-    launchYOffset: 34,
+    launchYOffset: 118,
     landingX: 2050,
     landingYOffset: 72,
     theme: { backTint: 0xd8dbff, midTint: 0xa36dff, frontTint: 0xfff0a8, midAlpha: 1, frontAlpha: 0.82 }
@@ -521,10 +521,11 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
+    const onLaunchPad = this.launchPad?.containsX(this.rocket.sprite.x) ?? false;
     const onLandingPad = this.landingPad.containsX(this.rocket.sprite.x);
     const terrainLevel = this.getCurrentLevel().terrainLevel;
     const terrainGroundY = getGroundY(this.rocket.sprite.x, terrainLevel);
-    const contactY = onLandingPad ? this.landingPad.surfaceY : terrainGroundY;
+    const contactY = onLandingPad ? this.landingPad.surfaceY : onLaunchPad && this.launchPad ? this.launchPad.surfaceY : terrainGroundY;
     const crossedLandingSurface = previousBottom <= contactY && this.rocket.bottom >= contactY;
     if (!crossedLandingSurface && this.rocket.bottom < contactY) {
       this.checkCeilingOrObstacleCrash();
