@@ -42,8 +42,10 @@ type LevelConfig = {
   obstacleLevel: number;
   launchX: number;
   launchYOffset: number;
+  launchPadWidth: number;
   landingX: number;
   landingYOffset: number;
+  landingPadWidth: number;
   terrainArchetype: TerrainArchetype;
   terrainVariant: number;
   fuelSeconds: number;
@@ -281,8 +283,8 @@ export class LaunchScene extends Phaser.Scene {
     this.landingPad?.destroy();
     this.terrainGraphics?.destroy();
     const level = this.getCurrentLevel();
-    this.launchPad = this.createPad(level.launchX, BACKGROUND_FLOOR_Y - level.launchYOffset, LAUNCH_PAD_WIDTH, 0xffb54a);
-    this.landingPad = this.createPad(level.landingX, BACKGROUND_FLOOR_Y - level.landingYOffset, LANDING_PAD_WIDTH, level.padColor);
+    this.launchPad = this.createPad(level.launchX, BACKGROUND_FLOOR_Y - level.launchYOffset, level.launchPadWidth, 0xffb54a);
+    this.landingPad = this.createPad(level.landingX, BACKGROUND_FLOOR_Y - level.landingYOffset, level.landingPadWidth, level.padColor);
     this.groundPoints = this.buildRouteGroundPoints(level);
     this.ceilingPoints = this.buildRouteCeilingPoints(level);
     this.terrainGraphics = this.createTerrain(level.padColor);
@@ -814,10 +816,10 @@ export class LaunchScene extends Phaser.Scene {
     const difficulty = Math.min(1, (level.terrainLevel - 1) / 9);
     const launchSurfaceY = BACKGROUND_FLOOR_Y - level.launchYOffset - 20;
     const landingSurfaceY = BACKGROUND_FLOOR_Y - level.landingYOffset - 20;
-    const launchLeft = level.launchX - LAUNCH_PAD_WIDTH / 2 - 100;
-    const launchRight = level.launchX + LAUNCH_PAD_WIDTH / 2 + 100;
-    const landingLeft = level.landingX - LANDING_PAD_WIDTH / 2 - 110;
-    const landingRight = level.landingX + LANDING_PAD_WIDTH / 2 + 110;
+    const launchLeft = level.launchX - level.launchPadWidth / 2 - 100;
+    const launchRight = level.launchX + level.launchPadWidth / 2 + 100;
+    const landingLeft = level.landingX - level.landingPadWidth / 2 - 110;
+    const landingRight = level.landingX + level.landingPadWidth / 2 + 110;
     const routeStartX = Math.max(0, launchLeft - 230);
     const routeEndX = Math.min(BACKGROUND_WORLD_WIDTH, landingRight + 170);
     const spanStart = launchRight + 90;
@@ -918,7 +920,8 @@ export class LaunchScene extends Phaser.Scene {
         break;
     }
 
-    return this.normalizeTerrainPoints([
+    return this.buildLunarTerrainLine(
+      [
       { x: 0, y: launchSurfaceY + 36 },
       { x: routeStartX, y: launchSurfaceY + 36 },
       { x: launchLeft, y: launchSurfaceY },
@@ -928,7 +931,48 @@ export class LaunchScene extends Phaser.Scene {
       { x: landingRight, y: landingSurfaceY },
       { x: routeEndX, y: landingSurfaceY + 46 },
       { x: BACKGROUND_WORLD_WIDTH, y: landingSurfaceY + 58 }
-    ]);
+      ],
+      level
+    );
+  }
+
+  private buildLunarTerrainLine(points: TerrainPoint[], level: LevelConfig): TerrainPoint[] {
+    const difficulty = Math.min(1, (level.terrainLevel - 1) / 9);
+    const roughness = 10 + difficulty * 40 + (level.terrainVariant % 4) * 4;
+    const segmentLength = 185 - difficulty * 58;
+    const launchShelfLeft = level.launchX - level.launchPadWidth / 2 - 95;
+    const launchShelfRight = level.launchX + level.launchPadWidth / 2 + 95;
+    const landingShelfLeft = level.landingX - level.landingPadWidth / 2 - 92;
+    const landingShelfRight = level.landingX + level.landingPadWidth / 2 + 92;
+    const result: TerrainPoint[] = [];
+
+    const isPadShelf = (x: number): boolean =>
+      (x >= launchShelfLeft && x <= launchShelfRight) || (x >= landingShelfLeft && x <= landingShelfRight);
+
+    for (let index = 0; index < points.length - 1; index += 1) {
+      const start = points[index];
+      const end = points[index + 1];
+      if (result.length === 0) {
+        result.push(start);
+      }
+
+      const distance = Math.abs(end.x - start.x);
+      const cuts = Math.max(1, Math.floor(distance / segmentLength));
+      for (let cut = 1; cut <= cuts; cut += 1) {
+        const amount = cut / cuts;
+        const x = Phaser.Math.Linear(start.x, end.x, amount);
+        let y = Phaser.Math.Linear(start.y, end.y, amount);
+
+        if (!isPadShelf(x) && cut < cuts) {
+          const wave = Math.sin((x * 0.013 + level.terrainVariant) * 1.7) + Math.sin((x * 0.029 + level.terrainLevel) * 0.8);
+          y += wave * roughness;
+        }
+
+        result.push({ x, y });
+      }
+    }
+
+    return this.normalizeTerrainPoints(result);
   }
 
   private buildRouteCeilingPoints(level: LevelConfig): TerrainPoint[] {
@@ -940,8 +984,8 @@ export class LaunchScene extends Phaser.Scene {
     const safeGap = 395 - difficulty * 125;
     const launchSurfaceY = BACKGROUND_FLOOR_Y - level.launchYOffset - 20;
     const landingSurfaceY = BACKGROUND_FLOOR_Y - level.landingYOffset - 20;
-    const launchRight = level.launchX + LAUNCH_PAD_WIDTH / 2 + 140;
-    const landingLeft = level.landingX - LANDING_PAD_WIDTH / 2 - 130;
+    const launchRight = level.launchX + level.launchPadWidth / 2 + 140;
+    const landingLeft = level.landingX - level.landingPadWidth / 2 - 130;
     const midX = (launchRight + landingLeft) / 2;
     const ceilingBaseY = Math.max(84, Math.min(launchSurfaceY, landingSurfaceY) - safeGap);
 
@@ -1116,12 +1160,15 @@ function getPadLayout(
   archetype: TerrainArchetype,
   routeBand: number,
   routeVariant: number
-): Pick<LevelConfig, 'launchX' | 'launchYOffset' | 'landingX' | 'landingYOffset'> {
+): Pick<LevelConfig, 'launchX' | 'launchYOffset' | 'launchPadWidth' | 'landingX' | 'landingYOffset' | 'landingPadWidth'> {
   const slowRise = Math.floor(index / 10);
   const longRouteProgress = Math.max(0, index - LONG_LEVEL_START_INDEX);
   const longRouteStretch = Math.min(940, longRouteProgress * 24);
+  const padShrink = Math.min(118, Math.max(0, index - 8) * 1.55);
   const launchX = 280 + routeVariant * 34;
+  const launchPadWidth = LAUNCH_PAD_WIDTH;
   const landingX = Math.min(3360, 1540 + routeVariant * 116 + routeBand * 20 + longRouteStretch);
+  let landingPadWidth = LANDING_PAD_WIDTH - padShrink;
   let launchYOffset = 34 + ((routeBand * 13 + routeVariant * 19) % 92);
   let landingYOffset = 40 + ((routeBand * 23 + routeVariant * 29) % 112);
 
@@ -1137,10 +1184,12 @@ function getPadLayout(
     case 'tunnel':
       launchYOffset += 28;
       landingYOffset += 24;
+      landingPadWidth -= 8;
       break;
     case 'cave':
       launchYOffset += 10;
       landingYOffset += 52;
+      landingPadWidth -= 12;
       break;
     case 'steps':
       landingYOffset += routeBand % 2 === 0 ? 28 : -8;
@@ -1162,7 +1211,9 @@ function getPadLayout(
   return {
     launchX,
     launchYOffset: Phaser.Math.Clamp(launchYOffset, 24, 170),
+    launchPadWidth,
     landingX,
-    landingYOffset: Phaser.Math.Clamp(landingYOffset, 24, 178)
+    landingYOffset: Phaser.Math.Clamp(landingYOffset, 24, 178),
+    landingPadWidth: Phaser.Math.Clamp(landingPadWidth, 118, LANDING_PAD_WIDTH)
   };
 }
