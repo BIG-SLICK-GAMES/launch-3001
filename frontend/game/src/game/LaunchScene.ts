@@ -52,63 +52,36 @@ type LevelConfig = {
 const LEVEL_FUEL_SECONDS = 14;
 const LAUNCH_PAD_WIDTH = 220;
 const LANDING_PAD_WIDTH = 250;
-const LEVELS: LevelConfig[] = [
+const LEVEL_COUNT = 100;
+const TERRAIN_LEVEL_STEP = 3;
+const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
   {
     name: 'Training Orbit',
     padColor: 0x73e6ff,
-    terrainLevel: 1,
-    obstacleLevel: 0,
-    launchX: 520,
-    launchYOffset: 26,
-    landingX: 1780,
-    landingYOffset: 26,
     theme: { backTint: 0xffffff, midTint: 0xffffff, frontTint: 0xffffff, midAlpha: 0.78, frontAlpha: 0.55 }
   },
   {
     name: 'Red Drift',
     padColor: 0xff8f55,
-    terrainLevel: 1,
-    obstacleLevel: 0,
-    launchX: 470,
-    launchYOffset: 52,
-    landingX: 1900,
-    landingYOffset: 92,
     theme: { backTint: 0xffd8c5, midTint: 0xff735f, frontTint: 0xffc67a, midAlpha: 0.92, frontAlpha: 0.68 }
   },
   {
     name: 'Violet Debris',
     padColor: 0xd56dff,
-    terrainLevel: 2,
-    obstacleLevel: 1,
-    launchX: 400,
-    launchYOffset: 118,
-    landingX: 2050,
-    landingYOffset: 72,
     theme: { backTint: 0xd8dbff, midTint: 0xa36dff, frontTint: 0xfff0a8, midAlpha: 1, frontAlpha: 0.82 }
   },
   {
     name: 'Broken Corridor',
     padColor: 0xffe66d,
-    terrainLevel: 3,
-    obstacleLevel: 2,
-    launchX: 340,
-    launchYOffset: 86,
-    landingX: 2180,
-    landingYOffset: 142,
     theme: { backTint: 0xc7fff0, midTint: 0x6dfff0, frontTint: 0xffe6a0, midAlpha: 1, frontAlpha: 0.9 }
   },
   {
     name: 'Final Thread',
     padColor: 0xff6d8f,
-    terrainLevel: 4,
-    obstacleLevel: 3,
-    launchX: 300,
-    launchYOffset: 44,
-    landingX: 2260,
-    landingYOffset: 118,
     theme: { backTint: 0xffd6f2, midTint: 0xff5fa8, frontTint: 0xfff7b8, midAlpha: 1, frontAlpha: 1 }
   }
 ];
+const LEVELS: LevelConfig[] = Array.from({ length: LEVEL_COUNT }, (_, index) => createLevelConfig(index));
 const THRUST_FUEL_DRAIN_PER_SECOND = 1;
 const BOOST_FUEL_DRAIN_PER_SECOND = 2.35;
 const TILT_DEAD_ZONE = 0.08;
@@ -756,4 +729,23 @@ export class LaunchScene extends Phaser.Scene {
       }
     });
   }
+}
+
+function createLevelConfig(index: number): LevelConfig {
+  const theme = LEVEL_THEMES[index % LEVEL_THEMES.length];
+  const routeBand = Math.floor(index / LEVEL_THEMES.length);
+  const routeVariant = index % LEVEL_THEMES.length;
+  const terrainLevel = Math.min(10, Math.floor(index / TERRAIN_LEVEL_STEP) + 1);
+  const obstacleLevel = terrainLevel <= 2 ? 0 : Math.min(10, terrainLevel - 2);
+
+  return {
+    ...theme,
+    name: `${theme.name} ${routeBand + 1}`,
+    terrainLevel,
+    obstacleLevel,
+    launchX: 300 + routeVariant * 38,
+    launchYOffset: 34 + ((routeBand * 17 + routeVariant * 23) % 110),
+    landingX: Math.min(2300, 1700 + routeVariant * 105 + routeBand * 18),
+    landingYOffset: 38 + ((routeBand * 29 + routeVariant * 31) % 128)
+  };
 }
