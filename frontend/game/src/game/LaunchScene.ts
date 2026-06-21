@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { rocketProfiles } from '../config/rocketProfiles';
+import { LEVELS, type LevelConfig, type LevelHazard, type LevelObstacle } from '../data/levels';
 import { Hud } from '../ui/Hud';
 import {
   BACKGROUND_FLOOR_Y,
@@ -10,36 +11,21 @@ import {
 } from './HangarBackgroundLayer';
 import { SAFE_LANDING } from './PhysicsConfig';
 import { Rocket, type RocketControls } from './Rocket';
-import { calculateLandingScore, LANDING_TIME_LIMIT_SECONDS } from './Scoring';
+import { calculateLandingScore } from './Scoring';
 import {
-  buildTerrainObstacles,
-  type TerrainObstacle,
   type TerrainPoint
 } from './LevelTerrain';
 
 type PadSurface = {
-  x: number;
-  surfaceY: number;
+  readonly x: number;
+  readonly surfaceY: number;
   width: number;
   containsX: (x: number) => boolean;
   destroy: () => void;
+  gameObject: Phaser.GameObjects.Container;
 };
 
 type GameResult = 'flying' | 'landed' | 'crashed';
-type TerrainArchetype =
-  | 'valley'
-  | 'cliffs'
-  | 'mountains'
-  | 'tunnel'
-  | 'cave'
-  | 'steps'
-  | 'basin'
-  | 'ridge'
-  | 'chasm'
-  | 'mesa'
-  | 'crater'
-  | 'switchback'
-  | 'spires';
 
 const DEFAULT_TUNING_VALUES = {
   gravityMultiplier: 1.03,
@@ -47,36 +33,25 @@ const DEFAULT_TUNING_VALUES = {
   thrustMultiplier: 1.5965
 };
 
-type LevelConfig = {
-  name: string;
+type LevelTheme = Pick<LevelConfig, 'name'> & {
   theme: BackgroundTheme;
   padColor: number;
-  terrainLevel: number;
-  obstacleLevel: number;
-  launchX: number;
-  launchYOffset: number;
-  launchPadWidth: number;
-  landingX: number;
-  landingYOffset: number;
-  landingPadWidth: number;
-  terrainArchetype: TerrainArchetype;
-  terrainVariant: number;
-  fuelSeconds: number;
+};
+
+type RenderedHazard = {
+  body: Phaser.GameObjects.Arc;
+  radius: number;
 };
 
 const LEVEL_FUEL_SECONDS = 14;
 const LAUNCH_PAD_WIDTH = 220;
-const LANDING_PAD_WIDTH = 250;
-const LEVEL_COUNT = 100;
-const LONG_LEVEL_START_INDEX = 24;
-const TERRAIN_LEVEL_STEP = 11;
 const CAMERA_BASE_ZOOM = 1.18;
 const CAMERA_MIN_ZOOM = 0.82;
 const CAMERA_SPEED_FOR_FULL_ZOOM_OUT = 240;
 const CAMERA_ZOOM_EASE = 0.022;
 const CAMERA_SCROLL_EASE = 0.035;
 const CAMERA_LOOK_AHEAD_MULTIPLIER = 0.32;
-const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
+const LEVEL_THEMES: LevelTheme[] = [
   {
     name: 'Training Orbit',
     padColor: 0x73e6ff,
@@ -103,50 +78,6 @@ const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
     theme: { backTint: 0xffd6f2, midTint: 0xff5fa8, frontTint: 0xfff7b8, midAlpha: 1, frontAlpha: 1 }
   }
 ];
-const TERRAIN_ARCHETYPES: TerrainArchetype[] = [
-  'valley',
-  'cliffs',
-  'steps',
-  'basin',
-  'mountains',
-  'ridge',
-  'chasm',
-  'mesa',
-  'crater',
-  'switchback',
-  'spires',
-  'tunnel',
-  'cave'
-];
-const EARLY_TERRAIN_SEQUENCE: TerrainArchetype[] = [
-  'valley',
-  'cliffs',
-  'steps',
-  'mesa',
-  'mountains',
-  'crater',
-  'ridge',
-  'chasm',
-  'switchback',
-  'basin',
-  'spires',
-  'mountains',
-  'cliffs',
-  'mesa',
-  'steps',
-  'tunnel',
-  'crater',
-  'mountains',
-  'switchback',
-  'cave',
-  'spires',
-  'cliffs',
-  'chasm',
-  'basin',
-  'tunnel',
-  'cave'
-];
-const LEVELS: LevelConfig[] = Array.from({ length: LEVEL_COUNT }, (_, index) => createLevelConfig(index));
 const THRUST_FUEL_DRAIN_PER_SECOND = 1;
 const BOOST_FUEL_DRAIN_PER_SECOND = 2.35;
 const TILT_DEAD_ZONE = 0.08;
@@ -159,6 +90,8 @@ export class LaunchScene extends Phaser.Scene {
   private launchPad?: PadSurface;
   private landingPad?: PadSurface;
   private terrainGraphics?: Phaser.GameObjects.Graphics;
+  private obstacleGraphics?: Phaser.GameObjects.Graphics;
+  private renderedHazards: RenderedHazard[] = [];
   private groundPoints: TerrainPoint[] = [];
   private ceilingPoints: TerrainPoint[] = [];
   private hud?: Hud;
@@ -180,6 +113,7 @@ export class LaunchScene extends Phaser.Scene {
   private keyD?: Phaser.Input.Keyboard.Key;
   private keyW?: Phaser.Input.Keyboard.Key;
   private keyR?: Phaser.Input.Keyboard.Key;
+  private keyN?: Phaser.Input.Keyboard.Key;
   private keySpace?: Phaser.Input.Keyboard.Key;
   private keyShift?: Phaser.Input.Keyboard.Key;
   private hasLaunched = false;
@@ -217,8 +151,10 @@ export class LaunchScene extends Phaser.Scene {
     this.keyD = this.input.keyboard?.addKey('D');
     this.keyW = this.input.keyboard?.addKey('W');
     this.keyR = this.input.keyboard?.addKey('R');
+    this.keyN = this.input.keyboard?.addKey('N');
     this.keySpace = this.input.keyboard?.addKey('SPACE');
     this.keyShift = this.input.keyboard?.addKey('SHIFT');
+    this.input.keyboard?.on('keydown', this.handleLevelShortcut, this);
 
     this.hud = new Hud(this);
     this.createFuelBar();
@@ -231,10 +167,13 @@ export class LaunchScene extends Phaser.Scene {
       this.launchPad?.destroy();
       this.landingPad?.destroy();
       this.terrainGraphics?.destroy();
+      this.obstacleGraphics?.destroy();
+      this.destroyHazards();
       this.resultBanner?.destroy();
       this.levelBanner?.destroy();
       this.hud?.destroy();
       this.controlAbortController?.abort();
+      this.input.keyboard?.off('keydown', this.handleLevelShortcut, this);
       window.removeEventListener('deviceorientation', this.handleDeviceOrientation);
       window.removeEventListener('orientationchange', this.handleOrientationChange);
     });
@@ -250,6 +189,11 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
+    if (this.keyN && Phaser.Input.Keyboard.JustDown(this.keyN)) {
+      this.loadLevelByIndex(Math.min(this.currentLevelIndex + 1, LEVELS.length - 1));
+      return;
+    }
+
     const controls = this.readControls();
     const deltaSeconds = delta / 1000;
 
@@ -262,6 +206,7 @@ export class LaunchScene extends Phaser.Scene {
         this.drainFuel(deltaSeconds, controls);
         const previousBottom = this.rocket.bottom;
         this.rocket.update(deltaSeconds, controls, this.getCurrentTuningValues());
+        this.applyLevelWind(deltaSeconds);
 
         if (this.rocket.bottom < this.launchPad.surfaceY - 22) {
           this.hasClearedLaunchPad = true;
@@ -280,6 +225,17 @@ export class LaunchScene extends Phaser.Scene {
     this.lockCameraToRocket();
   }
 
+  private readonly handleLevelShortcut = (event: KeyboardEvent): void => {
+    if (event.key >= '1' && event.key <= '9') {
+      this.loadLevelByIndex(Number(event.key) - 1);
+      return;
+    }
+
+    if (event.key === '0') {
+      this.loadLevelByIndex(9);
+    }
+  };
+
   private resetRocket(): void {
     this.rocket?.destroy();
     this.resultBanner?.destroy();
@@ -287,12 +243,12 @@ export class LaunchScene extends Phaser.Scene {
     this.result = 'flying';
     this.hasLaunched = false;
     this.hasClearedLaunchPad = false;
-    this.fuelSeconds = this.getCurrentLevel().fuelSeconds;
+    this.fuelSeconds = this.getCurrentLevel().fuel;
     this.flightElapsedSeconds = 0;
     this.score = 0;
 
     const surfaceY = this.launchPad?.surfaceY ?? BACKGROUND_FLOOR_Y;
-    const launchX = this.launchPad?.x ?? this.getCurrentLevel().launchX;
+    const launchX = this.launchPad?.x ?? this.getCurrentLevel().launchPad.x;
     this.rocket = new Rocket(this, launchX, surfaceY, rocketProfiles[1]);
     this.rocket.sprite.y = surfaceY - this.rocket.getVisualHalfHeight();
     this.showLevelBanner();
@@ -304,23 +260,44 @@ export class LaunchScene extends Phaser.Scene {
   }
 
   private getCurrentTuningValues(): typeof DEFAULT_TUNING_VALUES {
-    return DEFAULT_TUNING_VALUES;
+    const rocketGravity = rocketProfiles[1].gravity || 1;
+    return {
+      ...DEFAULT_TUNING_VALUES,
+      gravityMultiplier: this.getCurrentLevel().gravity / rocketGravity
+    };
   }
 
   private createLevelPads(): void {
     this.launchPad?.destroy();
     this.landingPad?.destroy();
     this.terrainGraphics?.destroy();
+    this.obstacleGraphics?.destroy();
+    this.destroyHazards();
     const level = this.getCurrentLevel();
-    this.launchPad = this.createPad(level.launchX, BACKGROUND_FLOOR_Y - level.launchYOffset, level.launchPadWidth, 0xffb54a);
-    this.landingPad = this.createPad(level.landingX, BACKGROUND_FLOOR_Y - level.landingYOffset, level.landingPadWidth, level.padColor);
+    const theme = this.getCurrentTheme();
+    this.launchPad = this.createPad(level.launchPad.x, level.launchPad.y + 20, LAUNCH_PAD_WIDTH, 0xffb54a);
+    this.landingPad = this.createPad(level.landingPad.x, level.landingPad.y + 20, level.landingPad.width, theme.padColor);
     this.groundPoints = this.buildRouteGroundPoints(level);
-    this.ceilingPoints = this.buildRouteCeilingPoints(level);
-    this.terrainGraphics = this.createTerrain(level.padColor);
+    this.ceilingPoints = [];
+    this.terrainGraphics = this.createTerrain(theme.padColor);
+    this.obstacleGraphics = this.createLevelObstacles(level.obstacles, theme.padColor);
+    this.createLevelHazards(level.hazards, theme.padColor);
+    this.applyLandingPadMovement(level);
   }
 
   private applyCurrentLevelTheme(): void {
-    this.hangarBackgroundLayer?.applyTheme(this.getCurrentLevel().theme);
+    this.hangarBackgroundLayer?.applyTheme(this.getCurrentTheme().theme);
+  }
+
+  private getCurrentTheme(): LevelTheme {
+    return LEVEL_THEMES[this.currentLevelIndex % LEVEL_THEMES.length];
+  }
+
+  private loadLevelByIndex(index: number): void {
+    this.currentLevelIndex = Phaser.Math.Clamp(index, 0, LEVELS.length - 1);
+    this.applyCurrentLevelTheme();
+    this.createLevelPads();
+    this.resetRocket();
   }
 
   private readControls(): RocketControls {
@@ -450,10 +427,7 @@ export class LaunchScene extends Phaser.Scene {
   private jumpToPickedLevel(): void {
     const requestedLevel = Number(this.levelInput?.value ?? 1);
     const nextLevelIndex = Phaser.Math.Clamp(Math.round(requestedLevel), 1, LEVELS.length) - 1;
-    this.currentLevelIndex = nextLevelIndex;
-    this.applyCurrentLevelTheme();
-    this.createLevelPads();
-    this.resetRocket();
+    this.loadLevelByIndex(nextLevelIndex);
     this.closeLevelPicker();
   }
 
@@ -585,7 +559,8 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
-    const fuelPercent = Phaser.Math.Clamp(this.fuelSeconds / this.getCurrentLevel().fuelSeconds, 0, 1);
+    const level = this.getCurrentLevel();
+    const fuelPercent = Phaser.Math.Clamp(this.fuelSeconds / level.fuel, 0, 1);
     this.fuelBarFill?.setScale(fuelPercent, 1);
     this.fuelBarFill?.setFillStyle(fuelPercent < 0.2 ? 0xff675d : controls.boost ? 0xffb84d : 0x57e389, 1);
     this.fuelText?.setText(`FUEL ${(fuelPercent * 100).toFixed(0)}%`);
@@ -600,7 +575,7 @@ export class LaunchScene extends Phaser.Scene {
         levelName: this.getCurrentLevel().name,
         message: this.result,
         elapsedSeconds: this.flightElapsedSeconds,
-        remainingSeconds: Math.max(0, LANDING_TIME_LIMIT_SECONDS - this.flightElapsedSeconds),
+        remainingSeconds: Math.max(0, level.targetTime - this.flightElapsedSeconds),
         score: this.score,
         fuelPercent: fuelPercent * 100,
         boostActive: controls.boost,
@@ -637,14 +612,18 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
+    const level = this.getCurrentLevel();
     const horizontalSpeed = Math.abs(this.rocket.velocity.x);
     const verticalSpeed = Math.abs(this.rocket.velocity.y);
     const angleDegrees = this.rocket.getAngleFromUprightDegrees();
+    const maxVerticalSpeed = level.landingRules?.maxVerticalSpeed ?? SAFE_LANDING.verticalSpeed;
+    const maxHorizontalSpeed = level.landingRules?.maxHorizontalSpeed ?? SAFE_LANDING.horizontalSpeed;
+    const maxAngleDegrees = level.landingRules?.maxAngleDegrees ?? SAFE_LANDING.angleDegrees;
     const safe =
       onLandingPad &&
-      verticalSpeed < SAFE_LANDING.verticalSpeed &&
-      horizontalSpeed < SAFE_LANDING.horizontalSpeed &&
-      angleDegrees < SAFE_LANDING.angleDegrees;
+      verticalSpeed < maxVerticalSpeed &&
+      horizontalSpeed < maxHorizontalSpeed &&
+      angleDegrees < maxAngleDegrees;
 
     this.rocket.sprite.y = contactY - this.rocket.getLandingFootOffsetY();
     this.rocket.sprite.rotation = 0;
@@ -677,10 +656,14 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     const rocketBounds = this.getRocketApproxBounds();
-    const obstacleLevel = this.getCurrentLevel().obstacleLevel;
-    const obstacles = obstacleLevel > 0 ? buildTerrainObstacles(obstacleLevel) : [];
-    const hitObstacle = obstacles.some((obstacle) => this.overlapsObstacle(rocketBounds, obstacle));
-    if (hitObstacle) {
+    const hitObstacle = this.getCurrentLevel().obstacles.some((obstacle) => this.overlapsObstacle(rocketBounds, obstacle));
+    const hitHazard = this.renderedHazards.some((hazard) =>
+      Phaser.Geom.Intersects.CircleToRectangle(
+        new Phaser.Geom.Circle(hazard.body.x, hazard.body.y, hazard.radius),
+        rocketBounds
+      )
+    );
+    if (hitObstacle || hitHazard) {
       this.crashRocket();
     }
   }
@@ -728,7 +711,7 @@ export class LaunchScene extends Phaser.Scene {
     return new Phaser.Geom.Rectangle(x, y, width, height);
   }
 
-  private overlapsObstacle(bounds: Phaser.Geom.Rectangle, obstacle: TerrainObstacle): boolean {
+  private overlapsObstacle(bounds: Phaser.Geom.Rectangle, obstacle: LevelObstacle): boolean {
     return Phaser.Geom.Rectangle.Overlaps(
       bounds,
       new Phaser.Geom.Rectangle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
@@ -784,11 +767,16 @@ export class LaunchScene extends Phaser.Scene {
     pad.setDepth(6);
 
     return {
-      x,
-      surfaceY: y - 20,
+      get x() {
+        return pad.x;
+      },
+      get surfaceY() {
+        return pad.y - 20;
+      },
       width,
-      containsX: (candidateX: number) => candidateX >= x - width / 2 && candidateX <= x + width / 2,
-      destroy: () => pad.destroy(true)
+      containsX: (candidateX: number) => candidateX >= pad.x - width / 2 && candidateX <= pad.x + width / 2,
+      destroy: () => pad.destroy(true),
+      gameObject: pad
     };
   }
 
@@ -799,10 +787,6 @@ export class LaunchScene extends Phaser.Scene {
     this.drawGround(graphics, this.groundPoints, accentColor);
     if (this.ceilingPoints.length > 0) {
       this.drawCeiling(graphics, this.ceilingPoints, accentColor);
-    }
-    const obstacleLevel = this.getCurrentLevel().obstacleLevel;
-    if (obstacleLevel > 0) {
-      this.drawObstacles(graphics, buildTerrainObstacles(obstacleLevel), accentColor);
     }
 
     return graphics;
@@ -832,7 +816,14 @@ export class LaunchScene extends Phaser.Scene {
     graphics.strokePath();
   }
 
-  private drawObstacles(graphics: Phaser.GameObjects.Graphics, obstacles: TerrainObstacle[], accentColor: number): void {
+  private createLevelObstacles(obstacles: LevelObstacle[], accentColor: number): Phaser.GameObjects.Graphics {
+    const graphics = this.add.graphics();
+    graphics.setDepth(5);
+    this.drawObstacles(graphics, obstacles, accentColor);
+    return graphics;
+  }
+
+  private drawObstacles(graphics: Phaser.GameObjects.Graphics, obstacles: LevelObstacle[], accentColor: number): void {
     graphics.fillStyle(0x182332, 0.88);
     graphics.lineStyle(2, accentColor, 0.65);
     obstacles.forEach((obstacle) => {
@@ -841,216 +832,101 @@ export class LaunchScene extends Phaser.Scene {
     });
   }
 
-  private buildRouteGroundPoints(level: LevelConfig): TerrainPoint[] {
-    const difficulty = Math.min(1, (level.terrainLevel - 1) / 9);
-    const launchSurfaceY = BACKGROUND_FLOOR_Y - level.launchYOffset - 20;
-    const landingSurfaceY = BACKGROUND_FLOOR_Y - level.landingYOffset - 20;
-    const launchLeft = level.launchX - level.launchPadWidth / 2 - 100;
-    const launchRight = level.launchX + level.launchPadWidth / 2 + 100;
-    const landingLeft = level.landingX - level.landingPadWidth / 2 - 110;
-    const landingRight = level.landingX + level.landingPadWidth / 2 + 110;
-    const routeStartX = Math.max(0, launchLeft - 230);
-    const routeEndX = Math.min(BACKGROUND_WORLD_WIDTH, landingRight + 170);
-    const spanStart = launchRight + 90;
-    const spanEnd = landingLeft - 90;
-    const midX = (spanStart + spanEnd) / 2;
-    const lowY = Math.min(BACKGROUND_WORLD_HEIGHT - 36, Math.max(launchSurfaceY, landingSurfaceY) + 150 + difficulty * 180);
-    const highY = Math.max(150, Math.min(launchSurfaceY, landingSurfaceY) - (55 + difficulty * 95));
-    const variantOffset = (level.terrainVariant % 3 - 1) * 34;
-    const xAt = (amount: number): number => Phaser.Math.Linear(spanStart, spanEnd, amount);
-    const lowerY = Math.min(BACKGROUND_WORLD_HEIGHT - 30, lowY + 90 + difficulty * 80);
-    const upperY = Math.max(88, highY - 40 - difficulty * 45);
-    let routePoints: TerrainPoint[];
+  private createLevelHazards(hazards: LevelHazard[], accentColor: number): void {
+    this.renderedHazards = hazards.map((hazard) => {
+      const radius = 24;
+      const body = this.add.circle(hazard.x, hazard.y, radius, 0xff3d4f, 0.9);
+      body.setStrokeStyle(3, accentColor, 0.75);
+      body.setDepth(7);
 
-    switch (level.terrainArchetype) {
-      case 'cliffs':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 16 },
-          { x: xAt(0.16), y: launchSurfaceY + 18 },
-          { x: xAt(0.18), y: lowerY },
-          { x: xAt(0.48), y: lowerY + 8 },
-          { x: xAt(0.56), y: Math.min(lowerY, landingSurfaceY + 170) },
-          { x: xAt(0.76), y: landingSurfaceY + 72 },
-          { x: xAt(0.84), y: landingSurfaceY + 72 },
-          { x: xAt(0.9), y: landingSurfaceY },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'mountains':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 38 },
-          { x: xAt(0.15), y: Phaser.Math.Linear(launchSurfaceY, upperY, 0.56) },
-          { x: xAt(0.28), y: upperY },
-          { x: xAt(0.39), y: Math.min(lowY, upperY + 220) },
-          { x: xAt(0.53), y: Math.max(96, upperY + 32) },
-          { x: xAt(0.67), y: Math.min(lowY, landingSurfaceY + 210) },
-          { x: xAt(0.82), y: Phaser.Math.Linear(landingSurfaceY, upperY, 0.45) },
-          { x: xAt(0.92), y: landingSurfaceY + 42 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'tunnel':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 22 },
-          { x: xAt(0.18), y: launchSurfaceY + 64 },
-          { x: xAt(0.34), y: Phaser.Math.Linear(launchSurfaceY, lowY, 0.42) },
-          { x: xAt(0.56), y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.44) },
-          { x: xAt(0.74), y: landingSurfaceY + 88 },
-          { x: xAt(0.88), y: landingSurfaceY + 42 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'cave':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 30 },
-          { x: xAt(0.16), y: Math.min(lowY, launchSurfaceY + 140) },
-          { x: xAt(0.32), y: lowerY },
-          { x: xAt(0.5), y: lowerY - 72 },
-          { x: xAt(0.65), y: lowerY - 18 },
-          { x: xAt(0.82), y: Phaser.Math.Linear(lowerY, landingSurfaceY, 0.6) },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'steps':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 20 },
-          { x: xAt(0.18), y: launchSurfaceY + 20 },
-          { x: xAt(0.2), y: launchSurfaceY + 96 + difficulty * 34 },
-          { x: xAt(0.4), y: launchSurfaceY + 96 + difficulty * 34 },
-          { x: xAt(0.42), y: landingSurfaceY + 144 },
-          { x: xAt(0.62), y: landingSurfaceY + 144 },
-          { x: xAt(0.64), y: landingSurfaceY + 58 },
-          { x: xAt(0.86), y: landingSurfaceY + 58 },
-          { x: xAt(0.9), y: landingSurfaceY },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'basin':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 28 },
-          { x: xAt(0.16), y: Math.min(lowY, launchSurfaceY + 120) },
-          { x: xAt(0.34), y: lowerY },
-          { x: xAt(0.5), y: lowerY + 20 },
-          { x: xAt(0.68), y: lowerY - 10 },
-          { x: xAt(0.84), y: Math.min(lowY, landingSurfaceY + 130) },
-          { x: xAt(0.93), y: landingSurfaceY + 42 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'ridge':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 28 },
-          { x: xAt(0.16), y: Phaser.Math.Linear(launchSurfaceY, upperY, 0.6) },
-          { x: xAt(0.3), y: upperY + 30 },
-          { x: xAt(0.48), y: upperY + 24 },
-          { x: xAt(0.58), y: Math.min(lowY, upperY + 250) },
-          { x: xAt(0.76), y: Phaser.Math.Linear(landingSurfaceY, upperY, 0.55) },
-          { x: xAt(0.9), y: landingSurfaceY + 50 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'chasm':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 10 },
-          { x: xAt(0.12), y: launchSurfaceY + 10 },
-          { x: xAt(0.17), y: BACKGROUND_WORLD_HEIGHT - 26 },
-          { x: xAt(0.48), y: BACKGROUND_WORLD_HEIGHT - 30 },
-          { x: xAt(0.55), y: lowerY - 86 },
-          { x: xAt(0.7), y: landingSurfaceY + 126 },
-          { x: xAt(0.85), y: landingSurfaceY + 126 },
-          { x: xAt(0.92), y: landingSurfaceY },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'mesa':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 26 },
-          { x: xAt(0.16), y: launchSurfaceY + 98 },
-          { x: xAt(0.23), y: highY + 40 },
-          { x: xAt(0.5), y: highY + 40 },
-          { x: xAt(0.56), y: lowY + 90 },
-          { x: xAt(0.76), y: lowY + 90 },
-          { x: xAt(0.88), y: landingSurfaceY + 48 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'crater':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 44 },
-          { x: xAt(0.14), y: Math.max(110, highY + 48) },
-          { x: xAt(0.28), y: lowY + 18 },
-          { x: xAt(0.5), y: lowerY },
-          { x: xAt(0.72), y: lowY + 24 },
-          { x: xAt(0.86), y: Math.max(110, highY + 64) },
-          { x: xAt(0.95), y: landingSurfaceY + 72 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'switchback':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 24 },
-          { x: xAt(0.12), y: launchSurfaceY + 110 },
-          { x: xAt(0.28), y: launchSurfaceY + 110 },
-          { x: xAt(0.36), y: upperY + 62 },
-          { x: xAt(0.5), y: upperY + 62 },
-          { x: xAt(0.62), y: lowY + 96 },
-          { x: xAt(0.76), y: lowY + 96 },
-          { x: xAt(0.88), y: landingSurfaceY + 34 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'spires':
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 36 },
-          { x: xAt(0.14), y: lowY + 66 },
-          { x: xAt(0.22), y: upperY + 30 },
-          { x: xAt(0.32), y: lowY + 100 },
-          { x: xAt(0.42), y: upperY + 10 },
-          { x: xAt(0.54), y: lowY + 80 },
-          { x: xAt(0.66), y: upperY + 56 },
-          { x: xAt(0.78), y: lowY + 42 },
-          { x: xAt(0.9), y: landingSurfaceY + 68 },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
-      case 'valley':
-      default:
-        routePoints = [
-          { x: xAt(0), y: launchSurfaceY + 24 },
-          { x: xAt(0.18), y: launchSurfaceY + 54 },
-          { x: xAt(0.36), y: Phaser.Math.Linear(launchSurfaceY, lowY, 0.55) },
-          { x: midX + variantOffset, y: lowY },
-          { x: xAt(0.64), y: lowY + 10 },
-          { x: xAt(0.82), y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.48) },
-          { x: xAt(1), y: landingSurfaceY }
-        ];
-        break;
+      if (hazard.movement) {
+        const duration = Math.max(1, hazard.movement.distance / hazard.movement.speed) * 1000;
+        this.tweens.add({
+          targets: body,
+          [hazard.movement.axis]: hazard[hazard.movement.axis] + hazard.movement.distance,
+          duration,
+          yoyo: true,
+          repeat: -1,
+          ease: 'Sine.easeInOut'
+        });
+      }
+
+      return { body, radius };
+    });
+  }
+
+  private destroyHazards(): void {
+    this.renderedHazards.forEach((hazard) => hazard.body.destroy());
+    this.renderedHazards = [];
+  }
+
+  private applyLandingPadMovement(level: LevelConfig): void {
+    if (!this.landingPad || !level.landingPad.movement) {
+      return;
     }
 
-    return this.buildLunarTerrainLine(
-      [
-      { x: 0, y: launchSurfaceY + 36 },
-      { x: routeStartX, y: launchSurfaceY + 36 },
-      { x: launchLeft, y: launchSurfaceY },
-      { x: launchRight, y: launchSurfaceY },
-      ...routePoints,
-      { x: landingLeft, y: landingSurfaceY },
-      { x: landingRight, y: landingSurfaceY },
-      { x: routeEndX, y: landingSurfaceY + 46 },
-      { x: BACKGROUND_WORLD_WIDTH, y: landingSurfaceY + 58 }
-      ],
-      level
+    const { movement } = level.landingPad;
+    const duration = Math.max(1, movement.distance / movement.speed) * 1000;
+    this.tweens.add({
+      targets: this.landingPad.gameObject,
+      [movement.axis]: level.landingPad[movement.axis] + movement.distance,
+      duration,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+  }
+
+  private applyLevelWind(deltaSeconds: number): void {
+    if (!this.rocket || this.result !== 'flying' || this.getCurrentLevel().wind === 0) {
+      return;
+    }
+
+    this.rocket.velocity.x += this.getCurrentLevel().wind * deltaSeconds;
+  }
+
+  private buildRouteGroundPoints(level: LevelConfig): TerrainPoint[] {
+    const launchLeft = level.launchPad.x - LAUNCH_PAD_WIDTH / 2 - 90;
+    const launchRight = level.launchPad.x + LAUNCH_PAD_WIDTH / 2 + 90;
+    const landingLeft = level.landingPad.x - level.landingPad.width / 2 - 86;
+    const landingRight = level.landingPad.x + level.landingPad.width / 2 + 86;
+    const floorY = Math.max(level.launchPad.y, level.landingPad.y, BACKGROUND_FLOOR_Y - 56);
+    const routePoints: TerrainPoint[] = [
+      { x: 0, y: floorY + 42 },
+      { x: Math.max(0, launchLeft - 150), y: floorY + 42 },
+      { x: launchLeft, y: level.launchPad.y },
+      { x: launchRight, y: level.launchPad.y }
+    ];
+
+    level.obstacles
+      .filter((obstacle) => obstacle.type !== 'ceilingRock')
+      .forEach((obstacle) => {
+        routePoints.push(
+          { x: Math.max(launchRight, obstacle.x - 70), y: floorY + 34 },
+          { x: obstacle.x, y: obstacle.y },
+          { x: obstacle.x + obstacle.width, y: obstacle.y },
+          { x: obstacle.x + obstacle.width + 70, y: floorY + 34 }
+        );
+      });
+
+    routePoints.push(
+      { x: landingLeft, y: level.landingPad.y },
+      { x: landingRight, y: level.landingPad.y },
+      { x: Math.min(BACKGROUND_WORLD_WIDTH, landingRight + 180), y: floorY + 44 },
+      { x: BACKGROUND_WORLD_WIDTH, y: floorY + 54 }
     );
+
+    return this.buildLunarTerrainLine(routePoints, level);
   }
 
   private buildLunarTerrainLine(points: TerrainPoint[], level: LevelConfig): TerrainPoint[] {
-    const difficulty = Math.min(1, (level.terrainLevel - 1) / 9);
-    const roughness = 10 + difficulty * 40 + (level.terrainVariant % 4) * 4;
+    const difficulty = Math.min(1, (level.difficulty - 1) / 9);
+    const roughness = 7 + difficulty * 26;
     const segmentLength = 185 - difficulty * 58;
-    const launchShelfLeft = level.launchX - level.launchPadWidth / 2 - 95;
-    const launchShelfRight = level.launchX + level.launchPadWidth / 2 + 95;
-    const landingShelfLeft = level.landingX - level.landingPadWidth / 2 - 92;
-    const landingShelfRight = level.landingX + level.landingPadWidth / 2 + 92;
+    const launchShelfLeft = level.launchPad.x - LAUNCH_PAD_WIDTH / 2 - 95;
+    const launchShelfRight = level.launchPad.x + LAUNCH_PAD_WIDTH / 2 + 95;
+    const landingShelfLeft = level.landingPad.x - level.landingPad.width / 2 - 92;
+    const landingShelfRight = level.landingPad.x + level.landingPad.width / 2 + 92;
     const result: TerrainPoint[] = [];
 
     const isPadShelf = (x: number): boolean =>
@@ -1071,7 +947,7 @@ export class LaunchScene extends Phaser.Scene {
         let y = Phaser.Math.Linear(start.y, end.y, amount);
 
         if (!isPadShelf(x) && cut < cuts) {
-          const wave = Math.sin((x * 0.013 + level.terrainVariant) * 1.7) + Math.sin((x * 0.029 + level.terrainLevel) * 0.8);
+          const wave = Math.sin((x * 0.013 + level.id) * 1.7) + Math.sin((x * 0.029 + level.difficulty) * 0.8);
           y += wave * roughness;
         }
 
@@ -1080,65 +956,6 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     return this.normalizeTerrainPoints(result);
-  }
-
-  private buildRouteCeilingPoints(level: LevelConfig): TerrainPoint[] {
-    if (level.terrainLevel <= 2 && level.terrainArchetype !== 'tunnel' && level.terrainArchetype !== 'cave') {
-      return [];
-    }
-
-    const difficulty = Math.min(1, Math.max(0, level.terrainLevel - 2) / 8);
-    const safeGap = 395 - difficulty * 125;
-    const launchSurfaceY = BACKGROUND_FLOOR_Y - level.launchYOffset - 20;
-    const landingSurfaceY = BACKGROUND_FLOOR_Y - level.landingYOffset - 20;
-    const launchRight = level.launchX + level.launchPadWidth / 2 + 140;
-    const landingLeft = level.landingX - level.landingPadWidth / 2 - 130;
-    const midX = (launchRight + landingLeft) / 2;
-    const ceilingBaseY = Math.max(84, Math.min(launchSurfaceY, landingSurfaceY) - safeGap);
-
-    if (level.terrainArchetype === 'tunnel') {
-      return this.normalizeTerrainPoints([
-        { x: 0, y: 72 },
-        { x: launchRight, y: 82 },
-        { x: launchRight + 180, y: ceilingBaseY + 34 },
-        { x: midX - 120, y: ceilingBaseY + 86 + difficulty * 34 },
-        { x: midX + 170, y: ceilingBaseY + 62 },
-        { x: landingLeft - 80, y: Math.max(92, landingSurfaceY - safeGap + 45) },
-        { x: BACKGROUND_WORLD_WIDTH, y: 78 }
-      ]);
-    }
-
-    if (level.terrainArchetype === 'cave') {
-      return this.normalizeTerrainPoints([
-        { x: 0, y: 70 },
-        { x: launchRight - 30, y: 72 },
-        { x: launchRight + 170, y: ceilingBaseY + 82 },
-        { x: midX - 140, y: ceilingBaseY + 118 + difficulty * 42 },
-        { x: midX + 130, y: ceilingBaseY + 78 },
-        { x: landingLeft - 120, y: Math.max(92, landingSurfaceY - safeGap + 56) },
-        { x: BACKGROUND_WORLD_WIDTH, y: 76 }
-      ]);
-    }
-
-    if (level.terrainArchetype === 'mountains' || level.terrainArchetype === 'ridge') {
-      return this.normalizeTerrainPoints([
-        { x: 0, y: 72 },
-        { x: launchRight + 120, y: 80 },
-        { x: midX - 170, y: ceilingBaseY + 20 },
-        { x: midX + 60, y: ceilingBaseY + 72 + difficulty * 26 },
-        { x: landingLeft - 90, y: Math.max(86, landingSurfaceY - safeGap + 24) },
-        { x: BACKGROUND_WORLD_WIDTH, y: 82 }
-      ]);
-    }
-
-    return this.normalizeTerrainPoints([
-      { x: 0, y: 78 },
-      { x: launchRight, y: 86 + difficulty * 18 },
-      { x: midX - 220, y: ceilingBaseY + 18 },
-      { x: midX + 70, y: ceilingBaseY + 64 + difficulty * 30 },
-      { x: landingLeft, y: Math.max(82, landingSurfaceY - safeGap) },
-      { x: BACKGROUND_WORLD_WIDTH, y: 90 }
-    ]);
   }
 
   private normalizeTerrainPoints(points: TerrainPoint[]): TerrainPoint[] {
@@ -1204,7 +1021,7 @@ export class LaunchScene extends Phaser.Scene {
   private showLevelBanner(): void {
     this.levelBanner?.destroy();
     const level = this.getCurrentLevel();
-    this.levelBanner = this.add.text(this.scale.width / 2, 86, `LEVEL ${this.currentLevelIndex + 1}: ${level.name}`, {
+    this.levelBanner = this.add.text(this.scale.width / 2, 86, `LEVEL ${level.id}: ${level.name}`, {
       fontFamily: 'Arial, sans-serif',
       fontSize: '28px',
       color: '#f3f7ff',
@@ -1228,123 +1045,4 @@ export class LaunchScene extends Phaser.Scene {
       }
     });
   }
-}
-
-function createLevelConfig(index: number): LevelConfig {
-  const theme = LEVEL_THEMES[index % LEVEL_THEMES.length];
-  const routeBand = Math.floor(index / LEVEL_THEMES.length);
-  const routeVariant = index % LEVEL_THEMES.length;
-  const terrainLevel = Math.min(10, Math.floor(index / TERRAIN_LEVEL_STEP) + 1);
-  const obstacleLevel = 0;
-  const terrainArchetype = getTerrainArchetype(index, routeBand, routeVariant);
-  const terrainVariant = (routeBand * 5 + routeVariant * 3) % 11;
-  const padLayout = getPadLayout(index, terrainArchetype, routeBand, routeVariant);
-  const fuelSeconds = LEVEL_FUEL_SECONDS + Math.min(8, Math.max(0, index - LONG_LEVEL_START_INDEX) * 0.08);
-
-  return {
-    ...theme,
-    name: `${theme.name} ${routeBand + 1}`,
-    terrainLevel,
-    obstacleLevel,
-    terrainArchetype,
-    terrainVariant,
-    fuelSeconds,
-    ...padLayout
-  };
-}
-
-function getTerrainArchetype(index: number, routeBand: number, routeVariant: number): TerrainArchetype {
-  if (index < EARLY_TERRAIN_SEQUENCE.length) {
-    return EARLY_TERRAIN_SEQUENCE[index];
-  }
-
-  const archetypeIndex = (index + routeBand * 2 + routeVariant * 3) % TERRAIN_ARCHETYPES.length;
-  return TERRAIN_ARCHETYPES[archetypeIndex];
-}
-
-function getPadLayout(
-  index: number,
-  archetype: TerrainArchetype,
-  routeBand: number,
-  routeVariant: number
-): Pick<LevelConfig, 'launchX' | 'launchYOffset' | 'launchPadWidth' | 'landingX' | 'landingYOffset' | 'landingPadWidth'> {
-  const slowRise = Math.floor(index / 10);
-  const longRouteProgress = Math.max(0, index - LONG_LEVEL_START_INDEX);
-  const longRouteStretch = Math.min(940, longRouteProgress * 24);
-  const padShrink = Math.min(118, Math.max(0, index - 8) * 1.55);
-  const launchX = 280 + routeVariant * 34;
-  const launchPadWidth = LAUNCH_PAD_WIDTH;
-  const landingX = Math.min(3360, 1540 + routeVariant * 116 + routeBand * 20 + longRouteStretch);
-  let landingPadWidth = LANDING_PAD_WIDTH - padShrink;
-  let launchYOffset = 34 + ((routeBand * 13 + routeVariant * 19) % 92);
-  let landingYOffset = 40 + ((routeBand * 23 + routeVariant * 29) % 112);
-
-  switch (archetype) {
-    case 'cliffs':
-      launchYOffset += 45;
-      landingYOffset = Math.max(26, landingYOffset - 12 + slowRise * 2);
-      break;
-    case 'mountains':
-      launchYOffset += 18;
-      landingYOffset += 42;
-      break;
-    case 'tunnel':
-      launchYOffset += 28;
-      landingYOffset += 24;
-      landingPadWidth -= 8;
-      break;
-    case 'cave':
-      launchYOffset += 10;
-      landingYOffset += 52;
-      landingPadWidth -= 12;
-      break;
-    case 'chasm':
-      launchYOffset += 68;
-      landingYOffset = Math.max(28, landingYOffset - 20);
-      landingPadWidth -= 10;
-      break;
-    case 'mesa':
-      launchYOffset += 4;
-      landingYOffset += 72;
-      break;
-    case 'crater':
-      launchYOffset += 40;
-      landingYOffset += 40;
-      landingPadWidth -= 6;
-      break;
-    case 'switchback':
-      launchYOffset += routeBand % 2 === 0 ? 20 : 58;
-      landingYOffset += routeBand % 2 === 0 ? 64 : 18;
-      landingPadWidth -= 14;
-      break;
-    case 'spires':
-      launchYOffset += 34;
-      landingYOffset += 26;
-      landingPadWidth -= 18;
-      break;
-    case 'steps':
-      landingYOffset += routeBand % 2 === 0 ? 28 : -8;
-      break;
-    case 'basin':
-      launchYOffset += 36;
-      landingYOffset += 36;
-      break;
-    case 'ridge':
-      launchYOffset += 54;
-      landingYOffset += 18;
-      break;
-    case 'valley':
-    default:
-      landingYOffset += 10;
-      break;
-  }
-
-  return {
-    launchX,
-    launchYOffset: Phaser.Math.Clamp(launchYOffset, 24, 170),
-    launchPadWidth,
-    landingX,
-    landingYOffset: Phaser.Math.Clamp(landingYOffset, 24, 178),
-    landingPadWidth: Phaser.Math.Clamp(landingPadWidth, 118, LANDING_PAD_WIDTH)
-  };
 }
