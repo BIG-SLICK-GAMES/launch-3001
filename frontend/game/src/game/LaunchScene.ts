@@ -26,7 +26,20 @@ type PadSurface = {
 };
 
 type GameResult = 'flying' | 'landed' | 'crashed';
-type TerrainArchetype = 'valley' | 'cliffs' | 'mountains' | 'tunnel' | 'cave' | 'steps' | 'basin' | 'ridge';
+type TerrainArchetype =
+  | 'valley'
+  | 'cliffs'
+  | 'mountains'
+  | 'tunnel'
+  | 'cave'
+  | 'steps'
+  | 'basin'
+  | 'ridge'
+  | 'chasm'
+  | 'mesa'
+  | 'crater'
+  | 'switchback'
+  | 'spires';
 
 const DEFAULT_TUNING_VALUES = {
   gravityMultiplier: 1.03,
@@ -90,29 +103,45 @@ const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
     theme: { backTint: 0xffd6f2, midTint: 0xff5fa8, frontTint: 0xfff7b8, midAlpha: 1, frontAlpha: 1 }
   }
 ];
-const TERRAIN_ARCHETYPES: TerrainArchetype[] = ['valley', 'cliffs', 'steps', 'basin', 'mountains', 'ridge', 'tunnel', 'cave'];
+const TERRAIN_ARCHETYPES: TerrainArchetype[] = [
+  'valley',
+  'cliffs',
+  'steps',
+  'basin',
+  'mountains',
+  'ridge',
+  'chasm',
+  'mesa',
+  'crater',
+  'switchback',
+  'spires',
+  'tunnel',
+  'cave'
+];
 const EARLY_TERRAIN_SEQUENCE: TerrainArchetype[] = [
   'valley',
   'cliffs',
   'steps',
-  'basin',
+  'mesa',
   'mountains',
+  'crater',
   'ridge',
-  'valley',
-  'cliffs',
-  'steps',
+  'chasm',
+  'switchback',
   'basin',
+  'spires',
   'mountains',
-  'ridge',
   'cliffs',
+  'mesa',
   'steps',
-  'basin',
   'tunnel',
+  'crater',
   'mountains',
-  'ridge',
+  'switchback',
   'cave',
+  'spires',
   'cliffs',
-  'steps',
+  'chasm',
   'basin',
   'tunnel',
   'cave'
@@ -828,94 +857,172 @@ export class LaunchScene extends Phaser.Scene {
     const lowY = Math.min(BACKGROUND_WORLD_HEIGHT - 36, Math.max(launchSurfaceY, landingSurfaceY) + 150 + difficulty * 180);
     const highY = Math.max(150, Math.min(launchSurfaceY, landingSurfaceY) - (55 + difficulty * 95));
     const variantOffset = (level.terrainVariant % 3 - 1) * 34;
+    const xAt = (amount: number): number => Phaser.Math.Linear(spanStart, spanEnd, amount);
+    const lowerY = Math.min(BACKGROUND_WORLD_HEIGHT - 30, lowY + 90 + difficulty * 80);
+    const upperY = Math.max(88, highY - 40 - difficulty * 45);
     let routePoints: TerrainPoint[];
 
     switch (level.terrainArchetype) {
       case 'cliffs':
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 18 },
-          { x: spanStart + 135, y: launchSurfaceY + 22 },
-          { x: spanStart + 170, y: lowY },
-          { x: midX + variantOffset, y: lowY + 8 },
-          { x: spanEnd - 155, y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.6) },
-          { x: spanEnd - 80, y: landingSurfaceY + 44 },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0), y: launchSurfaceY + 16 },
+          { x: xAt(0.16), y: launchSurfaceY + 18 },
+          { x: xAt(0.18), y: lowerY },
+          { x: xAt(0.48), y: lowerY + 8 },
+          { x: xAt(0.56), y: Math.min(lowerY, landingSurfaceY + 170) },
+          { x: xAt(0.76), y: landingSurfaceY + 72 },
+          { x: xAt(0.84), y: landingSurfaceY + 72 },
+          { x: xAt(0.9), y: landingSurfaceY },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
       case 'mountains':
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 32 },
-          { x: spanStart + 180, y: Phaser.Math.Linear(launchSurfaceY, highY, 0.45) },
-          { x: midX - 160, y: highY },
-          { x: midX + 80, y: Math.min(lowY, highY + 250) },
-          { x: spanEnd - 210, y: Phaser.Math.Linear(landingSurfaceY, highY, 0.5) },
-          { x: spanEnd - 80, y: landingSurfaceY + 34 },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0), y: launchSurfaceY + 38 },
+          { x: xAt(0.15), y: Phaser.Math.Linear(launchSurfaceY, upperY, 0.56) },
+          { x: xAt(0.28), y: upperY },
+          { x: xAt(0.39), y: Math.min(lowY, upperY + 220) },
+          { x: xAt(0.53), y: Math.max(96, upperY + 32) },
+          { x: xAt(0.67), y: Math.min(lowY, landingSurfaceY + 210) },
+          { x: xAt(0.82), y: Phaser.Math.Linear(landingSurfaceY, upperY, 0.45) },
+          { x: xAt(0.92), y: landingSurfaceY + 42 },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
       case 'tunnel':
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 20 },
-          { x: spanStart + 190, y: launchSurfaceY + 54 },
-          { x: midX - 170, y: Phaser.Math.Linear(launchSurfaceY, lowY, 0.38) },
-          { x: midX + 90, y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.42) },
-          { x: spanEnd - 160, y: landingSurfaceY + 62 },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0), y: launchSurfaceY + 22 },
+          { x: xAt(0.18), y: launchSurfaceY + 64 },
+          { x: xAt(0.34), y: Phaser.Math.Linear(launchSurfaceY, lowY, 0.42) },
+          { x: xAt(0.56), y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.44) },
+          { x: xAt(0.74), y: landingSurfaceY + 88 },
+          { x: xAt(0.88), y: landingSurfaceY + 42 },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
       case 'cave':
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 26 },
-          { x: spanStart + 170, y: Math.min(lowY, launchSurfaceY + 120) },
-          { x: midX - 130, y: lowY },
-          { x: midX + 160, y: lowY - 36 },
-          { x: spanEnd - 190, y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.55) },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0), y: launchSurfaceY + 30 },
+          { x: xAt(0.16), y: Math.min(lowY, launchSurfaceY + 140) },
+          { x: xAt(0.32), y: lowerY },
+          { x: xAt(0.5), y: lowerY - 72 },
+          { x: xAt(0.65), y: lowerY - 18 },
+          { x: xAt(0.82), y: Phaser.Math.Linear(lowerY, landingSurfaceY, 0.6) },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
       case 'steps':
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 22 },
-          { x: spanStart + 180, y: launchSurfaceY + 22 },
-          { x: spanStart + 210, y: launchSurfaceY + 96 + difficulty * 30 },
-          { x: midX - 70, y: launchSurfaceY + 96 + difficulty * 30 },
-          { x: midX - 35, y: landingSurfaceY + 84 },
-          { x: spanEnd - 150, y: landingSurfaceY + 84 },
-          { x: spanEnd - 90, y: landingSurfaceY + 28 },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0), y: launchSurfaceY + 20 },
+          { x: xAt(0.18), y: launchSurfaceY + 20 },
+          { x: xAt(0.2), y: launchSurfaceY + 96 + difficulty * 34 },
+          { x: xAt(0.4), y: launchSurfaceY + 96 + difficulty * 34 },
+          { x: xAt(0.42), y: landingSurfaceY + 144 },
+          { x: xAt(0.62), y: landingSurfaceY + 144 },
+          { x: xAt(0.64), y: landingSurfaceY + 58 },
+          { x: xAt(0.86), y: landingSurfaceY + 58 },
+          { x: xAt(0.9), y: landingSurfaceY },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
       case 'basin':
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 28 },
-          { x: spanStart + 210, y: Math.min(lowY, launchSurfaceY + 130) },
-          { x: midX - 170, y: lowY + 16 },
-          { x: midX + 150, y: lowY + 4 },
-          { x: spanEnd - 220, y: Math.min(lowY, landingSurfaceY + 135) },
-          { x: spanEnd - 90, y: landingSurfaceY + 38 },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0), y: launchSurfaceY + 28 },
+          { x: xAt(0.16), y: Math.min(lowY, launchSurfaceY + 120) },
+          { x: xAt(0.34), y: lowerY },
+          { x: xAt(0.5), y: lowerY + 20 },
+          { x: xAt(0.68), y: lowerY - 10 },
+          { x: xAt(0.84), y: Math.min(lowY, landingSurfaceY + 130) },
+          { x: xAt(0.93), y: landingSurfaceY + 42 },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
       case 'ridge':
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 28 },
-          { x: spanStart + 190, y: Phaser.Math.Linear(launchSurfaceY, highY, 0.5) },
-          { x: midX - 90, y: highY + 34 },
-          { x: midX + 80, y: Math.min(lowY, highY + 210) },
-          { x: spanEnd - 180, y: Phaser.Math.Linear(landingSurfaceY, highY, 0.62) },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0), y: launchSurfaceY + 28 },
+          { x: xAt(0.16), y: Phaser.Math.Linear(launchSurfaceY, upperY, 0.6) },
+          { x: xAt(0.3), y: upperY + 30 },
+          { x: xAt(0.48), y: upperY + 24 },
+          { x: xAt(0.58), y: Math.min(lowY, upperY + 250) },
+          { x: xAt(0.76), y: Phaser.Math.Linear(landingSurfaceY, upperY, 0.55) },
+          { x: xAt(0.9), y: landingSurfaceY + 50 },
+          { x: xAt(1), y: landingSurfaceY }
+        ];
+        break;
+      case 'chasm':
+        routePoints = [
+          { x: xAt(0), y: launchSurfaceY + 10 },
+          { x: xAt(0.12), y: launchSurfaceY + 10 },
+          { x: xAt(0.17), y: BACKGROUND_WORLD_HEIGHT - 26 },
+          { x: xAt(0.48), y: BACKGROUND_WORLD_HEIGHT - 30 },
+          { x: xAt(0.55), y: lowerY - 86 },
+          { x: xAt(0.7), y: landingSurfaceY + 126 },
+          { x: xAt(0.85), y: landingSurfaceY + 126 },
+          { x: xAt(0.92), y: landingSurfaceY },
+          { x: xAt(1), y: landingSurfaceY }
+        ];
+        break;
+      case 'mesa':
+        routePoints = [
+          { x: xAt(0), y: launchSurfaceY + 26 },
+          { x: xAt(0.16), y: launchSurfaceY + 98 },
+          { x: xAt(0.23), y: highY + 40 },
+          { x: xAt(0.5), y: highY + 40 },
+          { x: xAt(0.56), y: lowY + 90 },
+          { x: xAt(0.76), y: lowY + 90 },
+          { x: xAt(0.88), y: landingSurfaceY + 48 },
+          { x: xAt(1), y: landingSurfaceY }
+        ];
+        break;
+      case 'crater':
+        routePoints = [
+          { x: xAt(0), y: launchSurfaceY + 44 },
+          { x: xAt(0.14), y: Math.max(110, highY + 48) },
+          { x: xAt(0.28), y: lowY + 18 },
+          { x: xAt(0.5), y: lowerY },
+          { x: xAt(0.72), y: lowY + 24 },
+          { x: xAt(0.86), y: Math.max(110, highY + 64) },
+          { x: xAt(0.95), y: landingSurfaceY + 72 },
+          { x: xAt(1), y: landingSurfaceY }
+        ];
+        break;
+      case 'switchback':
+        routePoints = [
+          { x: xAt(0), y: launchSurfaceY + 24 },
+          { x: xAt(0.12), y: launchSurfaceY + 110 },
+          { x: xAt(0.28), y: launchSurfaceY + 110 },
+          { x: xAt(0.36), y: upperY + 62 },
+          { x: xAt(0.5), y: upperY + 62 },
+          { x: xAt(0.62), y: lowY + 96 },
+          { x: xAt(0.76), y: lowY + 96 },
+          { x: xAt(0.88), y: landingSurfaceY + 34 },
+          { x: xAt(1), y: landingSurfaceY }
+        ];
+        break;
+      case 'spires':
+        routePoints = [
+          { x: xAt(0), y: launchSurfaceY + 36 },
+          { x: xAt(0.14), y: lowY + 66 },
+          { x: xAt(0.22), y: upperY + 30 },
+          { x: xAt(0.32), y: lowY + 100 },
+          { x: xAt(0.42), y: upperY + 10 },
+          { x: xAt(0.54), y: lowY + 80 },
+          { x: xAt(0.66), y: upperY + 56 },
+          { x: xAt(0.78), y: lowY + 42 },
+          { x: xAt(0.9), y: landingSurfaceY + 68 },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
       case 'valley':
       default:
         routePoints = [
-          { x: spanStart, y: launchSurfaceY + 24 },
-          { x: spanStart + 190, y: launchSurfaceY + 44 },
-          { x: midX - 140, y: Phaser.Math.Linear(launchSurfaceY, lowY, 0.55) },
+          { x: xAt(0), y: launchSurfaceY + 24 },
+          { x: xAt(0.18), y: launchSurfaceY + 54 },
+          { x: xAt(0.36), y: Phaser.Math.Linear(launchSurfaceY, lowY, 0.55) },
           { x: midX + variantOffset, y: lowY },
-          { x: midX + 160, y: lowY + 10 },
-          { x: spanEnd - 190, y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.48) },
-          { x: spanEnd, y: landingSurfaceY }
+          { x: xAt(0.64), y: lowY + 10 },
+          { x: xAt(0.82), y: Phaser.Math.Linear(lowY, landingSurfaceY, 0.48) },
+          { x: xAt(1), y: landingSurfaceY }
         ];
         break;
     }
@@ -1190,6 +1297,30 @@ function getPadLayout(
       launchYOffset += 10;
       landingYOffset += 52;
       landingPadWidth -= 12;
+      break;
+    case 'chasm':
+      launchYOffset += 68;
+      landingYOffset = Math.max(28, landingYOffset - 20);
+      landingPadWidth -= 10;
+      break;
+    case 'mesa':
+      launchYOffset += 4;
+      landingYOffset += 72;
+      break;
+    case 'crater':
+      launchYOffset += 40;
+      landingYOffset += 40;
+      landingPadWidth -= 6;
+      break;
+    case 'switchback':
+      launchYOffset += routeBand % 2 === 0 ? 20 : 58;
+      landingYOffset += routeBand % 2 === 0 ? 64 : 18;
+      landingPadWidth -= 14;
+      break;
+    case 'spires':
+      launchYOffset += 34;
+      landingYOffset += 26;
+      landingPadWidth -= 18;
       break;
     case 'steps':
       landingYOffset += routeBand % 2 === 0 ? 28 : -8;
