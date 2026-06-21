@@ -89,6 +89,32 @@ const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
   }
 ];
 const TERRAIN_ARCHETYPES: TerrainArchetype[] = ['valley', 'cliffs', 'steps', 'basin', 'mountains', 'ridge', 'tunnel', 'cave'];
+const EARLY_TERRAIN_SEQUENCE: TerrainArchetype[] = [
+  'valley',
+  'cliffs',
+  'steps',
+  'basin',
+  'mountains',
+  'ridge',
+  'valley',
+  'cliffs',
+  'steps',
+  'basin',
+  'mountains',
+  'ridge',
+  'cliffs',
+  'steps',
+  'basin',
+  'tunnel',
+  'mountains',
+  'ridge',
+  'cave',
+  'cliffs',
+  'steps',
+  'basin',
+  'tunnel',
+  'cave'
+];
 const LEVELS: LevelConfig[] = Array.from({ length: LEVEL_COUNT }, (_, index) => createLevelConfig(index));
 const THRUST_FUEL_DRAIN_PER_SECOND = 1;
 const BOOST_FUEL_DRAIN_PER_SECOND = 2.35;
@@ -1059,8 +1085,7 @@ function createLevelConfig(index: number): LevelConfig {
   const routeVariant = index % LEVEL_THEMES.length;
   const terrainLevel = Math.min(10, Math.floor(index / TERRAIN_LEVEL_STEP) + 1);
   const obstacleLevel = 0;
-  const archetypeIndex = Math.floor(index / 3 + routeBand) % TERRAIN_ARCHETYPES.length;
-  const terrainArchetype = TERRAIN_ARCHETYPES[archetypeIndex];
+  const terrainArchetype = getTerrainArchetype(index, routeBand, routeVariant);
   const terrainVariant = (routeBand * 5 + routeVariant * 3) % 11;
   const padLayout = getPadLayout(index, terrainArchetype, routeBand, routeVariant);
   const fuelSeconds = LEVEL_FUEL_SECONDS + Math.min(8, Math.max(0, index - LONG_LEVEL_START_INDEX) * 0.08);
@@ -1075,6 +1100,15 @@ function createLevelConfig(index: number): LevelConfig {
     fuelSeconds,
     ...padLayout
   };
+}
+
+function getTerrainArchetype(index: number, routeBand: number, routeVariant: number): TerrainArchetype {
+  if (index < EARLY_TERRAIN_SEQUENCE.length) {
+    return EARLY_TERRAIN_SEQUENCE[index];
+  }
+
+  const archetypeIndex = (index + routeBand * 2 + routeVariant * 3) % TERRAIN_ARCHETYPES.length;
+  return TERRAIN_ARCHETYPES[archetypeIndex];
 }
 
 function getPadLayout(
