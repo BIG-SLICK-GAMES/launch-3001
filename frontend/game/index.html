@@ -91,6 +91,58 @@
         pointer-events: none;
       }
 
+      #level-picker {
+        position: fixed;
+        top: max(14px, env(safe-area-inset-top));
+        right: max(14px, env(safe-area-inset-right));
+        z-index: 14;
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        padding: 8px;
+        border: 1px solid rgba(243, 247, 255, 0.32);
+        border-radius: 8px;
+        background: rgba(5, 8, 14, 0.72);
+        color: #f3f7ff;
+        pointer-events: auto;
+      }
+
+      #level-picker[hidden] {
+        display: none;
+      }
+
+      #level-picker input {
+        width: 64px;
+        height: 34px;
+        box-sizing: border-box;
+        border: 1px solid rgba(243, 247, 255, 0.38);
+        border-radius: 6px;
+        background: #101821;
+        color: #f3f7ff;
+        font: 700 16px/1 Arial, sans-serif;
+        text-align: center;
+      }
+
+      #level-picker button,
+      #level-toggle {
+        height: 34px;
+        border: 1px solid rgba(243, 247, 255, 0.38);
+        border-radius: 6px;
+        background: #172333;
+        color: #f3f7ff;
+        font: 700 12px/1 Arial, sans-serif;
+        letter-spacing: 0;
+        touch-action: manipulation;
+      }
+
+      #level-toggle {
+        position: fixed;
+        top: max(14px, env(safe-area-inset-top));
+        right: max(14px, env(safe-area-inset-right));
+        z-index: 13;
+        width: 74px;
+      }
+
       @media (orientation: portrait) and (pointer: coarse) {
         #rotate-lock {
           display: grid;
@@ -100,6 +152,12 @@
   </head>
   <body>
     <div id="game"></div>
+    <button id="level-toggle" type="button">LEVELS</button>
+    <div id="level-picker" hidden>
+      <input id="level-input" type="number" min="1" max="100" value="1" aria-label="Level number" />
+      <button id="level-go" type="button">GO</button>
+      <button id="level-close" type="button">X</button>
+    </div>
     <div id="touch-controls" aria-label="Touch controls">
       <button id="tilt-control" class="screen-control" type="button">TILT</button>
       <div id="tilt-status">tap tilt to steer</div>

@@ -54,6 +54,9 @@ const LAUNCH_PAD_WIDTH = 220;
 const LANDING_PAD_WIDTH = 250;
 const LEVEL_COUNT = 100;
 const TERRAIN_LEVEL_STEP = 7;
+const CAMERA_BASE_ZOOM = 1.18;
+const CAMERA_MIN_ZOOM = 0.82;
+const CAMERA_SPEED_FOR_FULL_ZOOM_OUT = 240;
 const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
   {
     name: 'Training Orbit',
@@ -103,6 +106,11 @@ export class LaunchScene extends Phaser.Scene {
   private boostButton?: HTMLButtonElement;
   private tiltButton?: HTMLButtonElement;
   private tiltStatus?: HTMLElement;
+  private levelToggleButton?: HTMLButtonElement;
+  private levelPicker?: HTMLElement;
+  private levelInput?: HTMLInputElement;
+  private levelGoButton?: HTMLButtonElement;
+  private levelCloseButton?: HTMLButtonElement;
   private cursors?: Phaser.Types.Input.Keyboard.CursorKeys;
   private keyA?: Phaser.Input.Keyboard.Key;
   private keyD?: Phaser.Input.Keyboard.Key;
@@ -133,7 +141,7 @@ export class LaunchScene extends Phaser.Scene {
 
   create(): void {
     this.cameras.main.setBounds(0, 0, BACKGROUND_WORLD_WIDTH, BACKGROUND_WORLD_HEIGHT);
-    this.cameras.main.setZoom(1.18);
+    this.cameras.main.setZoom(CAMERA_BASE_ZOOM);
 
     this.hangarBackgroundLayer?.destroy();
     this.hangarBackgroundLayer = new HangarBackgroundLayer(this);
@@ -307,6 +315,11 @@ export class LaunchScene extends Phaser.Scene {
     this.boostButton = document.querySelector<HTMLButtonElement>('#boost-control') ?? undefined;
     this.tiltButton = document.querySelector<HTMLButtonElement>('#tilt-control') ?? undefined;
     this.tiltStatus = document.querySelector<HTMLElement>('#tilt-status') ?? undefined;
+    this.levelToggleButton = document.querySelector<HTMLButtonElement>('#level-toggle') ?? undefined;
+    this.levelPicker = document.querySelector<HTMLElement>('#level-picker') ?? undefined;
+    this.levelInput = document.querySelector<HTMLInputElement>('#level-input') ?? undefined;
+    this.levelGoButton = document.querySelector<HTMLButtonElement>('#level-go') ?? undefined;
+    this.levelCloseButton = document.querySelector<HTMLButtonElement>('#level-close') ?? undefined;
 
     const pressBoost = (isPressed: boolean): void => {
       this.boostPointerDown = isPressed;
@@ -322,6 +335,60 @@ export class LaunchScene extends Phaser.Scene {
     this.tiltButton?.addEventListener('click', () => {
       void this.enableTiltControls();
     }, { signal });
+
+    this.levelToggleButton?.addEventListener('click', () => {
+      this.openLevelPicker();
+    }, { signal });
+
+    this.levelCloseButton?.addEventListener('click', () => {
+      this.closeLevelPicker();
+    }, { signal });
+
+    this.levelGoButton?.addEventListener('click', () => {
+      this.jumpToPickedLevel();
+    }, { signal });
+
+    this.levelInput?.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter') {
+        this.jumpToPickedLevel();
+      }
+    }, { signal });
+  }
+
+  private openLevelPicker(): void {
+    if (this.levelPicker) {
+      this.levelPicker.hidden = false;
+    }
+
+    if (this.levelToggleButton) {
+      this.levelToggleButton.hidden = true;
+    }
+
+    if (this.levelInput) {
+      this.levelInput.value = String(this.currentLevelIndex + 1);
+      this.levelInput.focus();
+      this.levelInput.select();
+    }
+  }
+
+  private closeLevelPicker(): void {
+    if (this.levelPicker) {
+      this.levelPicker.hidden = true;
+    }
+
+    if (this.levelToggleButton) {
+      this.levelToggleButton.hidden = false;
+    }
+  }
+
+  private jumpToPickedLevel(): void {
+    const requestedLevel = Number(this.levelInput?.value ?? 1);
+    const nextLevelIndex = Phaser.Math.Clamp(Math.round(requestedLevel), 1, LEVELS.length) - 1;
+    this.currentLevelIndex = nextLevelIndex;
+    this.applyCurrentLevelTheme();
+    this.createLevelPads();
+    this.resetRocket();
+    this.closeLevelPicker();
   }
 
   private async enableTiltControls(): Promise<void> {
@@ -609,13 +676,32 @@ export class LaunchScene extends Phaser.Scene {
       return;
     }
 
-    const visibleWidth = this.scale.width / this.cameras.main.zoom;
+    const speed = this.rocket.velocity.length();
+    const altitude = Math.max(0, BACKGROUND_FLOOR_Y - this.rocket.sprite.y);
+    const speedZoomOut = Phaser.Math.Clamp(speed / CAMERA_SPEED_FOR_FULL_ZOOM_OUT, 0, 1);
+    const altitudeZoomOut = Phaser.Math.Clamp(altitude / 420, 0, 1);
+    const targetZoom = Phaser.Math.Linear(CAMERA_BASE_ZOOM, CAMERA_MIN_ZOOM, Math.max(speedZoomOut, altitudeZoomOut));
+    const nextZoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, 0.045);
+    this.cameras.main.setZoom(nextZoom);
+
+    const visibleWidth = this.scale.width / nextZoom;
+    const visibleHeight = this.scale.height / nextZoom;
+    const lookAhead = Phaser.Math.Clamp(this.rocket.velocity.x * 0.55, -140, 260);
     const targetScrollX = Phaser.Math.Clamp(
-      this.rocket.sprite.x - visibleWidth * 0.35,
+      this.rocket.sprite.x + lookAhead - visibleWidth * 0.35,
       0,
       BACKGROUND_WORLD_WIDTH - visibleWidth
     );
-    this.cameras.main.setScroll(targetScrollX, 0);
+    const targetScrollY = Phaser.Math.Clamp(
+      this.rocket.sprite.y - visibleHeight * 0.52,
+      0,
+      Math.max(0, BACKGROUND_WORLD_HEIGHT - visibleHeight)
+    );
+
+    this.cameras.main.setScroll(
+      Phaser.Math.Linear(this.cameras.main.scrollX, targetScrollX, 0.08),
+      Phaser.Math.Linear(this.cameras.main.scrollY, targetScrollY, 0.08)
+    );
   }
 
   private createPad(x: number, y: number, width: number, accentColor: number): PadSurface {
@@ -745,7 +831,7 @@ function createLevelConfig(index: number): LevelConfig {
     obstacleLevel,
     launchX: 300 + routeVariant * 38,
     launchYOffset: 34 + ((routeBand * 17 + routeVariant * 23) % 110),
-    landingX: Math.min(2300, 1700 + routeVariant * 105 + routeBand * 18),
+    landingX: Math.min(2320, 1680 + routeVariant * 112 + routeBand * 24),
     landingYOffset: 38 + ((routeBand * 29 + routeVariant * 31) % 128)
   };
 }
