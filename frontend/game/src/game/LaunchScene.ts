@@ -11,6 +11,15 @@ import {
 import { SAFE_LANDING } from './PhysicsConfig';
 import { Rocket, type RocketControls } from './Rocket';
 import { calculateLandingScore, LANDING_TIME_LIMIT_SECONDS } from './Scoring';
+import {
+  buildCeilingPoints,
+  buildGroundPoints,
+  buildTerrainObstacles,
+  getCeilingY,
+  getGroundY,
+  type TerrainObstacle,
+  type TerrainPoint
+} from './LevelTerrain';
 
 type PadSurface = {
   x: number;
@@ -32,6 +41,7 @@ type LevelConfig = {
   name: string;
   theme: BackgroundTheme;
   padColor: number;
+  terrainLevel: number;
 };
 
 const LAUNCH_PAD_X = 520;
@@ -42,17 +52,32 @@ const LEVELS: LevelConfig[] = [
   {
     name: 'Training Orbit',
     padColor: 0x73e6ff,
+    terrainLevel: 1,
     theme: { backTint: 0xffffff, midTint: 0xffffff, frontTint: 0xffffff, midAlpha: 0.78, frontAlpha: 0.55 }
   },
   {
     name: 'Red Drift',
     padColor: 0xff8f55,
+    terrainLevel: 3,
     theme: { backTint: 0xffd8c5, midTint: 0xff735f, frontTint: 0xffc67a, midAlpha: 0.92, frontAlpha: 0.68 }
   },
   {
     name: 'Violet Debris',
     padColor: 0xd56dff,
+    terrainLevel: 6,
     theme: { backTint: 0xd8dbff, midTint: 0xa36dff, frontTint: 0xfff0a8, midAlpha: 1, frontAlpha: 0.82 }
+  },
+  {
+    name: 'Broken Corridor',
+    padColor: 0xffe66d,
+    terrainLevel: 8,
+    theme: { backTint: 0xc7fff0, midTint: 0x6dfff0, frontTint: 0xffe6a0, midAlpha: 1, frontAlpha: 0.9 }
+  },
+  {
+    name: 'Final Thread',
+    padColor: 0xff6d8f,
+    terrainLevel: 10,
+    theme: { backTint: 0xffd6f2, midTint: 0xff5fa8, frontTint: 0xfff7b8, midAlpha: 1, frontAlpha: 1 }
   }
 ];
 const THRUST_FUEL_DRAIN_PER_SECOND = 1;
@@ -66,6 +91,7 @@ export class LaunchScene extends Phaser.Scene {
   private rocket?: Rocket;
   private launchPad?: PadSurface;
   private landingPad?: PadSurface;
+  private terrainGraphics?: Phaser.GameObjects.Graphics;
   private hud?: Hud;
   private levelBanner?: Phaser.GameObjects.Text;
   private fuelBarBack?: Phaser.GameObjects.Rectangle;
@@ -130,6 +156,7 @@ export class LaunchScene extends Phaser.Scene {
       this.rocket?.destroy();
       this.launchPad?.destroy();
       this.landingPad?.destroy();
+      this.terrainGraphics?.destroy();
       this.resultBanner?.destroy();
       this.levelBanner?.destroy();
       this.hud?.destroy();
@@ -208,9 +235,11 @@ export class LaunchScene extends Phaser.Scene {
   private createLevelPads(): void {
     this.launchPad?.destroy();
     this.landingPad?.destroy();
+    this.terrainGraphics?.destroy();
     const level = this.getCurrentLevel();
     this.launchPad = this.createPad(LAUNCH_PAD_X, BACKGROUND_FLOOR_Y - 26, 220, 0xffb54a);
     this.landingPad = this.createPad(LANDING_PAD_X, BACKGROUND_FLOOR_Y - 26, LANDING_PAD_WIDTH, level.padColor);
+    this.terrainGraphics = this.createTerrain(level.terrainLevel, level.padColor);
   }
 
   private applyCurrentLevelTheme(): void {
@@ -463,9 +492,12 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     const onLandingPad = this.landingPad.containsX(this.rocket.sprite.x);
-    const contactY = onLandingPad ? this.landingPad.surfaceY : BACKGROUND_FLOOR_Y - 26;
+    const terrainLevel = this.getCurrentLevel().terrainLevel;
+    const terrainGroundY = getGroundY(this.rocket.sprite.x, terrainLevel);
+    const contactY = onLandingPad ? this.landingPad.surfaceY : terrainGroundY;
     const crossedLandingSurface = previousBottom <= contactY && this.rocket.bottom >= contactY;
     if (!crossedLandingSurface && this.rocket.bottom < contactY) {
+      this.checkCeilingOrObstacleCrash();
       return;
     }
 
@@ -497,6 +529,25 @@ export class LaunchScene extends Phaser.Scene {
     this.addResultText('CRASH', 0xff675d);
   }
 
+  private checkCeilingOrObstacleCrash(): void {
+    if (!this.rocket || this.result !== 'flying') {
+      return;
+    }
+
+    const terrainLevel = this.getCurrentLevel().terrainLevel;
+    const ceilingY = getCeilingY(this.rocket.sprite.x, terrainLevel);
+    if (ceilingY !== undefined && this.rocket.top <= ceilingY) {
+      this.crashRocket();
+      return;
+    }
+
+    const rocketBounds = this.getRocketApproxBounds();
+    const hitObstacle = buildTerrainObstacles(terrainLevel).some((obstacle) => this.overlapsObstacle(rocketBounds, obstacle));
+    if (hitObstacle) {
+      this.crashRocket();
+    }
+  }
+
   private queueNextLevel(): void {
     this.time.delayedCall(1600, () => {
       if (this.result !== 'landed') {
@@ -518,10 +569,33 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     if (this.rocket.sprite.y > BACKGROUND_WORLD_HEIGHT + 80 || this.rocket.sprite.y < -120) {
-      this.rocket.stop();
-      this.result = 'crashed';
-      this.addResultText('CRASH', 0xff675d);
+      this.crashRocket();
     }
+  }
+
+  private crashRocket(): void {
+    if (!this.rocket || this.result !== 'flying') {
+      return;
+    }
+
+    this.rocket.stop();
+    this.result = 'crashed';
+    this.addResultText('CRASH', 0xff675d);
+  }
+
+  private getRocketApproxBounds(): Phaser.Geom.Rectangle {
+    const width = 46;
+    const height = this.rocket?.getVisualHalfHeight() ? this.rocket.getVisualHalfHeight() * 2 : 80;
+    const x = (this.rocket?.sprite.x ?? 0) - width / 2;
+    const y = (this.rocket?.sprite.y ?? 0) - height / 2;
+    return new Phaser.Geom.Rectangle(x, y, width, height);
+  }
+
+  private overlapsObstacle(bounds: Phaser.Geom.Rectangle, obstacle: TerrainObstacle): boolean {
+    return Phaser.Geom.Rectangle.Overlaps(
+      bounds,
+      new Phaser.Geom.Rectangle(obstacle.x, obstacle.y, obstacle.width, obstacle.height)
+    );
   }
 
   private lockCameraToRocket(): void {
@@ -560,6 +634,50 @@ export class LaunchScene extends Phaser.Scene {
       containsX: (candidateX: number) => candidateX >= x - width / 2 && candidateX <= x + width / 2,
       destroy: () => pad.destroy(true)
     };
+  }
+
+  private createTerrain(level: number, accentColor: number): Phaser.GameObjects.Graphics {
+    const graphics = this.add.graphics();
+    graphics.setDepth(4);
+
+    this.drawGround(graphics, buildGroundPoints(level), accentColor);
+    this.drawCeiling(graphics, buildCeilingPoints(level), accentColor);
+    this.drawObstacles(graphics, buildTerrainObstacles(level), accentColor);
+
+    return graphics;
+  }
+
+  private drawGround(graphics: Phaser.GameObjects.Graphics, points: TerrainPoint[], accentColor: number): void {
+    graphics.fillStyle(0x101821, 0.92);
+    graphics.lineStyle(3, accentColor, 0.72);
+    graphics.beginPath();
+    graphics.moveTo(points[0].x, BACKGROUND_WORLD_HEIGHT + 120);
+    points.forEach((point) => graphics.lineTo(point.x, point.y));
+    graphics.lineTo(points[points.length - 1].x, BACKGROUND_WORLD_HEIGHT + 120);
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.strokePath();
+  }
+
+  private drawCeiling(graphics: Phaser.GameObjects.Graphics, points: TerrainPoint[], accentColor: number): void {
+    graphics.fillStyle(0x0b1119, 0.78);
+    graphics.lineStyle(3, accentColor, 0.5);
+    graphics.beginPath();
+    graphics.moveTo(points[0].x, -120);
+    points.forEach((point) => graphics.lineTo(point.x, point.y));
+    graphics.lineTo(points[points.length - 1].x, -120);
+    graphics.closePath();
+    graphics.fillPath();
+    graphics.strokePath();
+  }
+
+  private drawObstacles(graphics: Phaser.GameObjects.Graphics, obstacles: TerrainObstacle[], accentColor: number): void {
+    graphics.fillStyle(0x182332, 0.88);
+    graphics.lineStyle(2, accentColor, 0.65);
+    obstacles.forEach((obstacle) => {
+      graphics.fillRoundedRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 6);
+      graphics.strokeRoundedRect(obstacle.x, obstacle.y, obstacle.width, obstacle.height, 6);
+    });
   }
 
   private addResultText(label: string, color: number): void {
