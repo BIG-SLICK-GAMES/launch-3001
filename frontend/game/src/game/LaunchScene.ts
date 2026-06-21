@@ -42,6 +42,7 @@ type LevelConfig = {
   theme: BackgroundTheme;
   padColor: number;
   terrainLevel: number;
+  obstacleLevel: number;
 };
 
 const LAUNCH_PAD_X = 520;
@@ -53,30 +54,35 @@ const LEVELS: LevelConfig[] = [
     name: 'Training Orbit',
     padColor: 0x73e6ff,
     terrainLevel: 1,
+    obstacleLevel: 0,
     theme: { backTint: 0xffffff, midTint: 0xffffff, frontTint: 0xffffff, midAlpha: 0.78, frontAlpha: 0.55 }
   },
   {
     name: 'Red Drift',
     padColor: 0xff8f55,
-    terrainLevel: 3,
+    terrainLevel: 1,
+    obstacleLevel: 0,
     theme: { backTint: 0xffd8c5, midTint: 0xff735f, frontTint: 0xffc67a, midAlpha: 0.92, frontAlpha: 0.68 }
   },
   {
     name: 'Violet Debris',
     padColor: 0xd56dff,
-    terrainLevel: 6,
+    terrainLevel: 2,
+    obstacleLevel: 1,
     theme: { backTint: 0xd8dbff, midTint: 0xa36dff, frontTint: 0xfff0a8, midAlpha: 1, frontAlpha: 0.82 }
   },
   {
     name: 'Broken Corridor',
     padColor: 0xffe66d,
-    terrainLevel: 8,
+    terrainLevel: 3,
+    obstacleLevel: 2,
     theme: { backTint: 0xc7fff0, midTint: 0x6dfff0, frontTint: 0xffe6a0, midAlpha: 1, frontAlpha: 0.9 }
   },
   {
     name: 'Final Thread',
     padColor: 0xff6d8f,
-    terrainLevel: 10,
+    terrainLevel: 4,
+    obstacleLevel: 3,
     theme: { backTint: 0xffd6f2, midTint: 0xff5fa8, frontTint: 0xfff7b8, midAlpha: 1, frontAlpha: 1 }
   }
 ];
@@ -542,7 +548,9 @@ export class LaunchScene extends Phaser.Scene {
     }
 
     const rocketBounds = this.getRocketApproxBounds();
-    const hitObstacle = buildTerrainObstacles(terrainLevel).some((obstacle) => this.overlapsObstacle(rocketBounds, obstacle));
+    const obstacleLevel = this.getCurrentLevel().obstacleLevel;
+    const obstacles = obstacleLevel > 0 ? buildTerrainObstacles(obstacleLevel) : [];
+    const hitObstacle = obstacles.some((obstacle) => this.overlapsObstacle(rocketBounds, obstacle));
     if (hitObstacle) {
       this.crashRocket();
     }
@@ -642,7 +650,10 @@ export class LaunchScene extends Phaser.Scene {
 
     this.drawGround(graphics, buildGroundPoints(level), accentColor);
     this.drawCeiling(graphics, buildCeilingPoints(level), accentColor);
-    this.drawObstacles(graphics, buildTerrainObstacles(level), accentColor);
+    const obstacleLevel = this.getCurrentLevel().obstacleLevel;
+    if (obstacleLevel > 0) {
+      this.drawObstacles(graphics, buildTerrainObstacles(obstacleLevel), accentColor);
+    }
 
     return graphics;
   }
