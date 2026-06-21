@@ -43,11 +43,14 @@ type LevelConfig = {
   padColor: number;
   terrainLevel: number;
   obstacleLevel: number;
+  launchX: number;
+  launchYOffset: number;
+  landingX: number;
+  landingYOffset: number;
 };
 
-const LAUNCH_PAD_X = 520;
-const LANDING_PAD_X = 1780;
 const LEVEL_FUEL_SECONDS = 14;
+const LAUNCH_PAD_WIDTH = 220;
 const LANDING_PAD_WIDTH = 250;
 const LEVELS: LevelConfig[] = [
   {
@@ -55,6 +58,10 @@ const LEVELS: LevelConfig[] = [
     padColor: 0x73e6ff,
     terrainLevel: 1,
     obstacleLevel: 0,
+    launchX: 520,
+    launchYOffset: 26,
+    landingX: 1780,
+    landingYOffset: 26,
     theme: { backTint: 0xffffff, midTint: 0xffffff, frontTint: 0xffffff, midAlpha: 0.78, frontAlpha: 0.55 }
   },
   {
@@ -62,6 +69,10 @@ const LEVELS: LevelConfig[] = [
     padColor: 0xff8f55,
     terrainLevel: 1,
     obstacleLevel: 0,
+    launchX: 470,
+    launchYOffset: 52,
+    landingX: 1900,
+    landingYOffset: 92,
     theme: { backTint: 0xffd8c5, midTint: 0xff735f, frontTint: 0xffc67a, midAlpha: 0.92, frontAlpha: 0.68 }
   },
   {
@@ -69,6 +80,10 @@ const LEVELS: LevelConfig[] = [
     padColor: 0xd56dff,
     terrainLevel: 2,
     obstacleLevel: 1,
+    launchX: 400,
+    launchYOffset: 34,
+    landingX: 2050,
+    landingYOffset: 72,
     theme: { backTint: 0xd8dbff, midTint: 0xa36dff, frontTint: 0xfff0a8, midAlpha: 1, frontAlpha: 0.82 }
   },
   {
@@ -76,6 +91,10 @@ const LEVELS: LevelConfig[] = [
     padColor: 0xffe66d,
     terrainLevel: 3,
     obstacleLevel: 2,
+    launchX: 340,
+    launchYOffset: 86,
+    landingX: 2180,
+    landingYOffset: 142,
     theme: { backTint: 0xc7fff0, midTint: 0x6dfff0, frontTint: 0xffe6a0, midAlpha: 1, frontAlpha: 0.9 }
   },
   {
@@ -83,6 +102,10 @@ const LEVELS: LevelConfig[] = [
     padColor: 0xff6d8f,
     terrainLevel: 4,
     obstacleLevel: 3,
+    launchX: 300,
+    launchYOffset: 44,
+    landingX: 2260,
+    landingYOffset: 118,
     theme: { backTint: 0xffd6f2, midTint: 0xff5fa8, frontTint: 0xfff7b8, midAlpha: 1, frontAlpha: 1 }
   }
 ];
@@ -224,7 +247,8 @@ export class LaunchScene extends Phaser.Scene {
     this.score = 0;
 
     const surfaceY = this.launchPad?.surfaceY ?? BACKGROUND_FLOOR_Y;
-    this.rocket = new Rocket(this, LAUNCH_PAD_X, surfaceY, rocketProfiles[1]);
+    const launchX = this.launchPad?.x ?? this.getCurrentLevel().launchX;
+    this.rocket = new Rocket(this, launchX, surfaceY, rocketProfiles[1]);
     this.rocket.sprite.y = surfaceY - this.rocket.getVisualHalfHeight();
     this.showLevelBanner();
     this.lockCameraToRocket();
@@ -243,8 +267,8 @@ export class LaunchScene extends Phaser.Scene {
     this.landingPad?.destroy();
     this.terrainGraphics?.destroy();
     const level = this.getCurrentLevel();
-    this.launchPad = this.createPad(LAUNCH_PAD_X, BACKGROUND_FLOOR_Y - 26, 220, 0xffb54a);
-    this.landingPad = this.createPad(LANDING_PAD_X, BACKGROUND_FLOOR_Y - 26, LANDING_PAD_WIDTH, level.padColor);
+    this.launchPad = this.createPad(level.launchX, BACKGROUND_FLOOR_Y - level.launchYOffset, LAUNCH_PAD_WIDTH, 0xffb54a);
+    this.landingPad = this.createPad(level.landingX, BACKGROUND_FLOOR_Y - level.landingYOffset, LANDING_PAD_WIDTH, level.padColor);
     this.terrainGraphics = this.createTerrain(level.terrainLevel, level.padColor);
   }
 
