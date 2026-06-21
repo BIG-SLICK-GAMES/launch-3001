@@ -27,7 +27,7 @@ export type BackgroundTheme = {
 const VIEW_WIDTH = sceneLayout.view.width;
 const VIEW_HEIGHT = sceneLayout.view.height;
 const FLOOR_HEIGHT = 72;
-export const BACKGROUND_WORLD_WIDTH = 2400;
+export const BACKGROUND_WORLD_WIDTH = 3600;
 export const BACKGROUND_WORLD_HEIGHT = VIEW_HEIGHT;
 export const BACKGROUND_FLOOR_Y = VIEW_HEIGHT - FLOOR_HEIGHT;
 
