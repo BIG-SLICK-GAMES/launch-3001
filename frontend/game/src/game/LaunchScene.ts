@@ -53,7 +53,7 @@ const LEVEL_FUEL_SECONDS = 14;
 const LAUNCH_PAD_WIDTH = 220;
 const LANDING_PAD_WIDTH = 250;
 const LEVEL_COUNT = 100;
-const TERRAIN_LEVEL_STEP = 3;
+const TERRAIN_LEVEL_STEP = 7;
 const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
   {
     name: 'Training Orbit',
@@ -736,7 +736,7 @@ function createLevelConfig(index: number): LevelConfig {
   const routeBand = Math.floor(index / LEVEL_THEMES.length);
   const routeVariant = index % LEVEL_THEMES.length;
   const terrainLevel = Math.min(10, Math.floor(index / TERRAIN_LEVEL_STEP) + 1);
-  const obstacleLevel = terrainLevel <= 2 ? 0 : Math.min(10, terrainLevel - 2);
+  const obstacleLevel = terrainLevel <= 3 ? 0 : Math.min(10, terrainLevel - 3);
 
   return {
     ...theme,
