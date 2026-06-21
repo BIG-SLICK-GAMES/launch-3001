@@ -57,6 +57,9 @@ const TERRAIN_LEVEL_STEP = 7;
 const CAMERA_BASE_ZOOM = 1.18;
 const CAMERA_MIN_ZOOM = 0.82;
 const CAMERA_SPEED_FOR_FULL_ZOOM_OUT = 240;
+const CAMERA_ZOOM_EASE = 0.022;
+const CAMERA_SCROLL_EASE = 0.035;
+const CAMERA_LOOK_AHEAD_MULTIPLIER = 0.32;
 const LEVEL_THEMES: Array<Pick<LevelConfig, 'name' | 'theme' | 'padColor'>> = [
   {
     name: 'Training Orbit',
@@ -681,12 +684,12 @@ export class LaunchScene extends Phaser.Scene {
     const speedZoomOut = Phaser.Math.Clamp(speed / CAMERA_SPEED_FOR_FULL_ZOOM_OUT, 0, 1);
     const altitudeZoomOut = Phaser.Math.Clamp(altitude / 420, 0, 1);
     const targetZoom = Phaser.Math.Linear(CAMERA_BASE_ZOOM, CAMERA_MIN_ZOOM, Math.max(speedZoomOut, altitudeZoomOut));
-    const nextZoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, 0.045);
+    const nextZoom = Phaser.Math.Linear(this.cameras.main.zoom, targetZoom, CAMERA_ZOOM_EASE);
     this.cameras.main.setZoom(nextZoom);
 
     const visibleWidth = this.scale.width / nextZoom;
     const visibleHeight = this.scale.height / nextZoom;
-    const lookAhead = Phaser.Math.Clamp(this.rocket.velocity.x * 0.55, -140, 260);
+    const lookAhead = Phaser.Math.Clamp(this.rocket.velocity.x * CAMERA_LOOK_AHEAD_MULTIPLIER, -90, 170);
     const targetScrollX = Phaser.Math.Clamp(
       this.rocket.sprite.x + lookAhead - visibleWidth * 0.35,
       0,
@@ -699,8 +702,8 @@ export class LaunchScene extends Phaser.Scene {
     );
 
     this.cameras.main.setScroll(
-      Phaser.Math.Linear(this.cameras.main.scrollX, targetScrollX, 0.08),
-      Phaser.Math.Linear(this.cameras.main.scrollY, targetScrollY, 0.08)
+      Phaser.Math.Linear(this.cameras.main.scrollX, targetScrollX, CAMERA_SCROLL_EASE),
+      Phaser.Math.Linear(this.cameras.main.scrollY, targetScrollY, CAMERA_SCROLL_EASE)
     );
   }
 
