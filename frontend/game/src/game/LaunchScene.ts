@@ -286,7 +286,7 @@ export class LaunchScene extends Phaser.Scene {
   }
 
   private applyCurrentLevelTheme(): void {
-    this.hangarBackgroundLayer?.applyTheme(this.getCurrentTheme().theme);
+    this.hangarBackgroundLayer?.applyScene(this.currentLevelIndex, this.getCurrentTheme().theme);
   }
 
   private getCurrentTheme(): LevelTheme {

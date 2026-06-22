@@ -1,0 +1,3 @@
+Generated high-resolution parallax space layers for Launch3001.
+Created in-project at 3600x720 to avoid scaling pixelation.
+License: project-owned/free to use with this game.
