@@ -188,7 +188,30 @@ export class UIController {
   }
 
   #pause() {
-    this.overlay.innerHTML = `<section class="panel menu-panel"><h2>Paused</h2><button data-action="resume">Resume</button><button data-action="restart">Restart Marker</button><button data-action="reset-run">Reset Run</button><button data-action="level-select">Load Checkpoint</button><button data-action="leaderboard">Leaderboard</button><button data-action="settings">Settings</button><button data-action="menu">Exit to Menu</button></section>`;
+    const s = this.game.settings;
+    const cameraOptions = CAMERA_MODE_SEQUENCE.map((mode) => `<option value="${mode}" ${s.cameraMode === mode ? 'selected' : ''}>${mode}</option>`).join('');
+    this.overlay.innerHTML = `<section class="panel control-panel">
+      <h2>Menu</h2>
+      <div class="control-actions">
+        <button data-action="resume">Resume</button>
+        <button data-action="restart">Restart</button>
+        <button data-action="level-select">Load Checkpoint</button>
+        <button data-action="leaderboard">Leaderboard</button>
+        <button data-action="reset-run">Reset Run</button>
+        <button data-action="menu">Exit</button>
+      </div>
+      <div class="control-settings">
+        <label>Camera <select data-setting="cameraMode">${cameraOptions}</select></label>
+        <label>Volume <input data-setting="volume" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
+        <label><input data-setting="noFuelDrain" type="checkbox" ${s.noFuelDrain ? 'checked' : ''}> No fuel drain</label>
+        <label><input data-setting="muted" type="checkbox" ${s.muted ? 'checked' : ''}> Mute</label>
+      </div>
+      <div class="control-actions">
+        <button data-action="audio">Audio</button>
+        <button data-action="tilt">Enable Tilt</button>
+        <button data-action="calibrate">Calibrate</button>
+      </div>
+    </section>`;
   }
 
   #leaderboard() {
