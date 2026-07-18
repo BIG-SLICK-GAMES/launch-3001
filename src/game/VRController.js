@@ -38,7 +38,7 @@ export class VRController {
       this.enabled = true;
       this.sessionStarted = true;
       this.status = 'VR ACTIVE';
-      this.panel.group.visible = true;
+      this.panel.group.visible = false;
       this.#calibrateRightStick();
     });
     this.renderer.xr.addEventListener('sessionend', () => {
@@ -108,6 +108,7 @@ export class VRController {
       this.settingsOpen = !this.settingsOpen;
       this.thrust = false;
       this.status = this.settingsOpen ? 'VR SETTINGS' : 'VR ACTIVE';
+      this.panel.group.visible = this.settingsOpen;
     }
     this.menuButtonDown = pressed;
   }
@@ -213,15 +214,19 @@ export class VRController {
       this.status = 'RIGHT STICK RECENTERED';
     } else if (item.key === 'resetRun') {
       this.settingsOpen = false;
+      this.panel.group.visible = false;
       game.resetRun();
     } else if (item.key === 'audio') {
       game.enableAudio();
       this.status = 'AUDIO ONLINE';
     } else if (item.key === 'levelSelect') {
+      this.settingsOpen = false;
+      this.panel.group.visible = false;
       game.pause();
       game.state.transition('LEVEL_SELECT');
     } else if (item.key === 'close') {
       this.settingsOpen = false;
+      this.panel.group.visible = false;
       this.status = 'VR ACTIVE';
     } else {
       this.#adjustSetting(game, 1);
@@ -273,48 +278,16 @@ export class VRController {
   }
 
   #updatePanel(game) {
+    this.panel.group.visible = this.enabled && this.settingsOpen;
+    if (!this.panel.group.visible) return;
     const { context, canvas, texture, group } = this.panel;
-    const altitude = game.rocket.position.y - game.world.getTerrainHeight(game.rocket.position.x, game.rocket.position.z) - game.rocket.radius;
-    const marker = (game.currentLevel.checkpoints ?? []).find((entry) => !game.passedMarkers.has(entry.id));
-    const markerDistance = marker ? Math.max(0, marker.distance - game.rocket.distance) : 0;
-    const markerTime = Math.max(0, game.rocket.flightTime - game.lastCheckpointTime);
-    const bestDistance = game.score.progress.leaderboard?.bestDistance ?? 0;
-    const bestDistanceTime = game.score.progress.leaderboard?.bestDistanceTime ?? 0;
-    const fuelWidth = Math.max(0, Math.min(1, game.rocket.fuel / 100)) * 356;
     context.clearRect(0, 0, canvas.width, canvas.height);
     context.fillStyle = 'rgba(3, 9, 16, 0.82)';
     context.fillRect(0, 0, canvas.width, canvas.height);
     context.strokeStyle = '#27d8ff';
     context.lineWidth = 4;
     context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
-    if (this.settingsOpen) {
-      this.#drawSettingsPanel(context, game);
-    } else {
-      context.fillStyle = '#f2fbff';
-      context.font = '700 30px system-ui';
-      context.fillText('LAUNCH3001 | ENDLESS VR', 26, 42);
-      context.font = '700 14px system-ui';
-      context.fillStyle = '#7fa6ba';
-      context.fillText('BUILD: HUD+TUNNELS+LEADERBOARD', 330, 42);
-      context.strokeStyle = 'rgba(125, 238, 255, 0.55)';
-      context.lineWidth = 2;
-      context.strokeRect(26, 62, 356, 18);
-      context.fillStyle = '#08121e';
-      context.fillRect(27, 63, 354, 16);
-      context.fillStyle = game.rocket.fuel < 18 ? '#ff5f4a' : '#21ffd4';
-      context.fillRect(27, 63, fuelWidth, 16);
-      context.fillStyle = '#f4fbff';
-      context.font = '700 18px system-ui';
-      context.fillText(`FUEL ${game.rocket.fuel.toFixed(0)}%`, 394, 78);
-      context.font = '600 21px system-ui';
-      context.fillStyle = '#d7f7ff';
-      context.fillText(`ALT ${altitude.toFixed(1)}   DIST ${game.rocket.distance.toFixed(0)}m   MARKER ${markerDistance.toFixed(0)}m`, 26, 116);
-      context.fillText(`TIME ${markerTime.toFixed(1)}s   SCORE ${game.score.progress.totalScore}   BEST ${bestDistance.toFixed(0)}m/${bestDistanceTime.toFixed(1)}s`, 26, 150);
-      context.fillStyle = game.rocket.thrusting ? '#ff9a2e' : '#8fb3c6';
-      context.fillText(`THRUST ${game.rocket.thrusting ? 'ON' : 'OFF'}   ${game.settings.vrCameraMode ?? VR_CAMERA_MODES.cockpit}`, 26, 184);
-      context.fillStyle = '#7fffd0';
-      context.fillText('Trigger: boost   Tilt/Stick: steer   Pad button: settings', 26, 222);
-    }
+    this.#drawSettingsPanel(context, game);
     texture.needsUpdate = true;
 
     this.camera.getWorldPosition(this.cameraWorldPosition);
