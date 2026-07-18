@@ -29,17 +29,21 @@ export class VRController {
     this.cameraWorldQuaternion = new THREE.Quaternion();
     this.panelOffset = new THREE.Vector3(0, -0.22, -1.85);
     this.hudOffset = new THREE.Vector3(0, -0.72, -1.74);
+    this.topStatsOffset = new THREE.Vector3(0, 0.62, -1.7);
     this.cockpitOffset = new THREE.Vector3(0, 0.82, 1.05);
     this.rigRotation = 0;
     this.controllers = [0, 1].map((index) => this.#setupController(index));
     this.panel = this.#createPanel();
+    this.topStatsPanel = this.#createSurface(768, 88, 1.95, 0.22);
     scene.add(this.panel.group);
+    scene.add(this.topStatsPanel.group);
 
     this.renderer.xr.addEventListener('sessionstart', () => {
       this.enabled = true;
       this.sessionStarted = true;
       this.status = 'VR ACTIVE';
       this.panel.group.visible = true;
+      this.topStatsPanel.group.visible = true;
       this.#calibrateRightStick();
     });
     this.renderer.xr.addEventListener('sessionend', () => {
@@ -49,6 +53,7 @@ export class VRController {
       this.steering.z = 0;
       this.status = 'VR READY';
       this.panel.group.visible = false;
+      this.topStatsPanel.group.visible = false;
       this.rig.position.set(0, 0, 0);
       this.rig.rotation.set(0, 0, 0);
     });
@@ -240,14 +245,18 @@ export class VRController {
   }
 
   #createPanel() {
+    return this.#createSurface(768, 384, 2.05, 1.02);
+  }
+
+  #createSurface(width, height, planeWidth, planeHeight) {
     const canvas = document.createElement('canvas');
-    canvas.width = 768;
-    canvas.height = 384;
+    canvas.width = width;
+    canvas.height = height;
     const context = canvas.getContext('2d');
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: false });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 1.02), material);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(planeWidth, planeHeight), material);
     const group = new THREE.Group();
     group.visible = false;
     group.add(mesh);
@@ -280,6 +289,7 @@ export class VRController {
 
   #updatePanel(game) {
     this.panel.group.visible = this.enabled;
+    this.topStatsPanel.group.visible = this.enabled && !this.settingsOpen;
     if (!this.panel.group.visible) return;
     const { context, canvas, texture, group } = this.panel;
     context.clearRect(0, 0, canvas.width, canvas.height);
@@ -295,9 +305,22 @@ export class VRController {
     }
     texture.needsUpdate = true;
 
+    this.#positionSurface(group, this.settingsOpen ? this.panelOffset : this.hudOffset);
+    this.#updateTopStatsPanel(game);
+  }
+
+  #updateTopStatsPanel(game) {
+    if (!this.topStatsPanel.group.visible) return;
+    const { context, canvas, texture, group } = this.topStatsPanel;
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    this.#drawTopStats(context, game);
+    texture.needsUpdate = true;
+    this.#positionSurface(group, this.topStatsOffset);
+  }
+
+  #positionSurface(group, offset) {
     this.camera.getWorldPosition(this.cameraWorldPosition);
     this.camera.getWorldQuaternion(this.cameraWorldQuaternion);
-    const offset = this.settingsOpen ? this.panelOffset : this.hudOffset;
     group.position.copy(offset).applyQuaternion(this.cameraWorldQuaternion).add(this.cameraWorldPosition);
     group.quaternion.copy(this.cameraWorldQuaternion);
   }
@@ -308,26 +331,10 @@ export class VRController {
     const marker = (game.currentLevel.checkpoints ?? []).find((entry) => !game.passedMarkers.has(entry.id));
     const markerDistance = marker ? Math.max(0, marker.distance - game.rocket.distance) : 0;
     const markerTime = Math.max(0, game.rocket.flightTime - game.lastCheckpointTime);
-    const bestDistance = game.score.progress.leaderboard?.bestDistance ?? 0;
-    const bestDistanceTime = game.score.progress.leaderboard?.bestDistanceTime ?? 0;
     const altitudePercent = Math.max(0, Math.min(1, altitude / 24));
     const needleAngle = (-135 + altitudePercent * 270) * Math.PI / 180;
 
     context.textBaseline = 'alphabetic';
-
-    this.#roundRect(context, 78, 14, 612, 38, 8);
-    context.fillStyle = 'rgba(3, 10, 18, 0.62)';
-    context.fill();
-    context.strokeStyle = 'rgba(49, 213, 255, 0.22)';
-    context.lineWidth = 2;
-    context.stroke();
-    context.font = '800 13px system-ui';
-    context.fillStyle = '#7fa6ba';
-    context.fillText(`SCORE ${game.score.progress.totalScore}`, 105, 38);
-    context.fillText(`BEST ${game.score.progress.bestTotalScore}`, 212, 38);
-    context.fillText(`BEST DIST ${bestDistance.toFixed(0)}m/${bestDistanceTime.toFixed(1)}s`, 322, 38);
-    context.fillText(`DIST ${game.rocket.distance.toFixed(0)}m`, 500, 38);
-    context.fillText(`MARKER ${markerDistance.toFixed(0)}m`, 610, 38);
 
     this.#roundRect(context, 142, 222, 484, 142, 8);
     context.fillStyle = 'rgba(3, 10, 18, 0.58)';
@@ -375,6 +382,29 @@ export class VRController {
     context.fillText(`H/S ${Math.hypot(game.rocket.velocity.x, game.rocket.velocity.z).toFixed(1)}`, 244, 342);
     context.fillText(`ANGLE ${(game.rocket.getTiltAngle() * 57.3).toFixed(0)}deg`, 335, 342);
     context.fillText(`TIME ${markerTime.toFixed(1)}s`, 448, 342);
+  }
+
+  #drawTopStats(context, game) {
+    const marker = (game.currentLevel.checkpoints ?? []).find((entry) => !game.passedMarkers.has(entry.id));
+    const markerDistance = marker ? Math.max(0, marker.distance - game.rocket.distance) : 0;
+    const markerTime = Math.max(0, game.rocket.flightTime - game.lastCheckpointTime);
+    const bestDistance = game.score.progress.leaderboard?.bestDistance ?? 0;
+    const bestDistanceTime = game.score.progress.leaderboard?.bestDistanceTime ?? 0;
+
+    this.#roundRect(context, 20, 14, 728, 52, 8);
+    context.fillStyle = 'rgba(3, 10, 18, 0.62)';
+    context.fill();
+    context.strokeStyle = 'rgba(49, 213, 255, 0.22)';
+    context.lineWidth = 2;
+    context.stroke();
+    context.font = '800 15px system-ui';
+    context.fillStyle = '#7fa6ba';
+    context.fillText(`SCORE ${game.score.progress.totalScore}`, 44, 47);
+    context.fillText(`BEST ${game.score.progress.bestTotalScore}`, 150, 47);
+    context.fillText(`BEST DIST ${bestDistance.toFixed(0)}m/${bestDistanceTime.toFixed(1)}s`, 258, 47);
+    context.fillText(`DIST ${game.rocket.distance.toFixed(0)}m`, 456, 47);
+    context.fillText(`MARKER ${markerDistance.toFixed(0)}m`, 574, 47);
+    context.fillText(`TIME ${markerTime.toFixed(1)}s`, 682, 47);
   }
 
   #drawHudButton(context, x, y, width, height, label) {
