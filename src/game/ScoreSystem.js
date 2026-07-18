@@ -52,7 +52,7 @@ export class ScoreSystem {
   }
 
   updateLeaderboard(distance, time) {
-    const board = this.progress.leaderboard ?? { bestDistance: 0, bestDistanceTime: 0 };
+    const board = this.progress.leaderboard ?? { bestDistance: 0, bestDistanceTime: 0, runs: [] };
     const roundedDistance = Math.floor(distance);
     const roundedTime = Number(time.toFixed(1));
     const farther = roundedDistance > (board.bestDistance ?? 0);
@@ -64,6 +64,38 @@ export class ScoreSystem {
       bestDistanceTime: roundedTime
     };
     this.saveSystem.saveProgress(this.progress);
+  }
+
+  recordRun(distance, time) {
+    const board = this.progress.leaderboard ?? { bestDistance: 0, bestDistanceTime: 0, runs: [] };
+    const run = {
+      id: Date.now(),
+      distance: Math.max(0, Math.floor(distance)),
+      time: Number(Math.max(0, time).toFixed(1)),
+      score: this.progress.totalScore
+    };
+    const rankedRuns = [...(board.runs ?? []), run]
+      .sort((a, b) => b.distance - a.distance || a.time - b.time);
+    const placement = rankedRuns.findIndex((entry) => entry.id === run.id) + 1;
+    const runs = rankedRuns.slice(0, 25);
+    const newBestDistance = Math.max(board.bestDistance ?? 0, run.distance);
+    const newBestDistanceTime = run.distance > (board.bestDistance ?? 0)
+      ? run.time
+      : run.distance === (board.bestDistance ?? 0) && (!board.bestDistanceTime || run.time < board.bestDistanceTime)
+        ? run.time
+        : board.bestDistanceTime;
+    this.progress.leaderboard = {
+      ...board,
+      runs,
+      bestDistance: newBestDistance,
+      bestDistanceTime: newBestDistanceTime
+    };
+    this.saveSystem.saveProgress(this.progress);
+    return {
+      ...run,
+      placement,
+      trophy: placement === 1 ? 'gold' : placement === 2 ? 'silver' : placement === 3 ? 'bronze' : null
+    };
   }
 
   scoreCheckpoint(marker, elapsed, distance) {

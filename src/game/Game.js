@@ -45,6 +45,7 @@ export class Game {
     this.currentLevel = this.levels.current;
     this.currentStartId = 1;
     this.activeLanding = false;
+    this.runRecorded = false;
     this.lastCheckpointTime = 0;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
@@ -68,6 +69,7 @@ export class Game {
   loadLevel(id) {
     this.state.clearTimers();
     this.activeLanding = false;
+    this.runRecorded = false;
     this.currentStartId = id;
     this.currentLevel = this.levels.load(id);
     this.world.load(this.currentLevel);
@@ -278,7 +280,14 @@ export class Game {
     this.effects.burst(this.rocket.position, 0xff3b1f, 24);
     this.cameraController.addShake(0.45);
     if (navigator.vibrate) navigator.vibrate(80);
-    this.state.transition(STATES.CRASHED, { reason });
+    const placement = this.#recordRun();
+    this.state.transition(STATES.CRASHED, { reason, placement });
+  }
+
+  #recordRun() {
+    if (this.runRecorded || this.rocket.distance <= 0) return null;
+    this.runRecorded = true;
+    return this.score.recordRun(this.rocket.distance, this.rocket.flightTime);
   }
 
   #land(grade, marker = this.currentLevel.landingPad) {

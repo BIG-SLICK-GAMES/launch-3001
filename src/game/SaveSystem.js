@@ -20,7 +20,8 @@ export class SaveSystem {
       perfectLandings: 0,
       leaderboard: {
         bestDistance: 0,
-        bestDistanceTime: 0
+        bestDistanceTime: 0,
+        runs: []
       },
       ...this.#read(STORAGE_KEYS.progress, {})
     };

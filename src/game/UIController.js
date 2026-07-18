@@ -52,7 +52,7 @@ export class UIController {
     if (state === STATES.LEVEL_SELECT) this.#levelSelect();
     if (state === STATES.PAUSED) this.#pause();
     if (state === STATES.READY) this.overlay.innerHTML = '';
-    if (state === STATES.CRASHED) this.#message(payload.reason ?? 'CRASH', 'Tap Restart or press R.');
+    if (state === STATES.CRASHED) this.#message(payload.reason ?? 'CRASH', this.#placementText(payload.placement));
     if (state === STATES.LANDED) this.#message(payload.grade ?? 'SAVED', `+${payload.points ?? 0} points`);
     if (state === STATES.LEVEL_COMPLETE) this.#message('MARKER SAVED', 'Keep going.');
     if (state === STATES.GAME_COMPLETE) this.#message('ENDLESS RUN', 'Route continues.');
@@ -134,6 +134,7 @@ export class UIController {
         <p>Endless rocket run. Reach save markers, collect Drop fuel, and bank time bonuses.</p>
         <button data-action="play">Play</button>
         <button data-action="level-select">Load Checkpoint</button>
+        <button data-action="leaderboard">Leaderboard</button>
         <button data-action="reset-run">Reset Run</button>
         <button data-action="settings">Settings</button>
       </section>`;
@@ -174,7 +175,24 @@ export class UIController {
   }
 
   #pause() {
-    this.overlay.innerHTML = `<section class="panel menu-panel"><h2>Paused</h2><button data-action="resume">Resume</button><button data-action="restart">Restart Marker</button><button data-action="reset-run">Reset Run</button><button data-action="level-select">Load Checkpoint</button><button data-action="settings">Settings</button><button data-action="menu">Exit to Menu</button></section>`;
+    this.overlay.innerHTML = `<section class="panel menu-panel"><h2>Paused</h2><button data-action="resume">Resume</button><button data-action="restart">Restart Marker</button><button data-action="reset-run">Reset Run</button><button data-action="level-select">Load Checkpoint</button><button data-action="leaderboard">Leaderboard</button><button data-action="settings">Settings</button><button data-action="menu">Exit to Menu</button></section>`;
+  }
+
+  #leaderboard() {
+    const board = this.game.score.progress.leaderboard ?? {};
+    const rows = (board.runs ?? []).slice(0, 10).map((run, index) => `
+      <div class="leader-row">
+        <span>${this.#trophyFor(index + 1)} #${index + 1}</span>
+        <b>${formatNumber(run.distance, 0)}m</b>
+        <span>${formatNumber(run.time, 1)}s</span>
+      </div>
+    `).join('');
+    this.overlay.innerHTML = `<section class="panel level-panel">
+      <h2>Leaderboard</h2>
+      <div class="leader-summary">Best distance <b>${formatNumber(board.bestDistance ?? 0, 0)}m</b> in <b>${formatNumber(board.bestDistanceTime ?? 0, 1)}s</b></div>
+      <div class="leader-list">${rows || '<div class="leader-empty">No runs yet</div>'}</div>
+      <button data-action="back">Back</button>
+    </section>`;
   }
 
   #settings() {
@@ -208,6 +226,18 @@ export class UIController {
     this.overlay.innerHTML = `<section class="toast"><strong>${title}</strong><span>${body}</span></section>`;
   }
 
+  #placementText(placement) {
+    if (!placement) return 'Tap Restart or press R.';
+    return `${this.#trophyFor(placement.placement)} Placed #${placement.placement} | ${formatNumber(placement.distance, 0)}m in ${formatNumber(placement.time, 1)}s`;
+  }
+
+  #trophyFor(place) {
+    if (place === 1) return '🏆';
+    if (place === 2) return '🥈';
+    if (place === 3) return '🥉';
+    return '•';
+  }
+
   async #handleAction(action, target) {
     await this.game.audio.unlock();
     this.game.audio.playClick();
@@ -216,6 +246,7 @@ export class UIController {
     if (action === 'menu') this.game.goMenu();
     if (action === 'resume') this.game.resume();
     if (action === 'pause') this.game.pause();
+    if (action === 'leaderboard') this.#leaderboard();
     if (action === 'hud-side') this.#toggleHudSide();
     if (action === 'audio') this.game.enableAudio();
     if (action === 'restart') this.game.restartLevel();

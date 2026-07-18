@@ -498,6 +498,43 @@ button:disabled {
   font-size: 12px;
 }
 
+.leader-summary {
+  margin: 8px 0 12px;
+  color: #a7c0ce;
+}
+
+.leader-summary b {
+  color: #f4fbff;
+}
+
+.leader-list {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 14px;
+}
+
+.leader-row {
+  min-height: 42px;
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 10px;
+  align-items: center;
+  padding: 8px 10px;
+  border: 1px solid rgba(82, 220, 255, 0.2);
+  border-radius: 8px;
+  background: rgba(8, 18, 30, 0.72);
+  color: #9fc3d0;
+}
+
+.leader-row b {
+  color: #f4fbff;
+}
+
+.leader-empty {
+  color: #8fb3c6;
+  padding: 12px 0;
+}
+
 .toast {
   width: auto;
   min-width: min(78vw, 320px);
