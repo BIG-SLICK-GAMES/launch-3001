@@ -31,6 +31,8 @@ export class Game {
     this.world = new World(this.scene);
     this.rocket = new Rocket();
     this.scene.add(this.rocket.group);
+    this.padShadow = this.#createPadShadow();
+    this.scene.add(this.padShadow);
     this.input = new InputController(this.renderer.renderer.domElement, this.settings);
     this.physics = new PhysicsController();
     this.cameraController = new CameraController(this.camera, this.settings);
@@ -245,6 +247,7 @@ export class Game {
     }
     this.effects.update(dt, this.rocket);
     const altitude = this.rocket.position.y - this.world.getTerrainHeight(this.rocket.position.x, this.rocket.position.z) - this.rocket.radius;
+    this.#updatePadShadow();
     this.#voiceStatus(altitude);
       this.ui.update({
       level: this.currentLevel,
@@ -374,12 +377,45 @@ export class Game {
     ));
   }
 
+  #createPadShadow() {
+    const shadow = new THREE.Mesh(
+      new THREE.CircleGeometry(0.9, 32),
+      new THREE.MeshBasicMaterial({ color: 0x000000, transparent: true, opacity: 0, depthWrite: false })
+    );
+    shadow.name = 'Rocket pad shadow';
+    shadow.rotation.x = -Math.PI / 2;
+    shadow.visible = false;
+    return shadow;
+  }
+
+  #updatePadShadow() {
+    const pad = (this.currentLevel.checkpoints ?? []).find((entry) => (
+      Math.abs(this.rocket.position.x - entry.position.x) <= entry.size.x / 2 &&
+      Math.abs(this.rocket.position.z - entry.position.z) <= entry.size.z / 2
+    ));
+    if (!pad) {
+      this.padShadow.visible = false;
+      return;
+    }
+    const padTop = pad.position.y + 0.14;
+    const height = Math.max(0.1, this.rocket.position.y - padTop - ROCKET_STANDING_HEIGHT);
+    const strength = Math.max(0, Math.min(0.42, 0.42 - height * 0.055));
+    this.padShadow.visible = strength > 0.03;
+    this.padShadow.material.opacity = strength;
+    this.padShadow.position.set(this.rocket.position.x, padTop + 0.025, this.rocket.position.z);
+    const scale = Math.max(0.65, Math.min(2.2, 0.75 + height * 0.16));
+    this.padShadow.scale.set(scale, scale, 1);
+  }
+
   #nextMarker() {
     return (this.currentLevel.checkpoints ?? []).find((marker) => !this.passedMarkers.has(marker.id));
   }
 
   #voiceStatus(altitude) {
     if (!this.state.is(STATES.FLYING)) return;
+    if (altitude < 1.35 && this.rocket.velocity.y < -0.28) {
+      this.audio.speak('Emergency, pull up!', 'emergencyAltitude', 2600);
+    }
     if (altitude < 2.4 && this.rocket.velocity.y < -0.45) {
       this.audio.speak('Watch your altitude captain!', 'altitude', 5000);
     }

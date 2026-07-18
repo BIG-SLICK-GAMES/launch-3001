@@ -52,7 +52,7 @@ export class LevelManager {
         id: i,
         distance,
         position: { x, y: 0.12, z },
-        size: { x: Math.max(3.8, 7 - difficulty * 2.3), y: 0.2, z: Math.max(3.8, 7 - difficulty * 2.3) }
+        size: { x: 6.6, y: 0.2, z: 6.6 }
       });
 
       [
@@ -85,7 +85,7 @@ export class LevelManager {
         });
       });
 
-      const laneCount = 2 + Math.floor(difficulty * 4);
+      const laneCount = 3 + Math.floor(difficulty * 5);
       for (let j = 0; j < laneCount; j += 1) {
         const phase = i * 13.37 + j * 5.19;
         const ox = Math.sin(phase) * (7 + difficulty * 7);
@@ -98,7 +98,22 @@ export class LevelManager {
         });
       }
 
-      if (i > 2 && i % 3 === 0) {
+      if (i > 1) {
+        [-1, 1].forEach((side, index) => {
+          const h = 5.5 + difficulty * 9 + ((i + index) % 4);
+          obstacles.push({
+            type: 'mountain',
+            position: {
+              x: side * (11.5 + Math.sin(i * 0.71 + index) * 3.2),
+              y: h / 2 - 0.2,
+              z: z - 58 - index * 34
+            },
+            size: { x: 4.8 + difficulty * 3.4, y: h, z: 4.8 + difficulty * 3.4 }
+          });
+        });
+      }
+
+      if (i > 1 && i % 2 === 0) {
         const gateZ = z + 72;
         const gapY = 4.2 + difficulty * 4.8 + (i % 2) * 2.2;
         const gapHeight = Math.max(3.4, 5.6 - difficulty * 1.6);
@@ -124,7 +139,7 @@ export class LevelManager {
         });
       }
 
-      if (i > 4 && i % 5 === 0) {
+      if (i > 2 && i % 4 === 0) {
         roofs.push({
           type: 'roof',
           position: { x: Math.cos(i * 0.71) * 5, y: 7.4 - difficulty * 1.6, z: z + 24 },
@@ -132,7 +147,7 @@ export class LevelManager {
         });
       }
 
-      if (i > 5 && i % 4 === 0) {
+      if (i > 1 && i % 3 === 0) {
         const tunnelZ = z - 44;
         const tunnelX = Math.sin(i * 0.63) * 4.5;
         const tunnelY = 6.2 + difficulty * 6.8;
@@ -206,6 +221,6 @@ export class LevelManager {
   }
 
   #difficulty(distance) {
-    return Math.min(1, distance / 2200);
+    return Math.min(1, 0.16 + distance / 1450);
   }
 }

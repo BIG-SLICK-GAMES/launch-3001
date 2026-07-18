@@ -48,6 +48,7 @@ export class UIController {
 
   showState(state, payload = {}) {
     this.root.dataset.state = state;
+    delete this.root.dataset.settingsOpen;
     if (state === STATES.MENU) this.#menu();
     if (state === STATES.LEVEL_SELECT) this.#levelSelect();
     if (state === STATES.PAUSED) this.#pause();
@@ -66,13 +67,25 @@ export class UIController {
   #warnings({ rocket, altitude, level }) {
     const horizontal = Math.hypot(rocket.velocity.x, rocket.velocity.z);
     let text = '';
+    let emergency = '';
+    this.root.dataset.emergency = 'false';
     if (altitude < 2.2 && !rocket.landed) text = 'LOW ALTITUDE';
+    if (altitude < 1.8 && !rocket.landed) {
+      emergency = 'GROUND';
+    }
+    if (altitude < 1.15 && rocket.velocity.y < -0.25 && !rocket.landed) {
+      emergency = 'PULL UP';
+    }
     if (Math.abs(rocket.velocity.y) > level.landingThresholds.verticalSpeed * 0.85) text = 'TOO FAST';
     if (horizontal > level.landingThresholds.horizontalSpeed * 0.85) text = 'SIDE SPEED';
     if (rocket.getTiltAngle() > level.landingThresholds.angle * 0.85) text = 'BAD ANGLE';
     if (rocket.fuel < 18) text = 'LOW FUEL';
     if (rocket.fuel <= 0) text = 'OUT OF FUEL';
     if (level.windStrength > 0.7) text = 'HIGH WIND';
+    if (emergency) {
+      text = emergency;
+      this.root.dataset.emergency = 'true';
+    }
     this.warning.textContent = text;
   }
 
@@ -197,6 +210,7 @@ export class UIController {
 
   #settings() {
     const s = this.game.settings;
+    this.root.dataset.settingsOpen = 'true';
     const cameraOptions = CAMERA_MODE_SEQUENCE.map((mode) => `<option value="${mode}" ${s.cameraMode === mode ? 'selected' : ''}>${mode}</option>`).join('');
     const vrCameraOptions = VR_CAMERA_MODE_SEQUENCE.map((mode) => `<option value="${mode}" ${s.vrCameraMode === mode ? 'selected' : ''}>${mode}</option>`).join('');
     this.overlay.innerHTML = `<section class="panel settings-panel">
@@ -267,6 +281,7 @@ export class UIController {
   }
 
   #closeSettings() {
+    delete this.root.dataset.settingsOpen;
     if (this.game.state.is(STATES.PAUSED)) {
       this.game.resume();
       return;

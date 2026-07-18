@@ -467,6 +467,12 @@ button:disabled {
   gap: 10px;
 }
 
+.settings-panel {
+  width: min(92vw, 460px);
+  max-height: min(84vh, 680px);
+  overflow: auto;
+}
+
 .settings-panel label {
   display: grid;
   gap: 6px;
@@ -590,6 +596,16 @@ button:disabled {
   display: none;
 }
 
+[data-settings-open="true"] .overlay {
+  display: grid;
+  pointer-events: auto;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+[data-settings-open="true"] .settings-panel {
+  transform: translateY(-4vh);
+}
+
 [data-state="FLYING"] .hud {
   top: auto;
   bottom: max(8px, env(safe-area-inset-bottom));
@@ -670,6 +686,21 @@ button:disabled {
   min-height: 14px;
   font-size: 10px;
   line-height: 1;
+}
+
+[data-emergency="true"] .warning {
+  color: #fff7f4;
+  background: rgba(255, 45, 32, 0.86);
+  border-radius: 4px;
+  box-shadow: 0 0 18px rgba(255, 45, 32, 0.65);
+  animation: emergency-pulse 420ms steps(2, end) infinite;
+}
+
+@keyframes emergency-pulse {
+  50% {
+    color: #ff2d20;
+    background: rgba(255, 247, 244, 0.92);
+  }
 }
 
 @media (orientation: landscape) and (max-height: 520px) {

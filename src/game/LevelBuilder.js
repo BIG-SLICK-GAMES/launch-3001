@@ -110,13 +110,13 @@ export class LevelBuilder {
   }
 
   #box(spec) {
-    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'wall' ? 0xff2433 : 0xff7824;
+    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'wall' ? 0xff2433 : spec.type === 'mountain' ? 0x5c6470 : 0xff7824;
     const group = new THREE.Group();
     group.position.set(spec.position.x, spec.position.y, spec.position.z);
     group.name = spec.type;
     const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.46, transparent: true, opacity: 0.95, roughness: 0.38, metalness: 0.18 });
     const mesh = new THREE.Mesh(
-      spec.type === 'spire'
+      spec.type === 'spire' || spec.type === 'mountain'
         ? new THREE.ConeGeometry(Math.max(spec.size.x, spec.size.z) * 0.55, spec.size.y, 7)
         : new THREE.BoxGeometry(spec.size.x, spec.size.y, spec.size.z),
       material
@@ -128,7 +128,7 @@ export class LevelBuilder {
       new THREE.LineBasicMaterial({ color: 0xffa08d, transparent: true, opacity: 0.45 })
     );
     mesh.add(edge);
-    if (spec.type !== 'roof' && spec.type !== 'tunnel') {
+    if (spec.type !== 'roof' && spec.type !== 'tunnel' && spec.type !== 'mountain') {
       const cap = new THREE.Mesh(
         new THREE.TorusGeometry(Math.max(spec.size.x, spec.size.z) * 0.35, 0.055, 8, 22),
         new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.75 })
