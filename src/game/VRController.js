@@ -15,7 +15,8 @@ export class VRController {
     this.settingsOpen = false;
     this.selectedSetting = 0;
     this.menuConfirm = false;
-    this.menuButtonDown = false;
+    this.settingsButtonDown = false;
+    this.audioButtonDown = false;
     this.stickCooldown = 0;
     this.rig = new THREE.Group();
     this.rig.name = 'VR cockpit rig';
@@ -103,20 +104,27 @@ export class VRController {
     return controller;
   }
 
-  #updateMenuButton() {
-    let pressed = false;
+  #updateMenuButton(game) {
+    let settingsPressed = false;
+    let audioPressed = false;
     for (const source of this.renderer.xr.getSession()?.inputSources ?? []) {
       const buttons = source.gamepad?.buttons;
       if (!buttons) continue;
-      pressed ||= Boolean(buttons[3]?.pressed || buttons[4]?.pressed || buttons[5]?.pressed);
+      settingsPressed ||= Boolean(buttons[3]?.pressed || buttons[5]?.pressed);
+      audioPressed ||= Boolean(buttons[4]?.pressed);
     }
-    if (pressed && !this.menuButtonDown) {
+    if (settingsPressed && !this.settingsButtonDown) {
       this.settingsOpen = !this.settingsOpen;
       this.thrust = false;
       this.status = this.settingsOpen ? 'VR SETTINGS' : 'VR ACTIVE';
       this.panel.group.visible = true;
     }
-    this.menuButtonDown = pressed;
+    if (audioPressed && !this.audioButtonDown) {
+      game.enableAudio();
+      this.status = 'AUDIO ONLINE';
+    }
+    this.settingsButtonDown = settingsPressed;
+    this.audioButtonDown = audioPressed;
   }
 
   #updateGamepadSteering() {
