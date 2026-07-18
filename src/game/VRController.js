@@ -86,6 +86,10 @@ export class VRController {
     return true;
   }
 
+  calibrate() {
+    this.#calibrateRightStick();
+  }
+
   #setupController(index) {
     const controller = this.renderer.xr.getController(index);
     if (index === 1) this.rightController = controller;

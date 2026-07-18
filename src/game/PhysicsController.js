@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { ROCKET_STANDING_HEIGHT } from './constants.js';
 import { clamp } from './utils.js';
 
 export class PhysicsController {
@@ -22,8 +23,8 @@ export class PhysicsController {
     rocket.velocity.z = clamp(rocket.velocity.z, -level.maxSpeed.horizontal, level.maxSpeed.horizontal);
     rocket.velocity.y = clamp(rocket.velocity.y, -level.maxSpeed.verticalDown, level.maxSpeed.verticalUp);
     rocket.position.addScaledVector(rocket.velocity, dt);
-    const terrainHeight = this.#groundHeight(rocket, level);
-    const minY = terrainHeight + rocket.radius;
+    const ground = this.#groundHeight(rocket, level);
+    const minY = ground.height + (ground.pad ? ROCKET_STANDING_HEIGHT : rocket.radius);
     if (rocket.position.y < minY) {
       rocket.position.y = minY;
       if (rocket.velocity.y < 0) rocket.velocity.y = 0;
@@ -41,6 +42,6 @@ export class PhysicsController {
       Math.abs(rocket.position.z - level.launchPad.position.z) <= level.launchPad.size.z / 2;
     const onMarker = Math.abs(rocket.position.x - pad.position.x) <= pad.size.x / 2 &&
       Math.abs(rocket.position.z - pad.position.z) <= pad.size.z / 2;
-    return onLaunch || onMarker ? pad.position.y + 0.12 : -Infinity;
+    return onLaunch || onMarker ? { height: pad.position.y + 0.12, pad: true } : { height: -Infinity, pad: false };
   }
 }

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { FAILURE_REASONS, LANDING_GRADES } from './constants.js';
+import { FAILURE_REASONS, LANDING_GRADES, ROCKET_STANDING_HEIGHT } from './constants.js';
 
 export class CollisionSystem {
   constructor(world) {
@@ -25,8 +25,8 @@ export class CollisionSystem {
     for (const marker of level.checkpoints ?? [level.landingPad]) {
       const onPad = this.#insidePad(p, marker);
       const padTop = marker.position.y + 0.12;
-      if (onPad && p.y - rocket.radius <= padTop + 0.08 && rocket.velocity.y <= 0) {
-        p.y = padTop + rocket.radius;
+      if (onPad && p.y - ROCKET_STANDING_HEIGHT <= padTop + 0.08 && rocket.velocity.y <= 0) {
+        p.y = padTop + ROCKET_STANDING_HEIGHT;
         return this.#landingResult(rocket, level, marker);
       }
     }

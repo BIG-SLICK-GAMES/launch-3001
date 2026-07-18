@@ -71,5 +71,6 @@ export const DEFAULT_SETTINGS = {
 };
 
 export const ROCKET_RADIUS = 0.55;
+export const ROCKET_STANDING_HEIGHT = 1.58;
 export const FIXED_STEP = 1 / 60;
 export const MAX_FRAME_DELTA = 0.05;

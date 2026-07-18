@@ -14,7 +14,7 @@ import { EffectsSystem } from './EffectsSystem.js';
 import { VRController } from './VRController.js';
 import { UIController } from './UIController.js';
 import { GameState, STATES } from './GameState.js';
-import { FIXED_STEP, MAX_FRAME_DELTA, LANDING_GRADES } from './constants.js';
+import { FIXED_STEP, MAX_FRAME_DELTA, LANDING_GRADES, ROCKET_STANDING_HEIGHT } from './constants.js';
 
 export class Game {
   constructor(root) {
@@ -74,7 +74,8 @@ export class Game {
     this.currentLevel = this.levels.load(id);
     this.world.load(this.currentLevel);
     const launch = this.currentLevel.launchPad.position;
-    this.rocket.reset({ x: launch.x, y: launch.y + 1.05, z: launch.z });
+    this.rocket.reset({ x: launch.x, y: launch.y + 0.12 + ROCKET_STANDING_HEIGHT, z: launch.z });
+    this.rocket.landed = true;
     this.lastCheckpointTime = 0;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
@@ -195,7 +196,8 @@ export class Game {
       this.restartLevel();
       return;
     }
-    if (this.state.is(STATES.READY) && (thrust || Math.abs(steering.x) > 0.08 || Math.abs(steering.z) > 0.08)) {
+    if (this.state.is(STATES.READY) && thrust) {
+      this.#beginTakeoff();
       this.state.transition(STATES.FLYING);
       if (!this.voiceFlags.launch) {
         this.audio.speak('We are clear for launch!', 'launch', 8000);
@@ -263,6 +265,9 @@ export class Game {
   }
 
   #combinedSteering() {
+    if (this.rocket.landed || this.state.is(STATES.READY) || this.state.is(STATES.LANDED)) {
+      return { x: 0, z: 0 };
+    }
     const flat = this.input.getSteering();
     const vr = this.vr.getInput().steering;
     return {
@@ -299,7 +304,7 @@ export class Game {
     this.rocket.setFlame(false);
     this.audio.stopEngine();
     const pad = marker.position;
-    this.rocket.position.set(pad.x, pad.y + 1.05, pad.z);
+    this.rocket.position.set(pad.x, pad.y + 0.12 + ROCKET_STANDING_HEIGHT, pad.z);
     this.rocket.velocity.set(0, 0, 0);
     const elapsed = Math.max(0.1, this.rocket.flightTime - this.lastCheckpointTime);
     const points = this.score.scoreCheckpoint(marker, elapsed, marker.distance ?? this.rocket.distance);
@@ -314,10 +319,17 @@ export class Game {
     this.audio.speak('Touchdown.', 'touchdown', 2500);
     this.state.delay(() => {
       this.rocket.alive = true;
-      this.rocket.landed = false;
       this.activeLanding = false;
       this.state.transition(STATES.READY);
     }, 750);
+  }
+
+  #beginTakeoff() {
+    this.rocket.alive = true;
+    this.rocket.landed = false;
+    this.activeLanding = false;
+    this.input.calibrate();
+    this.vr.calibrate();
   }
 
   #collectDrops() {
@@ -357,7 +369,7 @@ export class Game {
     return pads.find((pad) => (
       Math.abs(this.rocket.position.x - pad.position.x) <= pad.size.x / 2 &&
       Math.abs(this.rocket.position.z - pad.position.z) <= pad.size.z / 2 &&
-      Math.abs((this.rocket.position.y - this.rocket.radius) - (pad.position.y + 0.12)) < 1.2
+      Math.abs((this.rocket.position.y - ROCKET_STANDING_HEIGHT) - (pad.position.y + 0.12)) < 1.2
     ));
   }
 
