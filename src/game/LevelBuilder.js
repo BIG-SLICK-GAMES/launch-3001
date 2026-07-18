@@ -15,7 +15,7 @@ export class LevelBuilder {
     }
     group.add(launchPad, checkpointGroup);
     const obstacleMeshes = [];
-    [...level.obstacles, ...level.roofs, ...level.walls].forEach((spec) => {
+    [...level.obstacles, ...level.roofs, ...level.walls, ...(level.tunnels ?? [])].forEach((spec) => {
       const mesh = this.#box(spec);
       obstacleMeshes.push(mesh);
       group.add(mesh);
@@ -33,7 +33,7 @@ export class LevelBuilder {
       obstacleMeshes,
       pickupMeshes: pickupGroup.children,
       checkpointMeshes: checkpointGroup.children,
-      boxes: [...level.obstacles, ...level.roofs, ...level.walls].map((spec) => ({ spec, box: makeBoxFromSpec(spec) }))
+      boxes: [...level.obstacles, ...level.roofs, ...level.walls, ...(level.tunnels ?? [])].map((spec) => ({ spec, box: makeBoxFromSpec(spec) }))
     };
   }
 
@@ -110,7 +110,7 @@ export class LevelBuilder {
   }
 
   #box(spec) {
-    const color = spec.type === 'roof' ? 0xff334f : spec.type === 'wall' ? 0xff2433 : 0xff7824;
+    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'wall' ? 0xff2433 : 0xff7824;
     const group = new THREE.Group();
     group.position.set(spec.position.x, spec.position.y, spec.position.z);
     group.name = spec.type;
@@ -128,7 +128,7 @@ export class LevelBuilder {
       new THREE.LineBasicMaterial({ color: 0xffa08d, transparent: true, opacity: 0.45 })
     );
     mesh.add(edge);
-    if (spec.type !== 'roof') {
+    if (spec.type !== 'roof' && spec.type !== 'tunnel') {
       const cap = new THREE.Mesh(
         new THREE.TorusGeometry(Math.max(spec.size.x, spec.size.z) * 0.35, 0.055, 8, 22),
         new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.75 })
@@ -146,6 +146,17 @@ export class LevelBuilder {
         slit.position.x = i * spec.size.x * 0.16;
         group.add(slit);
       }
+    }
+    if (spec.type === 'tunnel') {
+      const band = new THREE.Mesh(
+        new THREE.BoxGeometry(spec.size.x + 0.08, spec.size.y + 0.08, 0.08),
+        new THREE.MeshBasicMaterial({ color: 0x9ff7ff, transparent: true, opacity: 0.58 })
+      );
+      band.position.z = -spec.size.z / 2;
+      group.add(band);
+      const band2 = band.clone();
+      band2.position.z = spec.size.z / 2;
+      group.add(band2);
     }
     return group;
   }

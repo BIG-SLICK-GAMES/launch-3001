@@ -49,7 +49,7 @@ export class Game {
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
     this.voiceFlags = {};
-    this.mobilePromptShown = localStorage.getItem('launch3001.mobilePromptShown') === '1';
+    this.mobileTutorialDone = localStorage.getItem('launch3001.mobileTiltTutorialDone') === '1';
     this.state.onChange((next, previous, payload) => this.ui.showState(next, payload));
     this.#bindLifecycle();
   }
@@ -60,9 +60,7 @@ export class Game {
     this.renderer.resize(this.camera);
     this.running = true;
     this.renderer.setAnimationLoop((time, frame) => this.#frame(time, frame));
-    if (this.#isMobileLike() && !this.mobilePromptShown) {
-      this.mobilePromptShown = true;
-      localStorage.setItem('launch3001.mobilePromptShown', '1');
+    if (this.#isMobileLike() && !this.mobileTutorialDone) {
       this.ui.showMobileTiltPrompt();
     }
   }
@@ -161,6 +159,14 @@ export class Game {
 
   calibrateTiltFromPrompt() {
     this.input.calibrate();
+    this.mobileTutorialDone = true;
+    localStorage.setItem('launch3001.mobileTiltTutorialDone', '1');
+    this.state.transition(STATES.READY);
+  }
+
+  skipMobileTutorial() {
+    this.mobileTutorialDone = true;
+    localStorage.setItem('launch3001.mobileTiltTutorialDone', '1');
     this.state.transition(STATES.READY);
   }
 
@@ -373,10 +379,18 @@ export class Game {
   #bindLifecycle() {
     const resize = () => this.renderer.resize(this.camera);
     const unlockAudio = () => this.audio.unlock();
+    const suppressTouch = (event) => {
+      const tag = event.target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+      event.preventDefault();
+    };
     window.addEventListener('pointerdown', unlockAudio, { passive: true });
     window.addEventListener('keydown', unlockAudio);
     document.addEventListener('selectstart', (event) => event.preventDefault());
+    document.addEventListener('selectionchange', () => window.getSelection()?.removeAllRanges());
     document.addEventListener('contextmenu', (event) => event.preventDefault());
+    document.addEventListener('touchstart', suppressTouch, { passive: false });
+    document.addEventListener('touchmove', suppressTouch, { passive: false });
     window.addEventListener('resize', resize);
     screen.orientation?.addEventListener?.('change', resize);
     window.addEventListener('orientationchange', () => window.setTimeout(resize, 80));

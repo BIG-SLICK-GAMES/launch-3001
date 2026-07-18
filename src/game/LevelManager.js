@@ -40,6 +40,7 @@ export class LevelManager {
     const obstacles = [];
     const walls = [];
     const roofs = [];
+    const tunnels = [];
     const markerCount = Math.floor(ROUTE_LENGTH / MARKER_SPACING);
 
     for (let i = 1; i <= markerCount; i += 1) {
@@ -98,10 +99,28 @@ export class LevelManager {
       }
 
       if (i > 2 && i % 3 === 0) {
+        const gateZ = z + 72;
+        const gapY = 4.2 + difficulty * 4.8 + (i % 2) * 2.2;
+        const gapHeight = Math.max(3.4, 5.6 - difficulty * 1.6);
         walls.push({
           type: 'wall',
-          position: { x: Math.sin(i * 0.91) * 4, y: 3.1, z: z + 72 },
-          size: { x: 12 + difficulty * 8, y: 6.2, z: 0.9 }
+          position: { x: Math.sin(i * 0.91) * 4 - 10.5, y: gapY, z: gateZ },
+          size: { x: 4.8 + difficulty * 2.5, y: 9 + difficulty * 5, z: 0.9 }
+        });
+        walls.push({
+          type: 'wall',
+          position: { x: Math.sin(i * 0.91) * 4 + 10.5, y: gapY, z: gateZ },
+          size: { x: 4.8 + difficulty * 2.5, y: 9 + difficulty * 5, z: 0.9 }
+        });
+        roofs.push({
+          type: 'roof',
+          position: { x: Math.sin(i * 0.91) * 4, y: gapY + gapHeight * 0.5 + 4.2, z: gateZ },
+          size: { x: 17 + difficulty * 6, y: 0.9, z: 1.2 }
+        });
+        roofs.push({
+          type: 'roof',
+          position: { x: Math.sin(i * 0.91) * 4, y: Math.max(1, gapY - gapHeight * 0.5 - 2.4), z: gateZ },
+          size: { x: 14 + difficulty * 4, y: 0.55, z: 1.2 }
         });
       }
 
@@ -110,6 +129,48 @@ export class LevelManager {
           type: 'roof',
           position: { x: Math.cos(i * 0.71) * 5, y: 7.4 - difficulty * 1.6, z: z + 24 },
           size: { x: 13 + difficulty * 9, y: 0.75, z: 11 }
+        });
+      }
+
+      if (i > 5 && i % 4 === 0) {
+        const tunnelZ = z - 44;
+        const tunnelX = Math.sin(i * 0.63) * 4.5;
+        const tunnelY = 6.2 + difficulty * 6.8;
+        const tunnelWidth = Math.max(7.2, 11.5 - difficulty * 2.4);
+        const tunnelHeight = Math.max(5.2, 8.5 - difficulty * 1.6);
+        const tunnelDepth = 32 + difficulty * 18;
+        const wallThickness = 1.05;
+        tunnels.push(
+          {
+            type: 'tunnel',
+            segment: 'left',
+            position: { x: tunnelX - tunnelWidth / 2 - wallThickness / 2, y: tunnelY, z: tunnelZ },
+            size: { x: wallThickness, y: tunnelHeight + wallThickness * 2, z: tunnelDepth }
+          },
+          {
+            type: 'tunnel',
+            segment: 'right',
+            position: { x: tunnelX + tunnelWidth / 2 + wallThickness / 2, y: tunnelY, z: tunnelZ },
+            size: { x: wallThickness, y: tunnelHeight + wallThickness * 2, z: tunnelDepth }
+          },
+          {
+            type: 'tunnel',
+            segment: 'top',
+            position: { x: tunnelX, y: tunnelY + tunnelHeight / 2 + wallThickness / 2, z: tunnelZ },
+            size: { x: tunnelWidth + wallThickness * 2, y: wallThickness, z: tunnelDepth }
+          },
+          {
+            type: 'tunnel',
+            segment: 'bottom',
+            position: { x: tunnelX, y: Math.max(0.7, tunnelY - tunnelHeight / 2 - wallThickness / 2), z: tunnelZ },
+            size: { x: tunnelWidth + wallThickness * 2, y: wallThickness, z: tunnelDepth }
+          }
+        );
+        pickups.push({
+          id: i * 10 + 9,
+          amount: 26,
+          position: { x: tunnelX, y: tunnelY, z: tunnelZ },
+          radius: 1.35
         });
       }
     }
@@ -136,6 +197,7 @@ export class LevelManager {
       obstacles,
       roofs,
       walls,
+      tunnels,
       tutorialMessages: ['Reach save markers', 'Collect Drop fuel', 'Harder route ahead'],
       scoreMultiplier: 1,
       visualTheme: { terrain: 0x202833 },

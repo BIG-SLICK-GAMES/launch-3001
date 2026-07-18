@@ -11,6 +11,7 @@ export class UIController {
     this.overlay = root.querySelector('.overlay');
     this.warning = root.querySelector('[data-warning]');
     this.boostHeld = false;
+    this.lastTouchActionAt = 0;
     this.hudSide = 'left';
     this.root.dataset.hudSide = this.hudSide;
     this.#bind();
@@ -93,31 +94,19 @@ export class UIController {
     this.root.addEventListener('pointerup', releaseBoost, { passive: false });
     this.root.addEventListener('pointercancel', releaseBoost, { passive: false });
     this.root.addEventListener('pointerleave', releaseBoost, { passive: false });
-    this.root.addEventListener('click', async (event) => {
+    this.root.addEventListener('pointerup', async (event) => {
+      if (event.pointerType !== 'touch') return;
       const action = event.target.closest('[data-action]')?.dataset.action;
       if (!action) return;
-      await this.game.audio.unlock();
-      this.game.audio.playClick();
-      if (action === 'play') this.game.startLevel(this.game.score.progress.highestUnlockedLevel);
-      if (action === 'level-select') this.game.state.transition(STATES.LEVEL_SELECT);
-      if (action === 'menu') this.game.goMenu();
-      if (action === 'resume') this.game.resume();
-      if (action === 'pause') this.game.pause();
-      if (action === 'hud-side') this.#toggleHudSide();
-      if (action === 'audio') this.game.enableAudio();
-      if (action === 'restart') this.game.restartLevel();
-      if (action === 'reset-run') this.game.resetRun();
-      if (action === 'camera') this.game.toggleCamera();
-      if (action === 'camera-mode') this.game.setCameraMode(event.target.closest('[data-camera-mode]').dataset.cameraMode);
-      if (action === 'side-camera') this.game.flipSideCamera();
-      if (action === 'tilt') this.game.enableTilt();
-      if (action === 'mobile-tilt') this.game.enableTiltFromPrompt();
-      if (action === 'mobile-calibrate') this.game.calibrateTiltFromPrompt();
-      if (action === 'mobile-skip') this.game.state.transition(STATES.READY);
-      if (action === 'calibrate') this.game.input.calibrate();
-      if (action === 'settings') this.#settings();
-      if (action === 'back') this.game.state.transition(STATES.MENU);
-      if (action === 'level') this.game.startLevel(Number(event.target.closest('[data-level-id]').dataset.levelId));
+      event.preventDefault();
+      this.lastTouchActionAt = performance.now();
+      await this.#handleAction(action, event.target);
+    }, { passive: false });
+    this.root.addEventListener('click', async (event) => {
+      if (performance.now() - this.lastTouchActionAt < 450) return;
+      const action = event.target.closest('[data-action]')?.dataset.action;
+      if (!action) return;
+      await this.#handleAction(action, event.target);
     });
     this.root.addEventListener('input', (event) => {
       const input = event.target;
@@ -217,6 +206,31 @@ export class UIController {
 
   #message(title, body) {
     this.overlay.innerHTML = `<section class="toast"><strong>${title}</strong><span>${body}</span></section>`;
+  }
+
+  async #handleAction(action, target) {
+    await this.game.audio.unlock();
+    this.game.audio.playClick();
+    if (action === 'play') this.game.startLevel(this.game.score.progress.highestUnlockedLevel);
+    if (action === 'level-select') this.game.state.transition(STATES.LEVEL_SELECT);
+    if (action === 'menu') this.game.goMenu();
+    if (action === 'resume') this.game.resume();
+    if (action === 'pause') this.game.pause();
+    if (action === 'hud-side') this.#toggleHudSide();
+    if (action === 'audio') this.game.enableAudio();
+    if (action === 'restart') this.game.restartLevel();
+    if (action === 'reset-run') this.game.resetRun();
+    if (action === 'camera') this.game.toggleCamera();
+    if (action === 'camera-mode') this.game.setCameraMode(target.closest('[data-camera-mode]').dataset.cameraMode);
+    if (action === 'side-camera') this.game.flipSideCamera();
+    if (action === 'tilt') this.game.enableTilt();
+    if (action === 'mobile-tilt') this.game.enableTiltFromPrompt();
+    if (action === 'mobile-calibrate') this.game.calibrateTiltFromPrompt();
+    if (action === 'mobile-skip') this.game.skipMobileTutorial();
+    if (action === 'calibrate') this.game.input.calibrate();
+    if (action === 'settings') this.#settings();
+    if (action === 'back') this.game.state.transition(STATES.MENU);
+    if (action === 'level') this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
   }
 
   #toggleHudSide() {

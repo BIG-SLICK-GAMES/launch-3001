@@ -14,8 +14,9 @@
   box-sizing: border-box;
   -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
+  -webkit-user-drag: none;
+  -webkit-user-select: none !important;
+  user-select: none !important;
 }
 
 html,
@@ -26,7 +27,9 @@ body,
   margin: 0;
   overflow: hidden;
   overscroll-behavior: none;
-  user-select: none;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none;
 }
 
 button,
@@ -53,6 +56,22 @@ button {
   text-transform: uppercase;
   letter-spacing: 0;
   touch-action: manipulation;
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none;
+}
+
+canvas,
+.game-root,
+.hud,
+.top-stats,
+.overlay,
+.panel,
+.toast {
+  -webkit-user-select: none !important;
+  user-select: none !important;
+  -webkit-touch-callout: none;
+  -webkit-user-drag: none;
 }
 
 button:disabled {
