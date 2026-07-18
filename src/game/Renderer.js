@@ -5,11 +5,9 @@ export class Renderer {
   constructor(container) {
     this.container = container;
     this.renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
-    this.renderer.setClearColor(0x02050b, 1);
+    this.renderer.setClearColor(0x05070b, 1);
     this.renderer.shadowMap.enabled = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.18;
     this.renderer.xr.enabled = true;
     this.renderer.xr.setReferenceSpaceType('local');
     this.renderer.domElement.className = 'game-canvas';

@@ -59,10 +59,10 @@ export class Rocket {
   }
 
   #build() {
-    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xdce8f5, metalness: 0.78, roughness: 0.18, emissive: 0x0a1422, emissiveIntensity: 0.18 });
-    const orangeMat = new THREE.MeshStandardMaterial({ color: 0xff7a26, emissive: 0xff4b10, emissiveIntensity: 1.65, metalness: 0.25, roughness: 0.22 });
-    const darkMat = new THREE.MeshStandardMaterial({ color: 0x121a24, metalness: 0.62, roughness: 0.28, emissive: 0x03080d, emissiveIntensity: 0.4 });
-    const hazardMat = new THREE.MeshStandardMaterial({ color: 0x17d8ff, emissive: 0x08cfff, emissiveIntensity: 1.6, metalness: 0.25, roughness: 0.18 });
+    const bodyMat = new THREE.MeshStandardMaterial({ color: 0xe8edf5, metalness: 0.55, roughness: 0.28, emissive: 0x111827, emissiveIntensity: 0.12 });
+    const orangeMat = new THREE.MeshStandardMaterial({ color: 0xff7a26, emissive: 0xff3c00, emissiveIntensity: 1.15, metalness: 0.2, roughness: 0.3 });
+    const darkMat = new THREE.MeshStandardMaterial({ color: 0x111923, metalness: 0.38, roughness: 0.42 });
+    const hazardMat = new THREE.MeshStandardMaterial({ color: 0x17d8ff, emissive: 0x0888aa, emissiveIntensity: 0.8 });
 
     const body = new THREE.Mesh(new THREE.CylinderGeometry(0.34, 0.42, 1.8, 18), bodyMat);
     body.position.y = 0.15;
@@ -95,9 +95,6 @@ export class Rocket {
     stripe.position.y = 0.48;
     stripe.rotation.x = Math.PI / 2;
     this.group.add(stripe);
-    const lowerStripe = stripe.clone();
-    lowerStripe.position.y = -0.3;
-    this.group.add(lowerStripe);
 
     const window = new THREE.Mesh(
       new THREE.SphereGeometry(0.13, 16, 10),
@@ -107,26 +104,26 @@ export class Rocket {
     window.scale.set(1, 0.75, 0.28);
     this.group.add(window);
 
-    this.flame = new THREE.Mesh(new THREE.ConeGeometry(0.24, 1.05, 20), new THREE.MeshBasicMaterial({ color: 0xff7a22, transparent: true, opacity: 0.88, blending: THREE.AdditiveBlending }));
+    this.flame = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, 16), new THREE.MeshBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.82 }));
     this.flame.position.y = -1.55;
     this.flame.rotation.x = Math.PI;
     this.flame.visible = false;
     this.group.add(this.flame);
 
-    this.innerFlame = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.7, 16), new THREE.MeshBasicMaterial({ color: 0x9ff7ff, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending }));
+    this.innerFlame = new THREE.Mesh(new THREE.ConeGeometry(0.1, 0.62, 12), new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0.9, blending: THREE.AdditiveBlending }));
     this.innerFlame.position.y = -1.48;
     this.innerFlame.rotation.x = Math.PI;
     this.flame.add(this.innerFlame);
 
     this.engineHalo = new THREE.Mesh(
-      new THREE.RingGeometry(0.24, 0.55, 36),
-      new THREE.MeshBasicMaterial({ color: 0x17d8ff, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
+      new THREE.RingGeometry(0.24, 0.48, 28),
+      new THREE.MeshBasicMaterial({ color: 0xff7a22, transparent: true, opacity: 0, side: THREE.DoubleSide, blending: THREE.AdditiveBlending })
     );
     this.engineHalo.position.y = -1.18;
     this.engineHalo.rotation.x = Math.PI / 2;
     this.group.add(this.engineHalo);
 
-    this.glow = new THREE.PointLight(0x17d8ff, 0, 5);
+    this.glow = new THREE.PointLight(0xff6a00, 0, 4);
     this.glow.position.y = -1.25;
     this.group.add(this.glow);
   }
