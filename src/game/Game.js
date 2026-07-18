@@ -46,6 +46,7 @@ export class Game {
     this.currentStartId = 1;
     this.activeLanding = false;
     this.runRecorded = false;
+    this.takeoffLocked = false;
     this.lastCheckpointTime = 0;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
@@ -76,6 +77,7 @@ export class Game {
     const launch = this.currentLevel.launchPad.position;
     this.rocket.reset({ x: launch.x, y: launch.y + 0.12 + ROCKET_STANDING_HEIGHT, z: launch.z });
     this.rocket.landed = true;
+    this.takeoffLocked = true;
     this.lastCheckpointTime = 0;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
@@ -192,11 +194,12 @@ export class Game {
     this.input.update();
     const steering = this.#combinedSteering();
     const thrust = this.#combinedThrust();
+    if (!thrust) this.takeoffLocked = false;
     if (this.vr.enabled && this.state.is(STATES.CRASHED) && thrust) {
       this.restartLevel();
       return;
     }
-    if (this.state.is(STATES.READY) && thrust) {
+    if (this.state.is(STATES.READY) && thrust && !this.takeoffLocked) {
       this.#beginTakeoff();
       this.state.transition(STATES.FLYING);
       if (!this.voiceFlags.launch) {
@@ -315,13 +318,11 @@ export class Game {
     this.audio.playLanding(grade === LANDING_GRADES.perfect);
     this.effects.emitLandingDust(this.rocket.position);
     this.effects.burst(this.rocket.position, grade === LANDING_GRADES.perfect ? 0x33ff8a : 0x24b7ff, 14);
-    this.state.transition(STATES.LANDED, { grade: `SAVE ${marker.id}`, points });
+    this.takeoffLocked = true;
+    this.rocket.alive = true;
+    this.activeLanding = false;
+    this.state.transition(STATES.READY);
     this.audio.speak('Touchdown.', 'touchdown', 2500);
-    this.state.delay(() => {
-      this.rocket.alive = true;
-      this.activeLanding = false;
-      this.state.transition(STATES.READY);
-    }, 750);
   }
 
   #beginTakeoff() {
