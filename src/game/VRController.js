@@ -28,7 +28,7 @@ export class VRController {
     this.cameraWorldPosition = new THREE.Vector3();
     this.cameraWorldQuaternion = new THREE.Quaternion();
     this.panelOffset = new THREE.Vector3(0, -0.22, -1.85);
-    this.hudOffset = new THREE.Vector3(0, -0.68, -1.72);
+    this.hudOffset = new THREE.Vector3(0, -0.72, -1.74);
     this.cockpitOffset = new THREE.Vector3(0, 0.82, 1.05);
     this.rigRotation = 0;
     this.controllers = [0, 1].map((index) => this.#setupController(index));
@@ -241,13 +241,13 @@ export class VRController {
 
   #createPanel() {
     const canvas = document.createElement('canvas');
-    canvas.width = 512;
-    canvas.height = 256;
+    canvas.width = 768;
+    canvas.height = 384;
     const context = canvas.getContext('2d');
     const texture = new THREE.CanvasTexture(canvas);
     texture.colorSpace = THREE.SRGBColorSpace;
     const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true, depthTest: false });
-    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(1.65, 0.82), material);
+    const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2.05, 1.02), material);
     const group = new THREE.Group();
     group.visible = false;
     group.add(mesh);
@@ -308,37 +308,165 @@ export class VRController {
     const marker = (game.currentLevel.checkpoints ?? []).find((entry) => !game.passedMarkers.has(entry.id));
     const markerDistance = marker ? Math.max(0, marker.distance - game.rocket.distance) : 0;
     const markerTime = Math.max(0, game.rocket.flightTime - game.lastCheckpointTime);
-    const fuelColor = fuel < 0.18 ? '#ff5f4a' : fuel < 0.5 ? '#ffd24a' : '#21ffd4';
+    const bestDistance = game.score.progress.leaderboard?.bestDistance ?? 0;
+    const bestDistanceTime = game.score.progress.leaderboard?.bestDistanceTime ?? 0;
+    const altitudePercent = Math.max(0, Math.min(1, altitude / 24));
+    const needleAngle = (-135 + altitudePercent * 270) * Math.PI / 180;
 
-    context.fillStyle = 'rgba(3, 9, 16, 0.62)';
-    context.fillRect(18, 76, 476, 126);
-    context.strokeStyle = 'rgba(39, 216, 255, 0.8)';
-    context.lineWidth = 3;
-    context.strokeRect(18, 76, 476, 126);
+    context.textBaseline = 'alphabetic';
 
-    context.fillStyle = '#8fdfff';
-    context.font = '700 15px system-ui';
-    context.fillText('FUEL', 34, 104);
-    context.fillStyle = '#07111d';
-    context.fillRect(88, 89, 352, 18);
-    context.fillStyle = fuelColor;
-    context.fillRect(88, 89, 352 * fuel, 18);
+    this.#roundRect(context, 78, 14, 612, 38, 8);
+    context.fillStyle = 'rgba(3, 10, 18, 0.62)';
+    context.fill();
+    context.strokeStyle = 'rgba(49, 213, 255, 0.22)';
+    context.lineWidth = 2;
+    context.stroke();
+    context.font = '800 13px system-ui';
+    context.fillStyle = '#7fa6ba';
+    context.fillText(`SCORE ${game.score.progress.totalScore}`, 105, 38);
+    context.fillText(`BEST ${game.score.progress.bestTotalScore}`, 212, 38);
+    context.fillText(`BEST DIST ${bestDistance.toFixed(0)}m/${bestDistanceTime.toFixed(1)}s`, 322, 38);
+    context.fillText(`DIST ${game.rocket.distance.toFixed(0)}m`, 500, 38);
+    context.fillText(`MARKER ${markerDistance.toFixed(0)}m`, 610, 38);
+
+    this.#roundRect(context, 142, 222, 484, 142, 8);
+    context.fillStyle = 'rgba(3, 10, 18, 0.58)';
+    context.fill();
+    context.strokeStyle = 'rgba(49, 213, 255, 0.28)';
+    context.lineWidth = 2;
+    context.stroke();
+
+    context.fillStyle = 'rgba(4, 12, 22, 0.78)';
+    this.#roundRect(context, 626, 272, 28, 48, 8);
+    context.fill();
+    context.strokeStyle = 'rgba(82, 220, 255, 0.34)';
+    context.stroke();
+    context.fillStyle = '#d8fbff';
+    context.font = '900 24px system-ui';
+    context.fillText('>', 635, 304);
+
+    context.fillStyle = '#7fa6ba';
+    context.font = '800 13px system-ui';
+    context.fillText('FUEL', 160, 252);
+    context.fillStyle = 'rgba(5, 15, 24, 0.86)';
+    this.#roundRect(context, 212, 237, 322, 20, 4);
+    context.fill();
+    const gradient = context.createLinearGradient(212, 0, 534, 0);
+    gradient.addColorStop(0, '#21ffd4');
+    gradient.addColorStop(0.62, '#ffd166');
+    gradient.addColorStop(1, '#ff5f4a');
+    context.fillStyle = gradient;
+    this.#roundRect(context, 212, 237, 322 * fuel, 20, 4);
+    context.fill();
+    context.strokeStyle = 'rgba(125, 238, 255, 0.38)';
+    context.strokeRect(212, 237, 322, 20);
     context.fillStyle = '#f4fbff';
-    context.font = '800 17px system-ui';
-    context.fillText(`${game.rocket.fuel.toFixed(0)}%`, 450, 104);
+    context.font = '800 15px system-ui';
+    context.fillText(`${game.rocket.fuel.toFixed(0)}%`, 548, 253);
 
-    context.font = '700 19px system-ui';
-    context.fillStyle = '#d7f7ff';
-    context.fillText(`ALT ${altitude.toFixed(1)}`, 34, 136);
-    context.fillText(`DIST ${game.rocket.distance.toFixed(0)}m`, 156, 136);
-    context.fillText(`MARKER ${markerDistance.toFixed(0)}m`, 304, 136);
+    this.#drawHudButton(context, 160, 280, 64, 38, 'MENU', false);
+    this.#drawHudButton(context, 236, 280, 58, 38, 'AUDIO', false);
+    this.#drawAltitudeDial(context, 342, 298, 29, needleAngle, altitude);
+    this.#drawBoostButton(context, 518, 299, 31, game.rocket.thrusting);
 
-    context.fillStyle = '#a8cbd8';
-    context.font = '700 17px system-ui';
-    context.fillText(`TIME ${markerTime.toFixed(1)}s`, 34, 170);
-    context.fillText(`SCORE ${game.score.progress.totalScore}`, 156, 170);
-    context.fillStyle = game.rocket.thrusting ? '#ff9a2e' : '#8fb3c6';
-    context.fillText(`BOOST ${game.rocket.thrusting ? 'ON' : 'OFF'}`, 340, 170);
+    context.font = '800 12px system-ui';
+    context.fillStyle = '#7fa6ba';
+    context.fillText(`V/S ${game.rocket.velocity.y.toFixed(1)}`, 160, 342);
+    context.fillText(`H/S ${Math.hypot(game.rocket.velocity.x, game.rocket.velocity.z).toFixed(1)}`, 244, 342);
+    context.fillText(`ANGLE ${(game.rocket.getTiltAngle() * 57.3).toFixed(0)}deg`, 335, 342);
+    context.fillText(`TIME ${markerTime.toFixed(1)}s`, 448, 342);
+  }
+
+  #drawHudButton(context, x, y, width, height, label) {
+    this.#roundRect(context, x, y, width, height, 8);
+    context.fillStyle = 'rgba(4, 12, 22, 0.74)';
+    context.fill();
+    context.strokeStyle = 'rgba(82, 220, 255, 0.3)';
+    context.lineWidth = 2;
+    context.stroke();
+    context.fillStyle = '#ecfbff';
+    context.font = '800 11px system-ui';
+    context.textAlign = 'center';
+    context.fillText(label, x + width / 2, y + 24);
+    context.textAlign = 'left';
+  }
+
+  #drawBoostButton(context, x, y, radius, active) {
+    const glow = active ? 0.92 : 0.42;
+    context.shadowColor = 'rgba(255, 45, 32, 0.9)';
+    context.shadowBlur = active ? 30 : 16;
+    const gradient = context.createRadialGradient(x - 8, y - 10, 4, x, y, radius);
+    gradient.addColorStop(0, active ? '#ffe1d8' : '#ffb2a4');
+    gradient.addColorStop(0.45, active ? '#ff4b36' : '#ff2d20');
+    gradient.addColorStop(1, active ? '#b81410' : '#81110d');
+    context.fillStyle = gradient;
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.shadowBlur = 0;
+    context.strokeStyle = `rgba(255, 120, 100, ${glow})`;
+    context.lineWidth = 3;
+    context.stroke();
+    context.fillStyle = '#fff7f4';
+    context.font = '900 11px system-ui';
+    context.textAlign = 'center';
+    context.fillText('BOOST', x, y + 4);
+    context.textAlign = 'left';
+  }
+
+  #drawAltitudeDial(context, x, y, radius, needleAngle, altitude) {
+    const sweep = context.createConicGradient(Math.PI * 1.25, x, y);
+    sweep.addColorStop(0, '#ff5f4a');
+    sweep.addColorStop(0.18, '#ffd166');
+    sweep.addColorStop(0.56, '#21ffd4');
+    sweep.addColorStop(0.75, 'rgba(0, 0, 0, 0)');
+    sweep.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    context.fillStyle = sweep;
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = 'rgba(4, 12, 22, 0.92)';
+    context.beginPath();
+    context.arc(x, y, radius - 7, 0, Math.PI * 2);
+    context.fill();
+    context.strokeStyle = 'rgba(125, 238, 255, 0.42)';
+    context.lineWidth = 2;
+    context.beginPath();
+    context.arc(x, y, radius, 0, Math.PI * 2);
+    context.stroke();
+    context.strokeStyle = '#f4fbff';
+    context.lineWidth = 3;
+    context.beginPath();
+    context.moveTo(x, y);
+    context.lineTo(x + Math.sin(needleAngle) * 22, y - Math.cos(needleAngle) * 22);
+    context.stroke();
+    context.fillStyle = '#21ffd4';
+    context.beginPath();
+    context.arc(x, y, 5, 0, Math.PI * 2);
+    context.fill();
+    context.fillStyle = '#f4fbff';
+    context.font = '800 12px system-ui';
+    context.textAlign = 'center';
+    context.fillText(altitude.toFixed(1), x, y + 50);
+    context.fillStyle = '#7fa6ba';
+    context.font = '800 10px system-ui';
+    context.fillText('ALT', x, y + 64);
+    context.textAlign = 'left';
+  }
+
+  #roundRect(context, x, y, width, height, radius) {
+    const r = Math.min(radius, width / 2, height / 2);
+    context.beginPath();
+    context.moveTo(x + r, y);
+    context.lineTo(x + width - r, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + r);
+    context.lineTo(x + width, y + height - r);
+    context.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+    context.lineTo(x + r, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - r);
+    context.lineTo(x, y + r);
+    context.quadraticCurveTo(x, y, x + r, y);
+    context.closePath();
   }
 
   #drawSettingsPanel(context, game) {
