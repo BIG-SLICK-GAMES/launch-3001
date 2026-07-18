@@ -7,7 +7,7 @@ export class PhysicsController {
     this.tmpWind = new THREE.Vector3();
   }
 
-  step(rocket, level, input, dt, active) {
+  step(rocket, level, input, dt, active, settings = {}) {
     if (!active || !rocket.alive || rocket.landed) return;
     const wind = this.tmpWind.set(level.windDirection.x, level.windDirection.y ?? 0, level.windDirection.z).normalize().multiplyScalar(level.windStrength);
     rocket.velocity.y += level.gravity * dt;
@@ -16,7 +16,9 @@ export class PhysicsController {
     if (rocket.thrusting && rocket.fuel > 0) {
       rocket.velocity.y += level.thrustPower * dt;
       rocket.thrustUse += dt;
-      rocket.fuel = clamp(rocket.fuel - level.fuelBurnRate * dt, 0, 100);
+      if (!settings.noFuelDrain) {
+        rocket.fuel = clamp(rocket.fuel - level.fuelBurnRate * dt, 0, 100);
+      }
     }
     rocket.velocity.multiplyScalar(Math.pow(level.damping, dt * 60));
     rocket.velocity.x = clamp(rocket.velocity.x, -level.maxSpeed.horizontal, level.maxSpeed.horizontal);

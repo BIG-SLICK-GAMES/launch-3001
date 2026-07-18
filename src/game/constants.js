@@ -67,6 +67,7 @@ export const DEFAULT_SETTINGS = {
   vrPanelHeight: -0.22,
   vrComfortScale: 1,
   vrSideCameraSide: 1,
+  noFuelDrain: false,
   debug: false
 };
 

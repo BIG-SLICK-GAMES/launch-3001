@@ -216,6 +216,7 @@ export class UIController {
       <label>Tilt smoothing <input data-setting="tiltSmoothing" type="range" min="0.04" max="0.45" step="0.01" value="${s.tiltSmoothing}"></label>
       <label>Volume <input data-setting="volume" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
       <label><input data-setting="invertForward" type="checkbox" ${s.invertForward ? 'checked' : ''}> Invert forward tilt</label>
+      <label><input data-setting="noFuelDrain" type="checkbox" ${s.noFuelDrain ? 'checked' : ''}> No fuel drain</label>
       <label><input data-setting="muted" type="checkbox" ${s.muted ? 'checked' : ''}> Mute</label>
       <button data-action="calibrate">Recalibrate</button>
       <button data-action="resume">Close</button>

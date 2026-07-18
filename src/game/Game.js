@@ -211,7 +211,7 @@ export class Game {
     this.rocket.setFlame(active && thrust && this.rocket.fuel > 0);
     if (this.rocket.thrusting) this.audio.startEngine();
     else this.audio.stopEngine();
-    this.physics.step(this.rocket, this.currentLevel, steering, dt, active);
+    this.physics.step(this.rocket, this.currentLevel, steering, dt, active, this.settings);
     this.#tickGroundTimer(dt, active);
     this.rocket.updateVisual(dt, steering);
     this.#refuelOnPad(dt);

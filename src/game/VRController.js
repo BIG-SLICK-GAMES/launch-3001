@@ -203,6 +203,7 @@ export class VRController {
       { key: 'vrPanelHeight', label: 'PANEL HEIGHT', value: (s.vrPanelHeight ?? -0.22).toFixed(2), min: -0.9, max: 0.35, step: 0.05 },
       { key: 'vrComfortScale', label: 'COMFORT', value: (s.vrComfortScale ?? 1).toFixed(2), min: 0.65, max: 1.35, step: 0.05 },
       { key: 'vrSideCameraSide', label: 'SIDE', value: (s.vrSideCameraSide ?? 1) > 0 ? 'RIGHT' : 'LEFT' },
+      { key: 'noFuelDrain', label: 'NO FUEL DRAIN', value: s.noFuelDrain ? 'ON' : 'OFF' },
       { key: 'audio', label: 'ENABLE AUDIO', value: 'TRIGGER' },
       { key: 'resetRun', label: 'RESET RUN', value: 'TRIGGER' },
       { key: 'levelSelect', label: 'LOAD CHECKPOINT', value: 'TRIGGER' },
@@ -219,6 +220,8 @@ export class VRController {
       s.vrCameraMode = VR_CAMERA_MODE_SEQUENCE[(index + direction + VR_CAMERA_MODE_SEQUENCE.length) % VR_CAMERA_MODE_SEQUENCE.length];
     } else if (item.key === 'vrSideCameraSide') {
       s.vrSideCameraSide = (s.vrSideCameraSide ?? 1) * -1;
+    } else if (item.key === 'noFuelDrain') {
+      s.noFuelDrain = !s.noFuelDrain;
     } else if (item.min !== undefined) {
       s[item.key] = clamp((s[item.key] ?? Number(item.value)) + item.step * direction, item.min, item.max);
     }
