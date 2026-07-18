@@ -28,6 +28,7 @@ export class VRController {
     this.cameraWorldPosition = new THREE.Vector3();
     this.cameraWorldQuaternion = new THREE.Quaternion();
     this.panelOffset = new THREE.Vector3(0, -0.22, -1.85);
+    this.hudOffset = new THREE.Vector3(0, -0.68, -1.72);
     this.cockpitOffset = new THREE.Vector3(0, 0.82, 1.05);
     this.rigRotation = 0;
     this.controllers = [0, 1].map((index) => this.#setupController(index));
@@ -38,7 +39,7 @@ export class VRController {
       this.enabled = true;
       this.sessionStarted = true;
       this.status = 'VR ACTIVE';
-      this.panel.group.visible = false;
+      this.panel.group.visible = true;
       this.#calibrateRightStick();
     });
     this.renderer.xr.addEventListener('sessionend', () => {
@@ -108,7 +109,7 @@ export class VRController {
       this.settingsOpen = !this.settingsOpen;
       this.thrust = false;
       this.status = this.settingsOpen ? 'VR SETTINGS' : 'VR ACTIVE';
-      this.panel.group.visible = this.settingsOpen;
+      this.panel.group.visible = true;
     }
     this.menuButtonDown = pressed;
   }
@@ -214,19 +215,19 @@ export class VRController {
       this.status = 'RIGHT STICK RECENTERED';
     } else if (item.key === 'resetRun') {
       this.settingsOpen = false;
-      this.panel.group.visible = false;
+      this.panel.group.visible = true;
       game.resetRun();
     } else if (item.key === 'audio') {
       game.enableAudio();
       this.status = 'AUDIO ONLINE';
     } else if (item.key === 'levelSelect') {
       this.settingsOpen = false;
-      this.panel.group.visible = false;
+      this.panel.group.visible = true;
       game.pause();
       game.state.transition('LEVEL_SELECT');
     } else if (item.key === 'close') {
       this.settingsOpen = false;
-      this.panel.group.visible = false;
+      this.panel.group.visible = true;
       this.status = 'VR ACTIVE';
     } else {
       this.#adjustSetting(game, 1);
@@ -278,22 +279,66 @@ export class VRController {
   }
 
   #updatePanel(game) {
-    this.panel.group.visible = this.enabled && this.settingsOpen;
+    this.panel.group.visible = this.enabled;
     if (!this.panel.group.visible) return;
     const { context, canvas, texture, group } = this.panel;
     context.clearRect(0, 0, canvas.width, canvas.height);
-    context.fillStyle = 'rgba(3, 9, 16, 0.82)';
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    context.strokeStyle = '#27d8ff';
-    context.lineWidth = 4;
-    context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
-    this.#drawSettingsPanel(context, game);
+    if (this.settingsOpen) {
+      context.fillStyle = 'rgba(3, 9, 16, 0.82)';
+      context.fillRect(0, 0, canvas.width, canvas.height);
+      context.strokeStyle = '#27d8ff';
+      context.lineWidth = 4;
+      context.strokeRect(8, 8, canvas.width - 16, canvas.height - 16);
+      this.#drawSettingsPanel(context, game);
+    } else {
+      this.#drawFlightHud(context, game);
+    }
     texture.needsUpdate = true;
 
     this.camera.getWorldPosition(this.cameraWorldPosition);
     this.camera.getWorldQuaternion(this.cameraWorldQuaternion);
-    group.position.copy(this.panelOffset).applyQuaternion(this.cameraWorldQuaternion).add(this.cameraWorldPosition);
+    const offset = this.settingsOpen ? this.panelOffset : this.hudOffset;
+    group.position.copy(offset).applyQuaternion(this.cameraWorldQuaternion).add(this.cameraWorldPosition);
     group.quaternion.copy(this.cameraWorldQuaternion);
+  }
+
+  #drawFlightHud(context, game) {
+    const fuel = Math.max(0, Math.min(1, game.rocket.fuel / 100));
+    const altitude = Math.max(0, game.rocket.position.y - game.world.getTerrainHeight(game.rocket.position.x, game.rocket.position.z) - game.rocket.radius);
+    const marker = (game.currentLevel.checkpoints ?? []).find((entry) => !game.passedMarkers.has(entry.id));
+    const markerDistance = marker ? Math.max(0, marker.distance - game.rocket.distance) : 0;
+    const markerTime = Math.max(0, game.rocket.flightTime - game.lastCheckpointTime);
+    const fuelColor = fuel < 0.18 ? '#ff5f4a' : fuel < 0.5 ? '#ffd24a' : '#21ffd4';
+
+    context.fillStyle = 'rgba(3, 9, 16, 0.62)';
+    context.fillRect(18, 76, 476, 126);
+    context.strokeStyle = 'rgba(39, 216, 255, 0.8)';
+    context.lineWidth = 3;
+    context.strokeRect(18, 76, 476, 126);
+
+    context.fillStyle = '#8fdfff';
+    context.font = '700 15px system-ui';
+    context.fillText('FUEL', 34, 104);
+    context.fillStyle = '#07111d';
+    context.fillRect(88, 89, 352, 18);
+    context.fillStyle = fuelColor;
+    context.fillRect(88, 89, 352 * fuel, 18);
+    context.fillStyle = '#f4fbff';
+    context.font = '800 17px system-ui';
+    context.fillText(`${game.rocket.fuel.toFixed(0)}%`, 450, 104);
+
+    context.font = '700 19px system-ui';
+    context.fillStyle = '#d7f7ff';
+    context.fillText(`ALT ${altitude.toFixed(1)}`, 34, 136);
+    context.fillText(`DIST ${game.rocket.distance.toFixed(0)}m`, 156, 136);
+    context.fillText(`MARKER ${markerDistance.toFixed(0)}m`, 304, 136);
+
+    context.fillStyle = '#a8cbd8';
+    context.font = '700 17px system-ui';
+    context.fillText(`TIME ${markerTime.toFixed(1)}s`, 34, 170);
+    context.fillText(`SCORE ${game.score.progress.totalScore}`, 156, 170);
+    context.fillStyle = game.rocket.thrusting ? '#ff9a2e' : '#8fb3c6';
+    context.fillText(`BOOST ${game.rocket.thrusting ? 'ON' : 'OFF'}`, 340, 170);
   }
 
   #drawSettingsPanel(context, game) {
