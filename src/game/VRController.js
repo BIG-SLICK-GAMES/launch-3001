@@ -125,7 +125,11 @@ export class VRController {
     }
     if (audioPressed && !this.audioButtonDown) {
       game.enableAudio();
-      this.status = 'AUDIO ONLINE';
+      if (this.settingsOpen) {
+        this.#closeSettings();
+      } else {
+        this.status = 'AUDIO ONLINE';
+      }
     }
     this.settingsButtonDown = settingsPressed;
     this.audioButtonDown = audioPressed;
@@ -234,24 +238,26 @@ export class VRController {
       this.#calibrateRightStick();
       this.status = 'RIGHT STICK RECENTERED';
     } else if (item.key === 'resetRun') {
-      this.settingsOpen = false;
-      this.panel.group.visible = true;
+      this.#closeSettings();
       game.resetRun();
     } else if (item.key === 'audio') {
       game.enableAudio();
       this.status = 'AUDIO ONLINE';
     } else if (item.key === 'levelSelect') {
-      this.settingsOpen = false;
-      this.panel.group.visible = true;
+      this.#closeSettings();
       game.pause();
       game.state.transition('LEVEL_SELECT');
     } else if (item.key === 'close') {
-      this.settingsOpen = false;
-      this.panel.group.visible = true;
-      this.status = 'VR ACTIVE';
+      this.#closeSettings();
     } else {
       this.#adjustSetting(game, 1);
     }
+  }
+
+  #closeSettings() {
+    this.settingsOpen = false;
+    this.panel.group.visible = true;
+    this.status = 'VR ACTIVE';
   }
 
   #calibrateRightStick() {

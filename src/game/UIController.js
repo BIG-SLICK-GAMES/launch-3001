@@ -219,7 +219,7 @@ export class UIController {
       <label><input data-setting="noFuelDrain" type="checkbox" ${s.noFuelDrain ? 'checked' : ''}> No fuel drain</label>
       <label><input data-setting="muted" type="checkbox" ${s.muted ? 'checked' : ''}> Mute</label>
       <button data-action="calibrate">Recalibrate</button>
-      <button data-action="resume">Close</button>
+      <button data-action="close-settings">Close</button>
     </section>`;
   }
 
@@ -246,6 +246,7 @@ export class UIController {
     if (action === 'level-select') this.game.state.transition(STATES.LEVEL_SELECT);
     if (action === 'menu') this.game.goMenu();
     if (action === 'resume') this.game.resume();
+    if (action === 'close-settings') this.#closeSettings();
     if (action === 'pause') this.game.pause();
     if (action === 'leaderboard') this.#leaderboard();
     if (action === 'hud-side') this.#toggleHudSide();
@@ -263,6 +264,15 @@ export class UIController {
     if (action === 'settings') this.#settings();
     if (action === 'back') this.game.state.transition(STATES.MENU);
     if (action === 'level') this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
+  }
+
+  #closeSettings() {
+    if (this.game.state.is(STATES.PAUSED)) {
+      this.game.resume();
+      return;
+    }
+    this.uiWasSettings = false;
+    this.showState(this.game.state.current);
   }
 
   #toggleHudSide() {
