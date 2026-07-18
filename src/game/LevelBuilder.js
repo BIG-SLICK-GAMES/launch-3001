@@ -1,0 +1,242 @@
+import * as THREE from 'three';
+import { makeBoxFromSpec } from './utils.js';
+
+export class LevelBuilder {
+  build(level) {
+    const group = new THREE.Group();
+    group.name = `Level ${level.id}: ${level.name}`;
+    const terrain = this.#terrain(level);
+    group.add(terrain.mesh);
+    const launchPad = this.#pad(level.launchPad, 0x24b7ff, 'Launch');
+    const landingPad = this.#pad(level.landingPad, 0x33ff8a, 'Save Marker');
+    const checkpointGroup = new THREE.Group();
+    for (const checkpoint of level.checkpoints ?? [level.landingPad]) {
+      checkpointGroup.add(this.#checkpoint(checkpoint));
+    }
+    group.add(launchPad, checkpointGroup);
+    const obstacleMeshes = [];
+    [...level.obstacles, ...level.roofs, ...level.walls].forEach((spec) => {
+      const mesh = this.#box(spec);
+      obstacleMeshes.push(mesh);
+      group.add(mesh);
+    });
+    const pickupGroup = new THREE.Group();
+    for (const pickup of level.pickups ?? []) {
+      pickupGroup.add(this.#pickup(pickup));
+    }
+    group.add(pickupGroup, this.#bounds(level.worldBounds), this.#routeMarkers(level), this.#skyline(level), this.#stars());
+    return {
+      group,
+      terrain,
+      launchPad,
+      landingPad,
+      obstacleMeshes,
+      pickupMeshes: pickupGroup.children,
+      checkpointMeshes: checkpointGroup.children,
+      boxes: [...level.obstacles, ...level.roofs, ...level.walls].map((spec) => ({ spec, box: makeBoxFromSpec(spec) }))
+    };
+  }
+
+  #terrain(level) {
+    const { width, depth, segments, amplitude, frequency, seed, centerZ = 0 } = level.terrain;
+    const geometry = new THREE.PlaneGeometry(width, depth, segments, segments);
+    geometry.rotateX(-Math.PI / 2);
+    const positions = geometry.attributes.position;
+    const heights = [];
+    for (let z = 0; z <= segments; z += 1) {
+      heights[z] = [];
+      for (let x = 0; x <= segments; x += 1) {
+        const i = z * (segments + 1) + x;
+        const px = positions.getX(i);
+        const pz = positions.getZ(i);
+        const worldZ = pz + centerZ;
+        const safeLaunch = this.#nearPad(px, worldZ, level.launchPad, 5);
+        const safeLanding = (level.checkpoints ?? [level.landingPad]).some((pad) => this.#nearPad(px, worldZ, pad, 6));
+        const wave = Math.sin((px + seed) * frequency) * Math.cos((pz - seed) * frequency * 0.72);
+        const ridge = Math.sin((px * 0.31 + pz * 0.19 + seed) * frequency * 1.7);
+        let h = (wave * 0.65 + ridge * 0.35) * amplitude;
+        if (safeLaunch || safeLanding) h = -0.06;
+        positions.setY(i, h);
+        heights[z][x] = h;
+      }
+    }
+    geometry.computeVertexNormals();
+    const material = new THREE.MeshStandardMaterial({
+      color: level.visualTheme.terrain,
+      roughness: 0.88,
+      metalness: 0.12,
+      emissive: 0x06111a,
+      emissiveIntensity: 0.18,
+      flatShading: false
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.z = centerZ;
+    mesh.receiveShadow = false;
+    const wire = new THREE.LineSegments(
+      new THREE.WireframeGeometry(geometry),
+      new THREE.LineBasicMaterial({ color: 0x153449, transparent: true, opacity: 0.18 })
+    );
+    mesh.add(wire);
+    return { mesh, width, depth, segments, heights, centerZ };
+  }
+
+  #nearPad(x, z, pad, margin) {
+    return Math.abs(x - pad.position.x) < pad.size.x / 2 + margin && Math.abs(z - pad.position.z) < pad.size.z / 2 + margin;
+  }
+
+  #pad(pad, color, label) {
+    const group = new THREE.Group();
+    group.name = label;
+    group.position.set(pad.position.x, pad.position.y, pad.position.z);
+    const base = new THREE.Mesh(
+      new THREE.BoxGeometry(pad.size.x, 0.18, pad.size.z),
+      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55, roughness: 0.28, metalness: 0.22 })
+    );
+    group.add(base);
+    const glow = new THREE.Mesh(
+      new THREE.BoxGeometry(pad.size.x + 0.35, 0.03, pad.size.z + 0.35),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending })
+    );
+    glow.position.y = 0.13;
+    group.add(glow);
+    const ring = new THREE.Mesh(
+      new THREE.RingGeometry(Math.min(pad.size.x, pad.size.z) * 0.24, Math.min(pad.size.x, pad.size.z) * 0.34, 36),
+      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.95 })
+    );
+    ring.rotation.x = -Math.PI / 2;
+    ring.position.y = 0.12;
+    group.add(ring);
+    return group;
+  }
+
+  #box(spec) {
+    const color = spec.type === 'roof' ? 0xff334f : spec.type === 'wall' ? 0xff2433 : 0xff7824;
+    const group = new THREE.Group();
+    group.position.set(spec.position.x, spec.position.y, spec.position.z);
+    group.name = spec.type;
+    const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.46, transparent: true, opacity: 0.95, roughness: 0.38, metalness: 0.18 });
+    const mesh = new THREE.Mesh(
+      spec.type === 'spire'
+        ? new THREE.ConeGeometry(Math.max(spec.size.x, spec.size.z) * 0.55, spec.size.y, 7)
+        : new THREE.BoxGeometry(spec.size.x, spec.size.y, spec.size.z),
+      material
+    );
+    mesh.name = `${spec.type} core`;
+    group.add(mesh);
+    const edge = new THREE.LineSegments(
+      new THREE.EdgesGeometry(mesh.geometry),
+      new THREE.LineBasicMaterial({ color: 0xffa08d, transparent: true, opacity: 0.45 })
+    );
+    mesh.add(edge);
+    if (spec.type !== 'roof') {
+      const cap = new THREE.Mesh(
+        new THREE.TorusGeometry(Math.max(spec.size.x, spec.size.z) * 0.35, 0.055, 8, 22),
+        new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.75 })
+      );
+      cap.position.y = spec.size.y * 0.5;
+      cap.rotation.x = Math.PI / 2;
+      group.add(cap);
+    }
+    if (spec.type === 'wall') {
+      for (let i = -2; i <= 2; i += 1) {
+        const slit = new THREE.Mesh(
+          new THREE.BoxGeometry(0.16, spec.size.y * 0.82, spec.size.z + 0.04),
+          new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.7 })
+        );
+        slit.position.x = i * spec.size.x * 0.16;
+        group.add(slit);
+      }
+    }
+    return group;
+  }
+
+  #checkpoint(marker) {
+    const group = this.#pad(marker, 0x33ff8a, `Save ${marker.id}`);
+    const archMat = new THREE.MeshStandardMaterial({ color: 0x21ffd4, emissive: 0x0fb48e, emissiveIntensity: 1.1, roughness: 0.24 });
+    const left = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 10), archMat);
+    const right = left.clone();
+    const top = new THREE.Mesh(new THREE.BoxGeometry(marker.size.x + 0.6, 0.16, 0.16), archMat);
+    left.position.set(-marker.size.x * 0.5, 1.65, 0);
+    right.position.set(marker.size.x * 0.5, 1.65, 0);
+    top.position.set(0, 3.25, 0);
+    group.add(left, right, top);
+    return group;
+  }
+
+  #pickup(pickup) {
+    const group = new THREE.Group();
+    group.name = `Drop ${pickup.id}`;
+    group.position.set(pickup.position.x, pickup.position.y, pickup.position.z);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x4de6ff, emissive: 0x17b8ff, emissiveIntensity: 1.5, roughness: 0.18, metalness: 0.1 });
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.48, 18, 14), mat);
+    drop.scale.set(0.72, 1.15, 0.72);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(0.32, 0.75, 18), mat);
+    point.position.y = -0.55;
+    point.rotation.x = Math.PI;
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.82, 0.035, 8, 34),
+      new THREE.MeshBasicMaterial({ color: 0x9ff7ff, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending })
+    );
+    ring.rotation.x = Math.PI / 2;
+    group.add(drop, point, ring);
+    return group;
+  }
+
+  #bounds(bounds) {
+    const group = new THREE.Group();
+    const mat = new THREE.LineBasicMaterial({ color: 0x197bff });
+    const points = [
+      new THREE.Vector3(bounds.minX, 0.1, bounds.minZ),
+      new THREE.Vector3(bounds.maxX, 0.1, bounds.minZ),
+      new THREE.Vector3(bounds.maxX, 0.1, bounds.maxZ),
+      new THREE.Vector3(bounds.minX, 0.1, bounds.maxZ),
+      new THREE.Vector3(bounds.minX, 0.1, bounds.minZ)
+    ];
+    group.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(points), mat));
+    return group;
+  }
+
+  #stars() {
+    const group = new THREE.Group();
+    const geometry = new THREE.BufferGeometry();
+    const positions = [];
+    const colors = [];
+    const color = new THREE.Color();
+    for (let i = 0; i < 180; i += 1) {
+      positions.push((Math.random() - 0.5) * 140, 18 + Math.random() * 44, -36 - Math.random() * 70);
+      color.setHex(i % 5 === 0 ? 0x24dfff : 0xb8d7ff);
+      colors.push(color.r, color.g, color.b);
+    }
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+    group.add(new THREE.Points(geometry, new THREE.PointsMaterial({ size: 0.12, vertexColors: true, transparent: true, opacity: 0.9 })));
+    return group;
+  }
+
+  #routeMarkers(level) {
+    const group = new THREE.Group();
+    const material = new THREE.MeshBasicMaterial({ color: 0x24dfff, transparent: true, opacity: 0.62 });
+    const markers = level.checkpoints ?? [level.landingPad];
+    for (const end of markers) {
+      const x = end.position.x;
+      const z = end.position.z;
+      const marker = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.34, 20), material);
+      marker.rotation.x = -Math.PI / 2;
+      marker.position.set(x, 0.18, z);
+      group.add(marker);
+    }
+    return group;
+  }
+
+  #skyline(level) {
+    const group = new THREE.Group();
+    const mat = new THREE.MeshBasicMaterial({ color: 0x081727, transparent: true, opacity: 0.85 });
+    for (let i = 0; i < 24; i += 1) {
+      const h = 2 + ((i * 17 + level.terrain.seed) % 8);
+      const tower = new THREE.Mesh(new THREE.BoxGeometry(1.2, h, 1.2), mat);
+      tower.position.set(-34 + i * 3, h / 2 - 0.5, -52 - (i % 4) * 5);
+      group.add(tower);
+    }
+    return group;
+  }
+}

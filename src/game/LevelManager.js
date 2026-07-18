@@ -1,0 +1,149 @@
+const ROUTE_LENGTH = 5400;
+const MARKER_SPACING = 180;
+
+export class LevelManager {
+  constructor() {
+    this.level = this.#buildEndlessLevel(0);
+    this.levels = [
+      { id: 1, name: 'Launch', startDistance: 0 },
+      { id: 2, name: 'Marker 3', startDistance: MARKER_SPACING * 3 },
+      { id: 3, name: 'Marker 6', startDistance: MARKER_SPACING * 6 },
+      { id: 4, name: 'Marker 10', startDistance: MARKER_SPACING * 10 },
+      { id: 5, name: 'Marker 15', startDistance: MARKER_SPACING * 15 }
+    ];
+    this.index = 0;
+  }
+
+  get current() {
+    return this.level;
+  }
+
+  getById(id) {
+    return this.levels.find((level) => level.id === id) ?? this.levels[0];
+  }
+
+  load(id = 1) {
+    this.index = Math.max(0, this.levels.findIndex((level) => level.id === id));
+    const start = this.getById(id);
+    this.level = this.#buildEndlessLevel(start.startDistance);
+    return this.level;
+  }
+
+  next() {
+    return this.level;
+  }
+
+  #buildEndlessLevel(startDistance) {
+    const launchZ = 18 - startDistance;
+    const checkpoints = [];
+    const pickups = [];
+    const obstacles = [];
+    const walls = [];
+    const roofs = [];
+    const markerCount = Math.floor(ROUTE_LENGTH / MARKER_SPACING);
+
+    for (let i = 1; i <= markerCount; i += 1) {
+      const distance = startDistance + i * MARKER_SPACING;
+      const difficulty = this.#difficulty(distance);
+      const z = launchZ - i * MARKER_SPACING;
+      const x = Math.sin(i * 1.73) * Math.min(11, 3 + difficulty * 9);
+      checkpoints.push({
+        id: i,
+        distance,
+        position: { x, y: 0.12, z },
+        size: { x: Math.max(3.8, 7 - difficulty * 2.3), y: 0.2, z: Math.max(3.8, 7 - difficulty * 2.3) }
+      });
+
+      [
+        { suffix: 7, zOffset: 24, xOffset: -1.8 },
+        { suffix: 8, zOffset: -24, xOffset: 1.8 }
+      ].forEach((drop) => {
+        pickups.push({
+          id: i * 10 + drop.suffix,
+          amount: 30,
+          position: {
+            x: x + drop.xOffset,
+            y: 2.4 + difficulty * 1.6,
+            z: z + drop.zOffset
+          },
+          radius: 1.2
+        });
+      });
+
+      const dropOffsets = [-0.72, -0.5, -0.26, -0.04, 0.18, 0.38, 0.58, 0.78];
+      dropOffsets.forEach((offset, dropIndex) => {
+        pickups.push({
+          id: i * 10 + dropIndex,
+          amount: 18,
+          position: {
+            x: x + Math.sin(i * 1.11 + dropIndex * 1.7) * (5.2 + difficulty * 3.4),
+            y: 2.35 + difficulty * 2.5 + (dropIndex % 3) * 0.55,
+            z: z + MARKER_SPACING * offset
+          },
+          radius: 1.15
+        });
+      });
+
+      const laneCount = 2 + Math.floor(difficulty * 4);
+      for (let j = 0; j < laneCount; j += 1) {
+        const phase = i * 13.37 + j * 5.19;
+        const ox = Math.sin(phase) * (7 + difficulty * 7);
+        const oz = z + 38 + j * (MARKER_SPACING / laneCount) - MARKER_SPACING;
+        const h = 2.4 + difficulty * 6 + ((i + j) % 3);
+        obstacles.push({
+          type: 'spire',
+          position: { x: ox, y: h / 2 - 0.05, z: oz },
+          size: { x: 1.8 + difficulty * 1.1, y: h, z: 1.8 + difficulty * 1.1 }
+        });
+      }
+
+      if (i > 2 && i % 3 === 0) {
+        walls.push({
+          type: 'wall',
+          position: { x: Math.sin(i * 0.91) * 4, y: 3.1, z: z + 72 },
+          size: { x: 12 + difficulty * 8, y: 6.2, z: 0.9 }
+        });
+      }
+
+      if (i > 4 && i % 5 === 0) {
+        roofs.push({
+          type: 'roof',
+          position: { x: Math.cos(i * 0.71) * 5, y: 7.4 - difficulty * 1.6, z: z + 24 },
+          size: { x: 13 + difficulty * 9, y: 0.75, z: 11 }
+        });
+      }
+    }
+
+    return {
+      id: 1,
+      name: 'Endless Route',
+      description: 'One route that keeps escalating with each save marker.',
+      gravity: -3.9,
+      thrustPower: 7.35,
+      steeringPower: 3.65,
+      damping: 0.992,
+      fuelBurnRate: 10.5,
+      windStrength: Math.min(1.25, startDistance / 2600),
+      windDirection: { x: 0.55, y: 0, z: -0.12 },
+      maxSpeed: { horizontal: 7.6, verticalUp: 7.6, verticalDown: 8.8 },
+      launchPad: { position: { x: 0, y: 0.1, z: launchZ }, size: { x: 6, y: 0.2, z: 6 } },
+      landingPad: checkpoints[0],
+      checkpoints,
+      pickups,
+      landingThresholds: { verticalSpeed: 2.35, horizontalSpeed: 2.15, angle: 0.48 },
+      worldBounds: { minX: -26, maxX: 26, minZ: launchZ - ROUTE_LENGTH - 220, maxZ: launchZ + 28, maxY: 32 },
+      terrain: { width: 62, depth: ROUTE_LENGTH + 380, segments: 96, amplitude: 0.72, frequency: 0.085, seed: 11 + Math.floor(startDistance / MARKER_SPACING), centerZ: launchZ - ROUTE_LENGTH / 2 },
+      obstacles,
+      roofs,
+      walls,
+      tutorialMessages: ['Reach save markers', 'Collect Drop fuel', 'Harder route ahead'],
+      scoreMultiplier: 1,
+      visualTheme: { terrain: 0x202833 },
+      startDistance
+    };
+  }
+
+  #difficulty(distance) {
+    return Math.min(1, distance / 2200);
+  }
+}

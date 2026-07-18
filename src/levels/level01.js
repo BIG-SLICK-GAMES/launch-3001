@@ -1,0 +1,23 @@
+export default {
+  id: 1,
+  name: 'First Flight',
+  description: 'Open training route with a generous landing platform.',
+  gravity: -3.8,
+  thrustPower: 7.1,
+  steeringPower: 3.6,
+  damping: 0.992,
+  windStrength: 0,
+  windDirection: { x: 0, y: 0, z: 0 },
+  maxSpeed: { horizontal: 6, verticalUp: 7, verticalDown: 8 },
+  launchPad: { position: { x: 0, y: 0.1, z: 16 }, size: { x: 6, y: 0.2, z: 6 } },
+  landingPad: { position: { x: 0, y: 0.1, z: -18 }, size: { x: 7, y: 0.2, z: 7 } },
+  landingThresholds: { verticalSpeed: 2.4, horizontalSpeed: 2.2, angle: 0.5 },
+  worldBounds: { minX: -22, maxX: 22, minZ: -32, maxZ: 24, maxY: 30 },
+  terrain: { width: 52, depth: 72, segments: 48, amplitude: 0.45, frequency: 0.12, seed: 3 },
+  obstacles: [],
+  roofs: [],
+  walls: [],
+  tutorialMessages: ['Hold to thrust', 'Tilt to steer', 'Land slowly and upright'],
+  scoreMultiplier: 1,
+  visualTheme: { terrain: 0x202833 }
+};

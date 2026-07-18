@@ -1,0 +1,23 @@
+export default {
+  id: 3,
+  name: 'Crosswind',
+  description: 'Offset landing pad with light predictable wind.',
+  gravity: -4.2,
+  thrustPower: 7.35,
+  steeringPower: 3.9,
+  damping: 0.99,
+  windStrength: 0.32,
+  windDirection: { x: 1, y: 0, z: 0.1 },
+  maxSpeed: { horizontal: 6.4, verticalUp: 7.1, verticalDown: 8.8 },
+  launchPad: { position: { x: -7, y: 0.1, z: 24 }, size: { x: 5.2, y: 0.2, z: 5.2 } },
+  landingPad: { position: { x: 8, y: 0.1, z: -26 }, size: { x: 5.1, y: 0.2, z: 5.1 } },
+  landingThresholds: { verticalSpeed: 2.05, horizontalSpeed: 1.85, angle: 0.42 },
+  worldBounds: { minX: -26, maxX: 26, minZ: -40, maxZ: 30, maxY: 30 },
+  terrain: { width: 60, depth: 86, segments: 56, amplitude: 1.25, frequency: 0.15, seed: 17 },
+  obstacles: [],
+  roofs: [],
+  walls: [],
+  tutorialMessages: ['Lean into the wind'],
+  scoreMultiplier: 1.25,
+  visualTheme: { terrain: 0x202a32 }
+};

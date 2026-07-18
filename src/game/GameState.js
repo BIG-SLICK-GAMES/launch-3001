@@ -1,0 +1,69 @@
+export const STATES = Object.freeze({
+  BOOT: 'BOOT',
+  MENU: 'MENU',
+  LEVEL_SELECT: 'LEVEL_SELECT',
+  READY: 'READY',
+  FLYING: 'FLYING',
+  LANDED: 'LANDED',
+  CRASHED: 'CRASHED',
+  PAUSED: 'PAUSED',
+  LEVEL_COMPLETE: 'LEVEL_COMPLETE',
+  GAME_COMPLETE: 'GAME_COMPLETE'
+});
+
+const allowed = {
+  [STATES.BOOT]: [STATES.MENU, STATES.READY],
+  [STATES.MENU]: [STATES.LEVEL_SELECT, STATES.READY],
+  [STATES.LEVEL_SELECT]: [STATES.MENU, STATES.READY],
+  [STATES.READY]: [STATES.FLYING, STATES.PAUSED, STATES.MENU],
+  [STATES.FLYING]: [STATES.PAUSED, STATES.LANDED, STATES.CRASHED, STATES.READY, STATES.MENU],
+  [STATES.PAUSED]: [STATES.FLYING, STATES.READY, STATES.MENU, STATES.LEVEL_SELECT],
+  [STATES.LANDED]: [STATES.LEVEL_COMPLETE, STATES.READY],
+  [STATES.LEVEL_COMPLETE]: [STATES.READY, STATES.GAME_COMPLETE, STATES.LEVEL_SELECT, STATES.MENU],
+  [STATES.CRASHED]: [STATES.READY, STATES.MENU],
+  [STATES.GAME_COMPLETE]: [STATES.MENU, STATES.LEVEL_SELECT, STATES.READY]
+};
+
+export class GameState {
+  constructor() {
+    this.current = STATES.BOOT;
+    this.previous = null;
+    this.listeners = new Set();
+    this.timers = new Set();
+  }
+
+  is(state) {
+    return this.current === state;
+  }
+
+  canTransition(next) {
+    return this.current === next || allowed[this.current]?.includes(next);
+  }
+
+  transition(next, payload = {}) {
+    if (!this.canTransition(next)) return false;
+    this.previous = this.current;
+    this.current = next;
+    this.listeners.forEach((listener) => listener(next, this.previous, payload));
+    return true;
+  }
+
+  onChange(listener) {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  delay(callback, ms) {
+    const id = window.setTimeout(() => {
+      this.timers.delete(id);
+      callback();
+    }, ms);
+    this.timers.add(id);
+    return id;
+  }
+
+  clearTimers() {
+    this.timers.forEach((id) => window.clearTimeout(id));
+    this.timers.clear();
+  }
+}

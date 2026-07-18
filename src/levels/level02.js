@@ -1,0 +1,23 @@
+export default {
+  id: 2,
+  name: 'Long Hop',
+  description: 'Longer route with gentle hills.',
+  gravity: -4.05,
+  thrustPower: 7.25,
+  steeringPower: 3.7,
+  damping: 0.991,
+  windStrength: 0.08,
+  windDirection: { x: 1, y: 0, z: -0.2 },
+  maxSpeed: { horizontal: 6.2, verticalUp: 7, verticalDown: 8.4 },
+  launchPad: { position: { x: -2, y: 0.1, z: 22 }, size: { x: 5.5, y: 0.2, z: 5.5 } },
+  landingPad: { position: { x: 4, y: 0.1, z: -25 }, size: { x: 5.8, y: 0.2, z: 5.8 } },
+  landingThresholds: { verticalSpeed: 2.2, horizontalSpeed: 2, angle: 0.46 },
+  worldBounds: { minX: -24, maxX: 24, minZ: -38, maxZ: 28, maxY: 30 },
+  terrain: { width: 56, depth: 82, segments: 52, amplitude: 1.0, frequency: 0.13, seed: 9 },
+  obstacles: [],
+  roofs: [],
+  walls: [],
+  tutorialMessages: ['Manage momentum over hills'],
+  scoreMultiplier: 1.12,
+  visualTheme: { terrain: 0x222b35 }
+};

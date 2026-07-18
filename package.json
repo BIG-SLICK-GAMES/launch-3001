@@ -1,0 +1,20 @@
+{
+  "name": "launch3001",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:vr": "cross-env LAUNCH3001_HTTPS=1 vite --host 0.0.0.0",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "three": "^0.185.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-basic-ssl": "^2.3.0",
+    "cross-env": "^10.1.0",
+    "vite": "^8.1.5"
+  }
+}
