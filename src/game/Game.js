@@ -50,6 +50,7 @@ export class Game {
     this.runRecorded = false;
     this.takeoffLocked = false;
     this.lastCheckpointTime = 0;
+    this.landedPad = null;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
     this.refillRemaining = new Map();
@@ -82,6 +83,7 @@ export class Game {
     this.rocket.landed = true;
     this.takeoffLocked = true;
     this.lastCheckpointTime = 0;
+    this.landedPad = this.currentLevel.launchPad;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
     this.refillRemaining = new Map();
@@ -317,6 +319,7 @@ export class Game {
     this.rocket.setFlame(false);
     this.audio.stopEngine();
     const pad = marker.position;
+    this.landedPad = marker;
     this.rocket.position.set(pad.x, pad.y + 0.12 + ROCKET_STANDING_HEIGHT, pad.z);
     this.rocket.velocity.set(0, 0, 0);
     const elapsed = Math.max(0.1, this.rocket.flightTime - this.lastCheckpointTime);
@@ -331,6 +334,7 @@ export class Game {
     this.takeoffLocked = true;
     this.rocket.alive = true;
     this.activeLanding = false;
+    this.#applyPadRefuel(marker, FIXED_STEP);
     this.state.transition(STATES.READY);
     this.audio.speak('Touchdown.', 'touchdown', 2500);
   }
@@ -338,6 +342,7 @@ export class Game {
   #beginTakeoff() {
     this.rocket.alive = true;
     this.rocket.landed = false;
+    this.landedPad = null;
     this.activeLanding = false;
     this.input.calibrate();
     this.vr.calibrate();
@@ -396,8 +401,12 @@ export class Game {
 
   #refuelOnPad(dt) {
     if (!this.state.is(STATES.READY) && !this.state.is(STATES.LANDED)) return;
-    const pad = this.#currentPad();
+    const pad = this.rocket.landed && this.landedPad ? this.landedPad : this.#currentPad();
     if (!pad) return;
+    this.#applyPadRefuel(pad, dt);
+  }
+
+  #applyPadRefuel(pad, dt) {
     if (this.rocket.fuel < 99 && this.voiceFlags.refuelPad !== pad.id) {
       this.audio.speak('We will take some fuel Captain!', 'padRefuel', 5000);
       this.voiceFlags.refuelPad = pad.id;

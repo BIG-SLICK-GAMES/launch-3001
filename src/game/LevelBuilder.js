@@ -202,22 +202,27 @@ export class LevelBuilder {
   }
 
   #refillPickup(group) {
-    const mat = new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xff8f1f, emissiveIntensity: 1.45, roughness: 0.22, metalness: 0.2 });
-    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.1, 18), mat);
-    tank.rotation.z = Math.PI / 2;
-    const capA = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 12), mat);
-    const capB = capA.clone();
-    capA.position.x = -0.55;
-    capB.position.x = 0.55;
-    const plusMat = new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending });
-    const barA = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.09, 0.09), plusMat);
-    const barB = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.92, 0.09), plusMat);
+    const mat = new THREE.MeshStandardMaterial({ color: 0x66ff9a, emissive: 0x24ff7a, emissiveIntensity: 1.65, roughness: 0.18, metalness: 0.1 });
+    const drop = new THREE.Mesh(new THREE.SphereGeometry(0.5, 18, 14), mat);
+    drop.scale.set(0.72, 1.18, 0.72);
+    const point = new THREE.Mesh(new THREE.ConeGeometry(0.34, 0.78, 18), mat);
+    point.position.y = -0.58;
+    point.rotation.x = Math.PI;
+    const markMat = new THREE.MeshBasicMaterial({ color: 0xeaff9f, transparent: true, opacity: 0.86, blending: THREE.AdditiveBlending });
+    const barA = new THREE.Mesh(new THREE.BoxGeometry(0.52, 0.07, 0.07), markMat);
+    const barB = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.52, 0.07), markMat);
+    barA.position.z = 0.42;
+    barB.position.z = 0.42;
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.9, 0.04, 8, 36),
-      new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending })
+      new THREE.TorusGeometry(0.84, 0.035, 8, 34),
+      new THREE.MeshBasicMaterial({ color: 0x9fffc7, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending })
     );
     ring.rotation.x = Math.PI / 2;
-    group.add(tank, capA, capB, barA, barB, ring);
+    const outerRing = ring.clone();
+    outerRing.scale.set(1.22, 1.22, 1.22);
+    outerRing.material = ring.material.clone();
+    outerRing.material.opacity = 0.32;
+    group.add(drop, point, barA, barB, ring, outerRing);
     return group;
   }
 
