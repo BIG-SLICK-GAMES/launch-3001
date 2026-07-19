@@ -19,6 +19,10 @@ export class UIController {
     this.#updateHudSideControl();
   }
 
+  refreshProfile() {
+    if (this.game.state.is(STATES.LOBBY)) this.#lobby();
+  }
+
   update(data) {
     const markerDistance = data.nextMarker ? Math.max(0, data.nextMarker.distance - data.rocket.distance) : 0;
     const markerTime = Math.max(0, data.rocket.flightTime - this.game.lastCheckpointTime);
@@ -50,6 +54,8 @@ export class UIController {
   showState(state, payload = {}) {
     this.root.dataset.state = state;
     delete this.root.dataset.settingsOpen;
+    if (state === STATES.SPLASH) this.#splash();
+    if (state === STATES.LOBBY) this.#lobby();
     if (state === STATES.MENU) this.#menu();
     if (state === STATES.LEVEL_SELECT) this.#levelSelect();
     if (state === STATES.PAUSED) this.#pause();
@@ -153,16 +159,80 @@ export class UIController {
   }
 
   #menu() {
-    const access = this.game.fullAccess ? 'FULL ACCESS' : 'DEMO';
+    this.#lobby();
+  }
+
+  #splash() {
     this.overlay.innerHTML = `
-      <section class="panel menu-panel">
-        <h1>Launch3001</h1>
-        <p>${access} | Endless rocket run. Reach save markers, collect Drop fuel, and bank time bonuses.</p>
-        <button data-action="play">Play</button>
-        <button data-action="level-select">Load Checkpoint</button>
-        <button data-action="leaderboard">Leaderboard</button>
-        <button data-action="reset-run">Reset Run</button>
-        <button data-action="settings">Settings</button>
+      <section class="splash-screen">
+        <div class="splash-mark">LAUNCH <b>3001</b></div>
+        <div class="splash-sub">BIG SLICK GAMES</div>
+        <button data-action="lobby">Enter Hangar</button>
+      </section>`;
+  }
+
+  #lobby() {
+    const access = this.game.fullAccess ? 'FULL ACCESS' : 'DEMO';
+    const profile = this.game.profile.profile;
+    const best = this.game.score.progress.leaderboard ?? {};
+    this.overlay.innerHTML = `
+      <section class="lobby-screen">
+        <div class="lobby-brand">
+          <span>BIG SLICK GAMES</span>
+          <h1>Launch 3001</h1>
+          <p>${access} ACCESS</p>
+        </div>
+        <div class="lobby-panel lobby-menu">
+          <button class="primary" data-action="play">Play</button>
+          <button data-action="store">Store</button>
+          <button data-action="profile">Profile</button>
+          <button data-action="level-select">Load Checkpoint</button>
+          <button data-action="leaderboard">Leaderboard</button>
+          <button data-action="settings">Settings</button>
+        </div>
+        <div class="lobby-panel profile-card">
+          <h2>Profile</h2>
+          <div class="pilot-row">
+            <div class="pilot-avatar">${this.#initials(profile.name)}</div>
+            <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
+          </div>
+          <div class="access-pill ${this.game.fullAccess ? 'owned' : ''}">${this.game.fullAccess ? 'Full Game Owned' : 'Demo Access'}</div>
+          <dl>
+            <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
+            <dt>Best time</dt><dd>${formatNumber(best.bestDistanceTime ?? 0, 1)}s</dd>
+          </dl>
+        </div>
+        <div class="lobby-panel store-card">
+          <h2>Full Game</h2>
+          <strong>$1.99 USD</strong>
+          <p>Unlock the full route, more checkpoints, quests, caves, moving hazards, and leaderboard runs.</p>
+          <button data-action="store">${this.game.fullAccess ? 'Owned' : 'Unlock Full Game'}</button>
+        </div>
+      </section>`;
+  }
+
+  #store() {
+    this.overlay.innerHTML = `
+      <section class="panel store-panel">
+        <h2>Full Version</h2>
+        <p>Unlock Launch 3001 for <b>$1.99 USD</b>. Purchases are handled by your BSG website profile.</p>
+        <button data-action="shop" data-shop-url="/shop.html">Go To BSG Shop</button>
+        <button data-action="lobby">Back To Lobby</button>
+      </section>`;
+  }
+
+  #profile() {
+    const profile = this.game.profile.profile;
+    this.overlay.innerHTML = `
+      <section class="panel profile-panel">
+        <h2>Profile</h2>
+        <div class="pilot-row">
+          <div class="pilot-avatar">${this.#initials(profile.name)}</div>
+          <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.email || profile.source || 'BSG profile pending'}</span></div>
+        </div>
+        <p>${this.game.fullAccess ? 'Launch 3001 full access is active on this profile.' : 'This profile is currently in demo mode.'}</p>
+        <button data-action="store">Store</button>
+        <button data-action="lobby">Back To Lobby</button>
       </section>`;
   }
 
@@ -320,11 +390,18 @@ export class UIController {
   }
 
   async #handleAction(action, target) {
+    if (action === 'shop') {
+      window.open(target.closest('[data-shop-url]')?.dataset.shopUrl ?? '/shop.html', '_blank', 'noopener');
+      return;
+    }
     await this.game.audio.unlock();
     this.game.audio.playClick();
-    if (action === 'play') this.game.startLevel(this.game.score.progress.highestUnlockedLevel);
+    if (action === 'play') this.#launchSequence();
+    if (action === 'lobby') this.game.showLobby();
+    if (action === 'store') this.#store();
+    if (action === 'profile') this.#profile();
     if (action === 'level-select') this.game.state.transition(STATES.LEVEL_SELECT);
-    if (action === 'menu') this.game.goMenu();
+    if (action === 'menu') this.game.showLobby();
     if (action === 'resume') this.game.resume();
     if (action === 'close-settings') this.#closeSettings();
     if (action === 'pause') this.game.pause();
@@ -343,9 +420,24 @@ export class UIController {
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
     if (action === 'calibrate') this.game.input.calibrate();
     if (action === 'settings') this.#settings();
-    if (action === 'shop') window.open(target.closest('[data-shop-url]')?.dataset.shopUrl ?? '/shop.html', '_blank', 'noopener');
-    if (action === 'back') this.game.state.transition(STATES.MENU);
+    if (action === 'back') this.game.showLobby();
     if (action === 'level') this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
+  }
+
+  #launchSequence() {
+    this.overlay.innerHTML = `
+      <section class="launch-transition">
+        <div class="hangar-door left-door"></div>
+        <div class="hangar-door right-door"></div>
+        <div class="walkway-light"></div>
+        <strong>HANGAR DOORS OPENING</strong>
+        <span>Walking out to the rocket</span>
+      </section>`;
+    window.setTimeout(() => this.game.enterGame(), 1800);
+  }
+
+  #initials(name = 'Guest Pilot') {
+    return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'GP';
   }
 
   #closeSettings() {

@@ -8,6 +8,7 @@ import { World } from './World.js';
 import { CollisionSystem } from './CollisionSystem.js';
 import { LevelManager } from './LevelManager.js';
 import { SaveSystem } from './SaveSystem.js';
+import { ProfileSystem } from './ProfileSystem.js';
 import { ScoreSystem } from './ScoreSystem.js';
 import { AudioSystem } from './AudioSystem.js';
 import { EffectsSystem } from './EffectsSystem.js';
@@ -25,7 +26,8 @@ export class Game {
     this.renderer = new Renderer(root);
     this.save = new SaveSystem();
     this.settings = this.save.loadSettings();
-    this.fullAccess = this.save.hasPurchase();
+    this.profile = new ProfileSystem(this.save);
+    this.fullAccess = this.profile.hasPurchase();
     this.score = new ScoreSystem(this.save);
     this.audio = new AudioSystem(this.settings);
     this.levels = new LevelManager();
@@ -62,22 +64,24 @@ export class Game {
     this.#bindLifecycle();
   }
 
+  refreshProfile() {
+    this.profile.refresh();
+    this.fullAccess = this.profile.hasPurchase();
+    this.ui.refreshProfile();
+  }
+
   start() {
     this.loadLevel(1);
-    this.state.transition(STATES.READY);
+    this.state.transition(STATES.SPLASH);
     this.renderer.resize(this.camera);
     this.running = true;
     this.renderer.setAnimationLoop((time, frame) => this.#frame(time, frame));
-    if (this.#isMobileLike() && !this.mobileTutorialDone) {
-      this.ui.showMobileTiltPrompt();
-    } else if (!this.missionHintDone) {
-      this.ui.showMissionHint();
-    }
   }
 
   loadLevel(id) {
     this.state.clearTimers();
-    this.fullAccess = this.save.hasPurchase();
+    this.profile.refresh();
+    this.fullAccess = this.profile.hasPurchase();
     this.activeLanding = false;
     this.runRecorded = false;
     this.currentStartId = id;
@@ -115,6 +119,21 @@ export class Game {
   resetRun() {
     this.score.resetRun();
     this.startLevel(1);
+  }
+
+  showLobby() {
+    this.audio.stopEngine();
+    this.state.clearTimers();
+    this.state.transition(STATES.LOBBY);
+  }
+
+  enterGame() {
+    if (this.#isMobileLike() && !this.mobileTutorialDone) {
+      this.ui.showMobileTiltPrompt();
+      return;
+    }
+    this.startLevel(this.score.progress.highestUnlockedLevel);
+    if (!this.missionHintDone) this.ui.showMissionHint();
   }
 
   pause() {
@@ -194,7 +213,7 @@ export class Game {
     if (!this.running) return;
     const dt = Math.min((time - this.lastTime) / 1000 || 0, MAX_FRAME_DELTA);
     this.lastTime = time;
-    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE)) {
+    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE) && !this.state.is(STATES.SPLASH) && !this.state.is(STATES.LOBBY)) {
       this.accumulator += dt;
       while (this.accumulator >= FIXED_STEP) {
         this.#fixedUpdate(FIXED_STEP);

@@ -480,6 +480,269 @@ button:disabled {
   pointer-events: auto;
 }
 
+.splash-screen,
+.lobby-screen,
+.launch-transition {
+  pointer-events: auto;
+}
+
+.game-root[data-state="SPLASH"],
+.game-root[data-state="LOBBY"] {
+  background: #05070b;
+}
+
+.game-root[data-state="SPLASH"]::before,
+.game-root[data-state="LOBBY"]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(90deg, rgba(2, 5, 10, 0.82), rgba(2, 5, 10, 0.22) 45%, rgba(2, 5, 10, 0.78)),
+    url("/images/launch3001-lobby-hangar.png") center / cover no-repeat;
+  z-index: 1;
+}
+
+.splash-screen {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  gap: 18px;
+  justify-items: center;
+  text-align: center;
+}
+
+.splash-mark {
+  color: #f4fbff;
+  font-size: clamp(42px, 11vw, 96px);
+  font-weight: 900;
+  line-height: 0.9;
+  text-shadow: 0 0 28px rgba(36, 223, 255, 0.38);
+}
+
+.splash-mark b {
+  display: block;
+  color: #24dfff;
+  font-size: 1.42em;
+}
+
+.splash-sub {
+  color: #ffb36a;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.lobby-screen {
+  position: relative;
+  z-index: 2;
+  width: min(1180px, calc(100vw - 32px));
+  min-height: min(680px, calc(100vh - 32px));
+  display: grid;
+  grid-template-columns: minmax(230px, 310px) minmax(280px, 1fr) minmax(230px, 310px);
+  grid-template-rows: auto 1fr;
+  gap: 14px;
+  align-items: end;
+}
+
+.lobby-brand {
+  grid-column: 1 / -1;
+  align-self: start;
+}
+
+.lobby-brand span,
+.lobby-brand p {
+  margin: 0;
+  color: #ffb36a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.lobby-brand h1 {
+  margin: 4px 0;
+  color: #f4fbff;
+  font-size: clamp(40px, 8vw, 86px);
+  line-height: 0.92;
+  text-shadow: 0 0 24px rgba(36, 223, 255, 0.3);
+}
+
+.lobby-panel {
+  border: 1px solid rgba(82, 220, 255, 0.3);
+  border-radius: 8px;
+  background: rgba(3, 10, 18, 0.78);
+  box-shadow: 0 0 24px rgba(0, 214, 255, 0.12);
+  backdrop-filter: blur(12px);
+  padding: 14px;
+}
+
+.lobby-menu {
+  display: grid;
+  gap: 8px;
+}
+
+.lobby-menu .primary {
+  border-color: rgba(51, 255, 138, 0.72);
+  background: linear-gradient(180deg, rgba(27, 210, 126, 0.92), rgba(9, 91, 61, 0.96));
+  box-shadow: 0 0 20px rgba(51, 255, 138, 0.26);
+}
+
+.profile-card,
+.store-card,
+.profile-panel,
+.store-panel {
+  display: grid;
+  gap: 10px;
+}
+
+.pilot-row {
+  display: grid;
+  grid-template-columns: 48px 1fr;
+  gap: 10px;
+  align-items: center;
+}
+
+.pilot-row b {
+  display: block;
+  color: #f4fbff;
+}
+
+.pilot-row span {
+  display: block;
+  color: #8fb3c6;
+  font-size: 12px;
+}
+
+.pilot-avatar {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(82, 220, 255, 0.42);
+  border-radius: 8px;
+  background: rgba(36, 223, 255, 0.16);
+  color: #eaffff;
+  font-weight: 900;
+}
+
+.access-pill {
+  width: fit-content;
+  padding: 5px 8px;
+  border: 1px solid rgba(255, 179, 106, 0.44);
+  border-radius: 6px;
+  color: #ffcb93;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.access-pill.owned {
+  border-color: rgba(51, 255, 138, 0.48);
+  color: #9fffc7;
+}
+
+.profile-card dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 5px 12px;
+  margin: 0;
+  color: #8fb3c6;
+  font-size: 13px;
+}
+
+.profile-card dd {
+  margin: 0;
+  color: #f4fbff;
+  font-weight: 800;
+}
+
+.store-card strong {
+  color: #9fffc7;
+  font-size: 26px;
+}
+
+.store-card p,
+.store-panel p,
+.profile-panel p {
+  margin: 0;
+  color: #a7c0ce;
+}
+
+.launch-transition {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: #05070b url("/images/launch3001-lobby-hangar.png") center / cover no-repeat;
+}
+
+.launch-transition::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(2, 5, 10, 0.34);
+}
+
+.hangar-door {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 51%;
+  background: linear-gradient(90deg, #08111f, #142842);
+  border: 1px solid rgba(82, 220, 255, 0.18);
+  animation: door-open 1500ms ease-in forwards;
+}
+
+.left-door {
+  left: 0;
+  transform-origin: left center;
+}
+
+.right-door {
+  right: 0;
+  transform-origin: right center;
+  animation-name: door-open-right;
+}
+
+.walkway-light {
+  position: absolute;
+  bottom: 0;
+  width: 22vw;
+  height: 100vh;
+  background: linear-gradient(0deg, rgba(36, 223, 255, 0.28), transparent 58%);
+  clip-path: polygon(42% 0, 58% 0, 100% 100%, 0 100%);
+  animation: walkway-forward 1800ms ease-in forwards;
+}
+
+.launch-transition strong,
+.launch-transition span {
+  position: relative;
+  z-index: 3;
+  transform: translateY(-4vh);
+}
+
+.launch-transition strong {
+  color: #f4fbff;
+  font-size: clamp(24px, 6vw, 54px);
+  text-shadow: 0 0 24px rgba(36, 223, 255, 0.36);
+}
+
+.launch-transition span {
+  margin-top: 72px;
+  color: #9ff7ff;
+  font-weight: 800;
+}
+
+@keyframes door-open {
+  to { transform: translateX(-94%) skewY(-2deg); }
+}
+
+@keyframes door-open-right {
+  to { transform: translateX(94%) skewY(2deg); }
+}
+
+@keyframes walkway-forward {
+  from { opacity: 0.22; transform: scaleY(0.6); }
+  to { opacity: 0.82; transform: scaleY(1.08); }
+}
+
 .panel,
 .toast {
   width: min(92vw, 420px);
@@ -651,6 +914,9 @@ button:disabled {
 }
 
 [data-state="MENU"] .hud,
+[data-state="SPLASH"] .hud,
+[data-state="LOBBY"] .hud,
+[data-state="DEMO_COMPLETE"] .hud,
 [data-state="LEVEL_SELECT"] .hud {
   display: none;
 }
@@ -761,11 +1027,27 @@ button:disabled {
 }
 
 [data-state="MENU"] .top-stats,
+[data-state="SPLASH"] .top-stats,
+[data-state="LOBBY"] .top-stats,
+[data-state="DEMO_COMPLETE"] .top-stats,
 [data-state="LEVEL_SELECT"] .top-stats,
 [data-state="PAUSED"] .top-stats,
 [data-state="CRASHED"] .top-stats,
 [data-state="LANDED"] .top-stats {
   display: none;
+}
+
+@media (max-width: 820px) {
+  .lobby-screen {
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    overflow: auto;
+    padding: 8px 0;
+  }
+
+  .lobby-brand h1 {
+    font-size: clamp(36px, 14vw, 64px);
+  }
 }
 
 [data-state="FLYING"] .camera-strip,

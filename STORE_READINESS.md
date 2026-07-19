@@ -25,7 +25,8 @@ localStorage.setItem('launch3001.profile', JSON.stringify({ purchases: { launch3
 
 Production requirement:
 
-- Replace the local profile tick with Meta entitlement validation or a server-verified profile before store release.
+- The BSG website must pass the logged-in profile into the game with `purchases.launch3001 === true` after the $1.99 USD purchase.
+- Supported profile sources in the game are `window.BSG_PROFILE`, `window.launch3001Profile`, or `postMessage({ type: 'BSG_PROFILE', profile })`.
 
 ## Access Needed From Brent
 
