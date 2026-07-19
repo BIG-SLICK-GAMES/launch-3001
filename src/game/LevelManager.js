@@ -49,11 +49,21 @@ export class LevelManager {
       const difficulty = this.#difficulty(distance);
       const z = launchZ - i * MARKER_SPACING;
       const x = Math.sin(i * 1.73) * Math.min(11, 3 + difficulty * 9);
+      const previous = checkpoints[i - 2] ?? { position: { x: 0, z: launchZ } };
       checkpoints.push({
         id: i,
         distance,
         position: { x, y: 0.12, z },
         size: { x: 6.6, y: 0.2, z: 6.6 }
+      });
+
+      this.#addForcedGate({
+        walls,
+        roofs,
+        routeX: previous.position.x + (x - previous.position.x) * 0.58,
+        z: z + MARKER_SPACING * 0.48,
+        difficulty,
+        firstGate: i === 1
       });
 
       [
@@ -254,6 +264,37 @@ export class LevelManager {
   }
 
   #difficulty(distance) {
-    return Math.min(1.8, 0.18 + distance / 1500);
+    return Math.min(2.6, 0.35 + distance / 900);
+  }
+
+  #addForcedGate({ walls, roofs, routeX, z, difficulty, firstGate }) {
+    const minX = -26;
+    const maxX = 26;
+    const maxY = 31.5;
+    const gateDepth = 1.25 + difficulty * 0.18;
+    const openingWidth = Math.max(firstGate ? 8.6 : 5.6, 12.2 - difficulty * 2.65);
+    const openingTop = Math.max(firstGate ? 7.8 : 5.1, 11.2 - difficulty * 2.35);
+    const leftEdge = routeX - openingWidth / 2;
+    const rightEdge = routeX + openingWidth / 2;
+    const leftWidth = Math.max(0.1, leftEdge - minX);
+    const rightWidth = Math.max(0.1, maxX - rightEdge);
+
+    walls.push(
+      {
+        type: 'wall',
+        position: { x: minX + leftWidth / 2, y: maxY / 2, z },
+        size: { x: leftWidth, y: maxY, z: gateDepth }
+      },
+      {
+        type: 'wall',
+        position: { x: rightEdge + rightWidth / 2, y: maxY / 2, z },
+        size: { x: rightWidth, y: maxY, z: gateDepth }
+      }
+    );
+    roofs.push({
+      type: 'roof',
+      position: { x: routeX, y: openingTop + (maxY - openingTop) / 2, z },
+      size: { x: openingWidth + 1.4, y: maxY - openingTop, z: gateDepth }
+    });
   }
 }
