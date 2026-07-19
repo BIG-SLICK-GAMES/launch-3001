@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { LevelBuilder } from './LevelBuilder.js';
-import { disposeObject3D } from './utils.js';
+import { disposeObject3D, makeBoxFromSpec } from './utils.js';
 
 export class World {
   constructor(scene) {
@@ -20,6 +20,26 @@ export class World {
     this.current = this.builder.build(level);
     this.scene.add(this.current.group);
     return this.current;
+  }
+
+  updateMovingHazards(time) {
+    if (!this.current?.boxes) return;
+    for (const entry of this.current.boxes) {
+      if (!entry.spec.motion || !entry.mesh) continue;
+      const t = time * (entry.spec.speed ?? 1) + (entry.spec.phase ?? 0);
+      entry.spec.position.x = entry.origin.x;
+      entry.spec.position.y = entry.origin.y;
+      entry.spec.position.z = entry.origin.z;
+      if (entry.spec.motion === 'slideX') {
+        entry.spec.position.x = entry.origin.x + Math.sin(t) * (entry.spec.amplitude ?? 6);
+      } else if (entry.spec.motion === 'bobY') {
+        entry.spec.position.y = entry.origin.y + Math.sin(t) * (entry.spec.amplitude ?? 2);
+      } else if (entry.spec.motion === 'slideZ') {
+        entry.spec.position.z = entry.origin.z + Math.sin(t) * (entry.spec.amplitude ?? 8);
+      }
+      entry.mesh.position.set(entry.spec.position.x, entry.spec.position.y, entry.spec.position.z);
+      entry.box.copy(makeBoxFromSpec(entry.spec));
+    }
   }
 
   getTerrainHeight(x, z) {

@@ -214,8 +214,9 @@ export class Game {
     if (this.rocket.thrusting) this.audio.startEngine();
     else this.audio.stopEngine();
     this.physics.step(this.rocket, this.currentLevel, steering, dt, active, this.settings);
+    this.world.updateMovingHazards(this.rocket.flightTime);
     this.#tickGroundTimer(dt, active);
-    this.rocket.updateVisual(dt, steering);
+    this.rocket.updateVisual(dt, steering, this.settings);
     this.#refuelOnPad(dt);
     this.score.updateLeaderboard(this.rocket.distance, this.rocket.flightTime);
     if (active) {

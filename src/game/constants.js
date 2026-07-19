@@ -53,6 +53,7 @@ export const DEFAULT_SETTINGS = {
   tiltSensitivity: 1,
   tiltDeadZone: 0.06,
   tiltSmoothing: 0.18,
+  rocketTiltMax: 0.62,
   invertForward: false,
   volume: 0.55,
   muted: false,

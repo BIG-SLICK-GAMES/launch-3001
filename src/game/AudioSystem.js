@@ -2,7 +2,7 @@ export class AudioSystem {
   constructor(settings) {
     this.settings = settings;
     this.context = null;
-    this.engineOsc = null;
+    this.engine = null;
     this.lastSpeech = new Map();
     this.speechUnlocked = false;
     document.addEventListener('visibilitychange', () => {
@@ -58,22 +58,66 @@ export class AudioSystem {
   }
 
   startEngine() {
-    if (!this.context || this.settings.muted || this.engineOsc) return;
-    const gain = this.context.createGain();
-    gain.gain.value = this.settings.volume * 0.06;
-    const osc = this.context.createOscillator();
-    osc.type = 'sawtooth';
-    osc.frequency.value = 96;
-    osc.connect(gain).connect(this.context.destination);
-    osc.start();
-    this.engineOsc = { osc, gain };
+    if (!this.context || this.settings.muted || this.engine) return;
+    const now = this.context.currentTime;
+    const master = this.context.createGain();
+    master.gain.setValueAtTime(0, now);
+    master.gain.linearRampToValueAtTime((this.settings.volume ?? 0.55) * 0.16, now + 0.16);
+
+    const low = this.context.createOscillator();
+    low.type = 'sine';
+    low.frequency.setValueAtTime(54, now);
+    const lowGain = this.context.createGain();
+    lowGain.gain.value = 0.48;
+
+    const rumble = this.context.createOscillator();
+    rumble.type = 'triangle';
+    rumble.frequency.setValueAtTime(86, now);
+    const rumbleGain = this.context.createGain();
+    rumbleGain.gain.value = 0.18;
+
+    const noise = this.context.createBufferSource();
+    noise.buffer = this.#noiseBuffer();
+    noise.loop = true;
+    const filter = this.context.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 420;
+    filter.Q.value = 0.7;
+    const noiseGain = this.context.createGain();
+    noiseGain.gain.value = 0.22;
+
+    low.connect(lowGain).connect(master);
+    rumble.connect(rumbleGain).connect(master);
+    noise.connect(filter).connect(noiseGain).connect(master);
+    master.connect(this.context.destination);
+    low.start(now);
+    rumble.start(now);
+    noise.start(now);
+    this.engine = { low, rumble, noise, master };
   }
 
   stopEngine() {
-    if (!this.engineOsc) return;
-    this.engineOsc.gain.gain.setTargetAtTime(0, this.context.currentTime, 0.03);
-    this.engineOsc.osc.stop(this.context.currentTime + 0.08);
-    this.engineOsc = null;
+    if (!this.engine) return;
+    const now = this.context.currentTime;
+    this.engine.master.gain.setTargetAtTime(0, now, 0.08);
+    this.engine.low.stop(now + 0.22);
+    this.engine.rumble.stop(now + 0.22);
+    this.engine.noise.stop(now + 0.22);
+    this.engine = null;
+  }
+
+  #noiseBuffer() {
+    if (this.noiseBuffer) return this.noiseBuffer;
+    const length = Math.floor((this.context?.sampleRate ?? 44100) * 1.4);
+    const buffer = this.context.createBuffer(1, length, this.context.sampleRate);
+    const data = buffer.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < length; i += 1) {
+      last = last * 0.86 + (Math.random() * 2 - 1) * 0.14;
+      data[i] = last;
+    }
+    this.noiseBuffer = buffer;
+    return buffer;
   }
 
   #tone(freq, duration, gainValue) {

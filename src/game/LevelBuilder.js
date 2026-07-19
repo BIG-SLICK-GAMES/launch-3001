@@ -15,7 +15,8 @@ export class LevelBuilder {
     }
     group.add(launchPad, checkpointGroup);
     const obstacleMeshes = [];
-    [...level.obstacles, ...level.roofs, ...level.walls, ...(level.tunnels ?? [])].forEach((spec) => {
+    const hazardSpecs = [...level.obstacles, ...level.roofs, ...level.walls, ...(level.tunnels ?? []), ...(level.movers ?? [])];
+    hazardSpecs.forEach((spec) => {
       const mesh = this.#box(spec);
       obstacleMeshes.push(mesh);
       group.add(mesh);
@@ -33,12 +34,12 @@ export class LevelBuilder {
       obstacleMeshes,
       pickupMeshes: pickupGroup.children,
       checkpointMeshes: checkpointGroup.children,
-      boxes: [...level.obstacles, ...level.roofs, ...level.walls, ...(level.tunnels ?? [])].map((spec) => ({ spec, box: makeBoxFromSpec(spec) }))
+      boxes: hazardSpecs.map((spec, index) => ({ spec, mesh: obstacleMeshes[index], box: makeBoxFromSpec(spec), origin: { ...spec.position } }))
     };
   }
 
   #terrain(level) {
-    const { width, depth, segments, amplitude, frequency, seed, centerZ = 0 } = level.terrain;
+    const { width, depth, segments, amplitude, frequency, seed, centerZ = 0, startDistance = 0 } = level.terrain;
     const geometry = new THREE.PlaneGeometry(width, depth, segments, segments);
     geometry.rotateX(-Math.PI / 2);
     const positions = geometry.attributes.position;
@@ -52,9 +53,15 @@ export class LevelBuilder {
         const worldZ = pz + centerZ;
         const safeLaunch = this.#nearPad(px, worldZ, level.launchPad, 5);
         const safeLanding = (level.checkpoints ?? [level.landingPad]).some((pad) => this.#nearPad(px, worldZ, pad, 6));
+        const routeDistance = Math.max(0, startDistance + level.launchPad.position.z - worldZ);
+        const terrainDifficulty = Math.min(2.4, 0.18 + routeDistance / 1500);
         const wave = Math.sin((px + seed) * frequency) * Math.cos((pz - seed) * frequency * 0.72);
         const ridge = Math.sin((px * 0.31 + pz * 0.19 + seed) * frequency * 1.7);
-        let h = (wave * 0.65 + ridge * 0.35) * amplitude;
+        const brokenGround = Math.sin((px * 0.47 - pz * 0.23 + seed) * frequency * 3.1) * 0.22;
+        const sideRise = Math.max(0, Math.abs(px) / (width / 2) - 0.42);
+        const canyonWall = sideRise ** 2.2 * (4.2 + terrainDifficulty * 4.6);
+        const centerDip = Math.max(0, 1 - Math.abs(px) / 16) * terrainDifficulty * -0.18;
+        let h = ((wave * 0.65 + ridge * 0.35 + brokenGround) * amplitude * (0.85 + terrainDifficulty * 0.82)) + canyonWall + centerDip;
         if (safeLaunch || safeLanding) h = -0.06;
         positions.setY(i, h);
         heights[z][x] = h;
@@ -110,13 +117,13 @@ export class LevelBuilder {
   }
 
   #box(spec) {
-    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'wall' ? 0xff2433 : spec.type === 'mountain' ? 0x5c6470 : 0xff7824;
+    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'wall' || spec.type === 'movingWall' ? 0xff2433 : spec.type === 'mountain' ? 0x5c6470 : 0xff7824;
     const group = new THREE.Group();
     group.position.set(spec.position.x, spec.position.y, spec.position.z);
     group.name = spec.type;
     const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.46, transparent: true, opacity: 0.95, roughness: 0.38, metalness: 0.18 });
     const mesh = new THREE.Mesh(
-      spec.type === 'spire' || spec.type === 'mountain'
+      spec.type === 'spire' || spec.type === 'movingSpire' || spec.type === 'mountain'
         ? new THREE.ConeGeometry(Math.max(spec.size.x, spec.size.z) * 0.55, spec.size.y, 7)
         : new THREE.BoxGeometry(spec.size.x, spec.size.y, spec.size.z),
       material

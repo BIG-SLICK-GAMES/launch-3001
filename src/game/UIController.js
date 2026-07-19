@@ -81,7 +81,6 @@ export class UIController {
     if (rocket.getTiltAngle() > level.landingThresholds.angle * 0.85) text = 'BAD ANGLE';
     if (rocket.fuel < 18) text = 'LOW FUEL';
     if (rocket.fuel <= 0) text = 'OUT OF FUEL';
-    if (level.windStrength > 0.7) text = 'HIGH WIND';
     if (emergency) {
       text = emergency;
       this.root.dataset.emergency = 'true';
@@ -203,6 +202,7 @@ export class UIController {
       <div class="control-settings">
         <label>Camera <select data-setting="cameraMode">${cameraOptions}</select></label>
         <label>Volume <input data-setting="volume" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
+        <label>Max tilt <input data-setting="rocketTiltMax" type="range" min="0.28" max="1.2" step="0.02" value="${s.rocketTiltMax ?? 0.62}"></label>
         <label><input data-setting="noFuelDrain" type="checkbox" ${s.noFuelDrain ? 'checked' : ''}> No fuel drain</label>
         <label><input data-setting="muted" type="checkbox" ${s.muted ? 'checked' : ''}> Mute</label>
       </div>
@@ -251,6 +251,7 @@ export class UIController {
       <label>Tilt sensitivity <input data-setting="tiltSensitivity" type="range" min="0.4" max="2" step="0.05" value="${s.tiltSensitivity}"></label>
       <label>Tilt dead zone <input data-setting="tiltDeadZone" type="range" min="0" max="0.24" step="0.01" value="${s.tiltDeadZone}"></label>
       <label>Tilt smoothing <input data-setting="tiltSmoothing" type="range" min="0.04" max="0.45" step="0.01" value="${s.tiltSmoothing}"></label>
+      <label>Max rocket tilt <input data-setting="rocketTiltMax" type="range" min="0.28" max="1.2" step="0.02" value="${s.rocketTiltMax ?? 0.62}"></label>
       <label>Volume <input data-setting="volume" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
       <label><input data-setting="invertForward" type="checkbox" ${s.invertForward ? 'checked' : ''}> Invert forward tilt</label>
       <label><input data-setting="noFuelDrain" type="checkbox" ${s.noFuelDrain ? 'checked' : ''}> No fuel drain</label>

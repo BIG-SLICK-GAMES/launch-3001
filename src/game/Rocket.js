@@ -34,9 +34,10 @@ export class Rocket {
     this.setFlame(false);
   }
 
-  updateVisual(dt, steering) {
-    this.visualTiltZ = smoothDamp(this.visualTiltZ, clamp(-steering.x * 0.28, -0.38, 0.38), 8, dt);
-    this.visualTiltX = smoothDamp(this.visualTiltX, clamp(steering.z * 0.22, -0.32, 0.32), 8, dt);
+  updateVisual(dt, steering, settings = {}) {
+    const maxTilt = clamp(settings.rocketTiltMax ?? 0.62, 0.28, 1.2);
+    this.visualTiltZ = smoothDamp(this.visualTiltZ, clamp(-steering.x * maxTilt, -maxTilt, maxTilt), 8, dt);
+    this.visualTiltX = smoothDamp(this.visualTiltX, clamp(steering.z * maxTilt * 0.82, -maxTilt, maxTilt), 8, dt);
     this.group.rotation.z = this.visualTiltZ;
     this.group.rotation.x = this.visualTiltX;
     if (this.flame) {

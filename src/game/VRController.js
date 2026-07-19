@@ -26,6 +26,10 @@ export class VRController {
     this.rightNeutral = new THREE.Quaternion();
     this.rightRelative = new THREE.Quaternion();
     this.rightEuler = new THREE.Euler(0, 0, 0, 'YXZ');
+    this.raycaster = new THREE.Raycaster();
+    this.rayOrigin = new THREE.Vector3();
+    this.rayDirection = new THREE.Vector3();
+    this.tempMatrix = new THREE.Matrix4();
     this.cameraWorldPosition = new THREE.Vector3();
     this.cameraWorldQuaternion = new THREE.Quaternion();
     this.panelOffset = new THREE.Vector3(0, -0.22, -1.85);
@@ -104,6 +108,14 @@ export class VRController {
     controller.addEventListener('selectend', () => {
       if (index === 1) this.thrust = false;
     });
+    const pointer = new THREE.Line(
+      new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -2.2)]),
+      new THREE.LineBasicMaterial({ color: 0x24dfff, transparent: true, opacity: 0.72 })
+    );
+    pointer.name = 'VR menu pointer';
+    pointer.visible = false;
+    controller.add(pointer);
+    controller.userData.pointer = pointer;
     this.scene.add(controller);
     return controller;
   }
@@ -160,8 +172,11 @@ export class VRController {
   #updateSettingsInput(game) {
     if (!this.settingsOpen) {
       this.menuConfirm = false;
+      this.#updatePointers(false);
       return;
     }
+    this.#updatePointers(true);
+    this.#updatePointedSetting(game);
     const axes = this.#rightAxes();
     if (this.stickCooldown <= 0) {
       if (axes.y < -0.55) {
@@ -179,9 +194,35 @@ export class VRController {
       }
     }
     if (this.menuConfirm) {
+      this.#updatePointedSetting(game);
       this.#confirmSetting(game);
       this.menuConfirm = false;
     }
+  }
+
+  #updatePointers(visible) {
+    this.controllers.forEach((controller) => {
+      if (controller.userData.pointer) controller.userData.pointer.visible = visible;
+    });
+  }
+
+  #updatePointedSetting(game) {
+    const controller = this.rightController;
+    if (!controller || !this.panel.mesh) return false;
+    this.tempMatrix.identity().extractRotation(controller.matrixWorld);
+    this.rayOrigin.setFromMatrixPosition(controller.matrixWorld);
+    this.rayDirection.set(0, 0, -1).applyMatrix4(this.tempMatrix).normalize();
+    this.raycaster.set(this.rayOrigin, this.rayDirection);
+    const hit = this.raycaster.intersectObject(this.panel.mesh, false)[0];
+    if (!hit?.uv) return false;
+    const y = (1 - hit.uv.y) * this.panel.canvas.height;
+    const rows = this.#settings(game);
+    const row = Math.floor((y - 86) / 22);
+    if (row >= 0 && row < rows.length) {
+      this.selectedSetting = row;
+      return true;
+    }
+    return false;
   }
 
   #rightAxes() {
@@ -200,19 +241,17 @@ export class VRController {
   #settings(game) {
     const s = game.settings;
     return [
-      { key: 'vrCameraMode', label: 'VR CAMERA', value: s.vrCameraMode ?? VR_CAMERA_MODES.cockpit },
-      { key: 'vrCameraDistance', label: 'DISTANCE', value: (s.vrCameraDistance ?? 2.3).toFixed(1), min: 0.8, max: 7, step: 0.2 },
-      { key: 'vrCameraHeight', label: 'HEIGHT', value: (s.vrCameraHeight ?? 0.85).toFixed(2), min: 0.35, max: 3.2, step: 0.1 },
-      { key: 'vrPanelDistance', label: 'PANEL DIST', value: (s.vrPanelDistance ?? 1.85).toFixed(1), min: 1.1, max: 3.4, step: 0.1 },
-      { key: 'vrPanelHeight', label: 'PANEL HEIGHT', value: (s.vrPanelHeight ?? -0.22).toFixed(2), min: -0.9, max: 0.35, step: 0.05 },
-      { key: 'vrComfortScale', label: 'COMFORT', value: (s.vrComfortScale ?? 1).toFixed(2), min: 0.65, max: 1.35, step: 0.05 },
-      { key: 'vrSideCameraSide', label: 'SIDE', value: (s.vrSideCameraSide ?? 1) > 0 ? 'RIGHT' : 'LEFT' },
+      { key: 'resume', label: 'RESUME', value: 'SELECT' },
+      { key: 'restart', label: 'RESTART', value: 'SELECT' },
+      { key: 'levelSelect', label: 'LOAD CHECKPOINT', value: 'SELECT' },
+      { key: 'resetRun', label: 'RESET RUN', value: 'SELECT' },
+      { key: 'audio', label: 'AUDIO', value: s.muted ? 'OFF' : 'ON' },
+      { key: 'volume', label: 'VOLUME', value: Math.round((s.volume ?? 0.55) * 100), min: 0, max: 1, step: 0.05 },
+      { key: 'rocketTiltMax', label: 'MAX TILT', value: `${Math.round((s.rocketTiltMax ?? 0.62) * 57.3)} DEG`, min: 0.28, max: 1.2, step: 0.02 },
+      { key: 'muted', label: 'MUTE', value: s.muted ? 'ON' : 'OFF' },
       { key: 'noFuelDrain', label: 'NO FUEL DRAIN', value: s.noFuelDrain ? 'ON' : 'OFF' },
-      { key: 'audio', label: 'ENABLE AUDIO', value: 'TRIGGER' },
-      { key: 'resetRun', label: 'RESET RUN', value: 'TRIGGER' },
-      { key: 'levelSelect', label: 'LOAD CHECKPOINT', value: 'TRIGGER' },
-      { key: 'calibrate', label: 'CENTER STICK', value: 'TRIGGER' },
-      { key: 'close', label: 'CLOSE MENU', value: 'PAD BUTTON' }
+      { key: 'vrCameraMode', label: 'CAMERA', value: s.vrCameraMode ?? VR_CAMERA_MODES.cockpit },
+      { key: 'calibrate', label: 'CALIBRATE', value: 'SELECT' }
     ];
   }
 
@@ -224,6 +263,8 @@ export class VRController {
       s.vrCameraMode = VR_CAMERA_MODE_SEQUENCE[(index + direction + VR_CAMERA_MODE_SEQUENCE.length) % VR_CAMERA_MODE_SEQUENCE.length];
     } else if (item.key === 'vrSideCameraSide') {
       s.vrSideCameraSide = (s.vrSideCameraSide ?? 1) * -1;
+    } else if (item.key === 'muted') {
+      s.muted = !s.muted;
     } else if (item.key === 'noFuelDrain') {
       s.noFuelDrain = !s.noFuelDrain;
     } else if (item.min !== undefined) {
@@ -237,9 +278,14 @@ export class VRController {
     if (item.key === 'calibrate') {
       this.#calibrateRightStick();
       this.status = 'RIGHT STICK RECENTERED';
+    } else if (item.key === 'resume') {
+      this.#closeSettings();
     } else if (item.key === 'resetRun') {
       this.#closeSettings();
       game.resetRun();
+    } else if (item.key === 'restart') {
+      this.#closeSettings();
+      game.restartLevel();
     } else if (item.key === 'audio') {
       game.enableAudio();
       this.status = 'AUDIO ONLINE';
@@ -247,8 +293,12 @@ export class VRController {
       this.#closeSettings();
       game.pause();
       game.state.transition('LEVEL_SELECT');
-    } else if (item.key === 'close') {
-      this.#closeSettings();
+    } else if (item.key === 'muted') {
+      game.settings.muted = !game.settings.muted;
+      game.save.saveSettings(game.settings);
+    } else if (item.key === 'noFuelDrain') {
+      game.settings.noFuelDrain = !game.settings.noFuelDrain;
+      game.save.saveSettings(game.settings);
     } else {
       this.#adjustSetting(game, 1);
     }
@@ -258,6 +308,7 @@ export class VRController {
     this.settingsOpen = false;
     this.panel.group.visible = true;
     this.status = 'VR ACTIVE';
+    this.#updatePointers(false);
   }
 
   #calibrateRightStick() {
@@ -524,16 +575,16 @@ export class VRController {
     const rows = this.#settings(game);
     context.fillStyle = '#f2fbff';
     context.font = '700 29px system-ui';
-    context.fillText('VR SETTINGS', 26, 44);
-    context.font = '600 20px system-ui';
+    context.fillText('MENU', 26, 44);
+    context.font = '600 18px system-ui';
     context.fillStyle = '#8fdfff';
-    context.fillText('Stick: choose/adjust   trigger: select   pad button: close', 26, 76);
-    context.font = '600 22px system-ui';
+    context.fillText('Point + trigger or stick. Pad button closes.', 26, 74);
+    context.font = '600 20px system-ui';
     rows.forEach((row, index) => {
-      const y = 108 + index * 16;
+      const y = 104 + index * 22;
       if (index === this.selectedSetting) {
         context.fillStyle = 'rgba(39, 216, 255, 0.25)';
-        context.fillRect(20, y - 20, 472, 22);
+        context.fillRect(20, y - 18, 472, 22);
       }
       context.fillStyle = index === this.selectedSetting ? '#ffffff' : '#a8cbd8';
       context.fillText(`${row.label}`, 32, y);
