@@ -36,16 +36,16 @@ export class EffectsSystem {
       particle.visible = true;
       particle.position.copy(position);
       particle.material.color.setHex(color);
-      particle.material.opacity = 0.85;
-      particle.userData.life = 0.7 + Math.random() * 0.4;
-      particle.scale.setScalar(0.7 + Math.random() * 1.7);
-      particle.userData.velocity.set((Math.random() - 0.5) * 6.5, Math.random() * 5, (Math.random() - 0.5) * 6.5);
+      particle.material.opacity = 0.72;
+      particle.userData.life = 0.55 + Math.random() * 0.3;
+      particle.scale.setScalar(0.36 + Math.random() * 0.92);
+      particle.userData.velocity.set((Math.random() - 0.5) * 4.4, Math.random() * 3.4, (Math.random() - 0.5) * 4.4);
       this.active.push(particle);
     }
   }
 
   emitLandingDust(position) {
-    this.burst(position, 0xb7d5df, 12);
+    this.burst(position, 0xd8eef2, 9);
   }
 
   emitExhaust(rocket, dt) {

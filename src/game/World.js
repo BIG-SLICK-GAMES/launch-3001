@@ -7,8 +7,8 @@ export class World {
     this.scene = scene;
     this.builder = new LevelBuilder();
     this.current = null;
-    this.scene.background = new THREE.Color(0x03060b);
-    this.scene.fog = new THREE.FogExp2(0x07101a, 0.018);
+    this.scene.background = new THREE.Color(0x050a12);
+    this.scene.fog = new THREE.FogExp2(0x081522, 0.012);
     this.#lights();
   }
 
@@ -66,16 +66,16 @@ export class World {
   }
 
   #lights() {
-    this.scene.add(new THREE.HemisphereLight(0x9cc8ff, 0x130b16, 1.25));
-    const key = new THREE.DirectionalLight(0xcde9ff, 1.45);
+    this.scene.add(new THREE.HemisphereLight(0xb8dcff, 0x1d1320, 1.45));
+    const key = new THREE.DirectionalLight(0xe2f4ff, 1.65);
     key.position.set(-7, 13, 9);
     this.scene.add(key);
 
-    const rim = new THREE.DirectionalLight(0x24dfff, 0.6);
+    const rim = new THREE.DirectionalLight(0x24dfff, 0.85);
     rim.position.set(9, 7, -12);
     this.scene.add(rim);
 
-    const ambientGlow = new THREE.PointLight(0x173bff, 1.2, 42);
+    const ambientGlow = new THREE.PointLight(0x24dfff, 1.05, 52);
     ambientGlow.position.set(0, 8, -12);
     this.scene.add(ambientGlow);
   }

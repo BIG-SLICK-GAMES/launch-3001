@@ -8,6 +8,8 @@ export class Renderer {
     this.renderer.setClearColor(0x05070b, 1);
     this.renderer.shadowMap.enabled = false;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.18;
     this.renderer.xr.enabled = true;
     this.renderer.xr.setReferenceSpaceType('local');
     this.renderer.domElement.className = 'game-canvas';

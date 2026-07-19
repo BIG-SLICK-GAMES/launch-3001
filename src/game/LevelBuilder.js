@@ -72,8 +72,8 @@ export class LevelBuilder {
       color: level.visualTheme.terrain,
       roughness: 0.88,
       metalness: 0.12,
-      emissive: 0x06111a,
-      emissiveIntensity: 0.18,
+      emissive: 0x0a2030,
+      emissiveIntensity: 0.32,
       flatShading: false
     });
     const mesh = new THREE.Mesh(geometry, material);
@@ -81,7 +81,7 @@ export class LevelBuilder {
     mesh.receiveShadow = false;
     const wire = new THREE.LineSegments(
       new THREE.WireframeGeometry(geometry),
-      new THREE.LineBasicMaterial({ color: 0x153449, transparent: true, opacity: 0.18 })
+      new THREE.LineBasicMaterial({ color: 0x1f6f92, transparent: true, opacity: 0.28 })
     );
     mesh.add(wire);
     return { mesh, width, depth, segments, heights, centerZ };
@@ -117,11 +117,11 @@ export class LevelBuilder {
   }
 
   #box(spec) {
-    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'caveRoof' ? 0x40506a : spec.type === 'wall' || spec.type === 'movingWall' ? 0xff2433 : spec.type === 'mountain' || spec.type === 'caveSpike' ? 0x5c6470 : 0xff7824;
+    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'caveRoof' ? 0x536985 : spec.type === 'wall' || spec.type === 'movingWall' ? 0xff2433 : spec.type === 'mountain' || spec.type === 'caveSpike' ? 0x8a98a7 : 0xff8a24;
     const group = new THREE.Group();
     group.position.set(spec.position.x, spec.position.y, spec.position.z);
     group.name = spec.type;
-    const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.46, transparent: true, opacity: 0.95, roughness: 0.38, metalness: 0.18 });
+    const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.58, transparent: true, opacity: 0.97, roughness: 0.34, metalness: 0.18 });
     const mesh = new THREE.Mesh(
       spec.type === 'spire' || spec.type === 'movingSpire' || spec.type === 'mountain' || spec.type === 'caveSpike'
         ? new THREE.ConeGeometry(Math.max(spec.size.x, spec.size.z) * 0.55, spec.size.y, 7)
@@ -133,7 +133,7 @@ export class LevelBuilder {
     group.add(mesh);
     const edge = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry),
-      new THREE.LineBasicMaterial({ color: 0xffa08d, transparent: true, opacity: 0.45 })
+      new THREE.LineBasicMaterial({ color: spec.type === 'mountain' || spec.type === 'caveSpike' ? 0x9ff7ff : 0xffc08a, transparent: true, opacity: 0.62 })
     );
     mesh.add(edge);
     if (spec.type !== 'roof' && spec.type !== 'caveRoof' && spec.type !== 'tunnel' && spec.type !== 'mountain' && spec.type !== 'caveSpike') {
@@ -154,6 +154,12 @@ export class LevelBuilder {
         slit.position.x = i * spec.size.x * 0.16;
         group.add(slit);
       }
+      const trimMat = new THREE.MeshBasicMaterial({ color: 0x24dfff, transparent: true, opacity: 0.68, blending: THREE.AdditiveBlending });
+      const trimTop = new THREE.Mesh(new THREE.BoxGeometry(spec.size.x + 0.12, 0.08, spec.size.z + 0.08), trimMat);
+      const trimBottom = trimTop.clone();
+      trimTop.position.y = spec.size.y * 0.5 + 0.04;
+      trimBottom.position.y = -spec.size.y * 0.5 - 0.04;
+      group.add(trimTop, trimBottom);
     }
     if (spec.type === 'tunnel') {
       const band = new THREE.Mesh(
@@ -170,7 +176,7 @@ export class LevelBuilder {
       for (let i = -2; i <= 2; i += 1) {
         const seam = new THREE.Mesh(
           new THREE.BoxGeometry(spec.size.x + 0.1, 0.05, 0.08),
-          new THREE.MeshBasicMaterial({ color: 0x24dfff, transparent: true, opacity: 0.26 })
+          new THREE.MeshBasicMaterial({ color: 0x24dfff, transparent: true, opacity: 0.38 })
         );
         seam.position.z = i * spec.size.z * 0.18;
         seam.position.y = -spec.size.y * 0.52;
