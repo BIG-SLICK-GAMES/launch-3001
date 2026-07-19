@@ -1,5 +1,5 @@
 import { STATES } from './GameState.js';
-import { CAMERA_MODE_SEQUENCE, SHOP_URL } from './constants.js';
+import { SHOP_URL } from './constants.js';
 import { formatNumber } from './utils.js';
 import { BUILD_LABEL } from './buildInfo.js';
 
@@ -372,9 +372,6 @@ export class UIController {
     if (action === 'hud-side') this.#toggleHudSide();
     if (action === 'restart') this.game.restartLevel();
     if (action === 'reset-run') this.game.resetRun();
-    if (action === 'camera') this.game.toggleCamera();
-    if (action === 'camera-mode') this.game.setCameraMode(target.closest('[data-camera-mode]').dataset.cameraMode);
-    if (action === 'side-camera') this.game.flipSideCamera();
     if (action === 'mobile-tilt') this.game.enableTiltFromPrompt();
     if (action === 'mobile-calibrate') this.game.calibrateTiltFromPrompt();
     if (action === 'mobile-ok') this.game.completeMobileTutorial();
@@ -458,9 +455,6 @@ export class UIController {
           <span data-stat="time">TIME <b data-value="time">0.0</b>s</span><span data-stat="thrust">THRUST <b data-value="thrust">OFF</b></span><span data-stat="camera">CAM <b data-value="camera">CHASE</b></span>
         </div>
         <div class="warning" data-warning></div>
-        <div class="camera-strip">
-          ${CAMERA_MODE_SEQUENCE.map((mode) => `<button data-action="camera-mode" data-camera-mode="${mode}">${mode}</button>`).join('')}
-        </div>
       </div>`;
   }
 }

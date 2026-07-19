@@ -435,25 +435,6 @@ button:disabled {
   text-align: center;
 }
 
-.buttons {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 7px;
-}
-
-.camera-strip {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 7px;
-}
-
-.buttons button,
-.camera-strip button {
-  min-width: 0;
-  padding: 0 7px;
-  font-size: clamp(10px, 2.3vw, 12px);
-}
-
 .overlay {
   position: absolute;
   inset: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
@@ -763,7 +744,6 @@ button:disabled {
 }
 
 .menu-panel,
-.settings-panel,
 .demo-panel {
   display: grid;
   gap: 10px;
@@ -876,40 +856,11 @@ button:disabled {
   gap: 7px;
 }
 
-.control-settings {
-  display: grid;
-  gap: 7px;
-  padding: 9px;
-  border: 1px solid rgba(82, 220, 255, 0.18);
-  border-radius: 8px;
-  background: rgba(5, 14, 24, 0.58);
-}
-
-.control-settings label {
-  display: grid;
-  gap: 5px;
-  color: #b7d3df;
-  font-size: 13px;
-}
-
 .control-panel button,
 .control-panel select {
   min-height: 38px;
   padding: 0 9px;
   font-size: 11px;
-}
-
-.settings-panel {
-  width: min(92vw, 460px);
-  max-height: min(84vh, 680px);
-  overflow: auto;
-}
-
-.settings-panel label {
-  display: grid;
-  gap: 6px;
-  color: #b7d3df;
-  font-size: 14px;
 }
 
 .level-panel {
@@ -1022,23 +973,8 @@ button:disabled {
   right: max(8px, env(safe-area-inset-right));
 }
 
-[data-state="READY"] .camera-strip,
-[data-state="READY"] .buttons {
-  display: none;
-}
-
 [data-state="FLYING"] .overlay {
   display: none;
-}
-
-[data-settings-open="true"] .overlay {
-  display: grid;
-  pointer-events: auto;
-  background: rgba(0, 0, 0, 0.18);
-}
-
-[data-settings-open="true"] .settings-panel {
-  transform: translateY(-4vh);
 }
 
 [data-state="FLYING"] .hud {
@@ -1128,11 +1064,6 @@ button:disabled {
   }
 }
 
-[data-state="FLYING"] .camera-strip,
-[data-state="FLYING"] .buttons {
-  display: none;
-}
-
 [data-state="FLYING"] .warning {
   min-height: 14px;
   font-size: 10px;
@@ -1188,14 +1119,6 @@ button:disabled {
     font-size: clamp(9px, 1.6vw, 12px);
   }
 
-  .buttons {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .camera-strip {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   [data-state="FLYING"] .hud {
     top: auto;
     bottom: max(8px, env(safe-area-inset-bottom));
@@ -1209,8 +1132,4 @@ button:disabled {
     right: max(8px, env(safe-area-inset-right));
   }
 
-  .buttons button,
-  .camera-strip button {
-    min-height: 40px;
-  }
 }
