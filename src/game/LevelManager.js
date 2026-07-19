@@ -64,7 +64,8 @@ export class LevelManager {
         routeX: previous.position.x + (x - previous.position.x) * 0.58,
         z: z + MARKER_SPACING * 0.48,
         difficulty,
-        firstGate: i === 1
+        firstGate: i === 1,
+        gateIndex: i
       }));
 
       [
@@ -270,13 +271,18 @@ export class LevelManager {
     return Math.min(2.6, 0.35 + distance / 900);
   }
 
-  #addForcedGate({ walls, roofs, routeX, z, difficulty, firstGate }) {
+  #addForcedGate({ walls, roofs, routeX, z, difficulty, firstGate, gateIndex }) {
     const minX = -26;
     const maxX = 26;
     const maxY = 31.5;
     const gateDepth = 1.25 + difficulty * 0.18;
     const openingWidth = Math.max(firstGate ? 8.6 : 5.6, 12.2 - difficulty * 2.65);
-    const openingTop = Math.max(firstGate ? 7.8 : 5.1, 11.2 - difficulty * 2.35);
+    const openingHeight = Math.max(firstGate ? 6.2 : 4.3, 7.1 - difficulty * 0.9);
+    const altitudePattern = gateIndex % 6;
+    const baseBottom = firstGate ? 0.9 : altitudePattern === 1 ? 0.9 : altitudePattern === 2 ? 2.4 : altitudePattern === 3 ? 4.2 : altitudePattern === 4 ? 6.1 : altitudePattern === 5 ? 3.1 : 1.5;
+    const waveLift = firstGate ? 0 : Math.max(0, Math.sin(gateIndex * 1.37)) * (0.7 + difficulty * 0.45);
+    const openingBottom = Math.min(maxY - openingHeight - 2.5, baseBottom + waveLift);
+    const openingTop = openingBottom + openingHeight;
     const leftEdge = routeX - openingWidth / 2;
     const rightEdge = routeX + openingWidth / 2;
     const leftWidth = Math.max(0.1, leftEdge - minX);
@@ -299,7 +305,14 @@ export class LevelManager {
       position: { x: routeX, y: openingTop + (maxY - openingTop) / 2, z },
       size: { x: openingWidth + 1.4, y: maxY - openingTop, z: gateDepth }
     });
-    return { routeX, z, openingWidth, openingTop };
+    if (openingBottom > 0.75) {
+      roofs.push({
+        type: 'roof',
+        position: { x: routeX, y: openingBottom / 2, z },
+        size: { x: openingWidth + 1.4, y: openingBottom, z: gateDepth }
+      });
+    }
+    return { routeX, z, openingWidth, openingBottom, openingTop };
   }
 
   #blocksGateOpening(spec, gateOpenings) {
@@ -310,8 +323,10 @@ export class LevelManager {
       const reserveZ = 34;
       const overlapsX = Math.abs(spec.position.x - gate.routeX) < halfX + reserveX;
       const overlapsZ = Math.abs(spec.position.z - gate.z) < halfZ + reserveZ;
-      const reachesOpening = spec.position.y + spec.size.y / 2 > 0.8;
-      return overlapsX && overlapsZ && reachesOpening;
+      const specBottom = spec.position.y - spec.size.y / 2;
+      const specTop = spec.position.y + spec.size.y / 2;
+      const blocksOpeningHeight = specTop > gate.openingBottom - 1.2 && specBottom < gate.openingTop + 1.2;
+      return overlapsX && overlapsZ && blocksOpeningHeight;
     });
   }
 }
