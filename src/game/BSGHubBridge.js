@@ -1,4 +1,4 @@
-import { BSG_HUB_ORIGINS, PRODUCT_ID, SHOP_URL } from './constants.js';
+import { BSG_HUB_ORIGINS, LOGIN_URL, PRODUCT_ID, SHOP_URL } from './constants.js';
 import { BUILD_LABEL } from './buildInfo.js';
 
 const PROFILE_TYPES = ['BSG_PROFILE', 'BSG_PROFILE_RESPONSE', 'BSG_AUTH_PROFILE'];
@@ -23,10 +23,13 @@ export class BSGHubBridge {
   }
 
   requestLogin() {
+    const loginUrl = this.#returnUrl(LOGIN_URL);
     this.#postToHub({
       ...this.#payload('BSG_LOGIN_REQUEST'),
+      loginUrl,
       returnUrl: window.location.href
     });
+    this.#navigateTo(loginUrl);
   }
 
   openShop() {
@@ -39,6 +42,25 @@ export class BSGHubBridge {
       shopUrl: url.toString()
     });
     window.open(url.toString(), '_blank', 'noopener');
+  }
+
+  #returnUrl(baseUrl) {
+    const url = new URL(baseUrl);
+    url.searchParams.set('product', PRODUCT_ID);
+    url.searchParams.set('return', window.location.href);
+    return url.toString();
+  }
+
+  #navigateTo(url) {
+    try {
+      if (window.top && window.top !== window) {
+        window.top.location.href = url;
+        return;
+      }
+    } catch {
+      // Cross-origin frames can block top navigation; current frame is still a safe fallback.
+    }
+    window.location.href = url;
   }
 
   applyProfile(profile, source = 'hub') {
