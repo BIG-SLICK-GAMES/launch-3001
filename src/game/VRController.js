@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { CAMERA_MODES, VR_CAMERA_MODES, VR_CAMERA_MODE_SEQUENCE } from './constants.js';
+import { CAMERA_MODES, VR_CAMERA_MODES } from './constants.js';
 import { clamp } from './utils.js';
 import { BUILD_LABEL } from './buildInfo.js';
 
@@ -123,29 +123,18 @@ export class VRController {
 
   #updateMenuButton(game) {
     let settingsPressed = false;
-    let audioPressed = false;
     for (const source of this.renderer.xr.getSession()?.inputSources ?? []) {
       const buttons = source.gamepad?.buttons;
       if (!buttons) continue;
       settingsPressed ||= Boolean(buttons[3]?.pressed || buttons[5]?.pressed);
-      audioPressed ||= Boolean(buttons[4]?.pressed);
     }
     if (settingsPressed && !this.settingsButtonDown) {
       this.settingsOpen = !this.settingsOpen;
       this.thrust = false;
-      this.status = this.settingsOpen ? 'VR SETTINGS' : 'VR ACTIVE';
+      this.status = this.settingsOpen ? 'VR MENU' : 'VR ACTIVE';
       this.panel.group.visible = true;
     }
-    if (audioPressed && !this.audioButtonDown) {
-      game.enableAudio();
-      if (this.settingsOpen) {
-        this.#closeSettings();
-      } else {
-        this.status = 'AUDIO ONLINE';
-      }
-    }
     this.settingsButtonDown = settingsPressed;
-    this.audioButtonDown = audioPressed;
   }
 
   #updateGamepadSteering() {
@@ -240,68 +229,24 @@ export class VRController {
   }
 
   #settings(game) {
-    const s = game.settings;
     return [
-      { key: 'resume', label: 'RESUME', value: 'SELECT' },
-      { key: 'restart', label: 'RESTART', value: 'SELECT' },
-      { key: 'levelSelect', label: 'LOAD CHECKPOINT', value: 'SELECT' },
-      { key: 'resetRun', label: 'RESET RUN', value: 'SELECT' },
-      { key: 'audio', label: 'AUDIO', value: s.muted ? 'OFF' : 'ON' },
-      { key: 'volume', label: 'VOLUME', value: Math.round((s.volume ?? 0.55) * 100), min: 0, max: 1, step: 0.05 },
-      { key: 'rocketTiltMax', label: 'MAX TILT', value: `${Math.round((s.rocketTiltMax ?? 0.62) * 57.3)} DEG`, min: 0.28, max: 1.2, step: 0.02 },
-      { key: 'muted', label: 'MUTE', value: s.muted ? 'ON' : 'OFF' },
-      { key: 'noFuelDrain', label: 'NO FUEL DRAIN', value: s.noFuelDrain ? 'ON' : 'OFF' },
-      { key: 'vrCameraMode', label: 'CAMERA', value: s.vrCameraMode ?? VR_CAMERA_MODES.cockpit },
-      { key: 'calibrate', label: 'CALIBRATE', value: 'SELECT' }
+      { key: 'lobby', label: 'LOBBY', value: 'SELECT' },
+      { key: 'resetRun', label: 'RESET', value: 'SELECT' }
     ];
   }
 
   #adjustSetting(game, direction) {
-    const item = this.#settings(game)[this.selectedSetting];
-    const s = game.settings;
-    if (item.key === 'vrCameraMode') {
-      const index = VR_CAMERA_MODE_SEQUENCE.indexOf(s.vrCameraMode ?? VR_CAMERA_MODES.cockpit);
-      s.vrCameraMode = VR_CAMERA_MODE_SEQUENCE[(index + direction + VR_CAMERA_MODE_SEQUENCE.length) % VR_CAMERA_MODE_SEQUENCE.length];
-    } else if (item.key === 'vrSideCameraSide') {
-      s.vrSideCameraSide = (s.vrSideCameraSide ?? 1) * -1;
-    } else if (item.key === 'muted') {
-      s.muted = !s.muted;
-    } else if (item.key === 'noFuelDrain') {
-      s.noFuelDrain = !s.noFuelDrain;
-    } else if (item.min !== undefined) {
-      s[item.key] = clamp((s[item.key] ?? Number(item.value)) + item.step * direction, item.min, item.max);
-    }
-    game.save.saveSettings(s);
+    this.selectedSetting = clamp(this.selectedSetting + direction, 0, this.#settings(game).length - 1);
   }
 
   #confirmSetting(game) {
     const item = this.#settings(game)[this.selectedSetting];
-    if (item.key === 'calibrate') {
-      this.#calibrateRightStick();
-      this.status = 'RIGHT STICK RECENTERED';
-    } else if (item.key === 'resume') {
-      this.#closeSettings();
-    } else if (item.key === 'resetRun') {
+    if (item.key === 'resetRun') {
       this.#closeSettings();
       game.resetRun();
-    } else if (item.key === 'restart') {
+    } else if (item.key === 'lobby') {
       this.#closeSettings();
-      game.restartLevel();
-    } else if (item.key === 'audio') {
-      game.enableAudio();
-      this.status = 'AUDIO ONLINE';
-    } else if (item.key === 'levelSelect') {
-      this.#closeSettings();
-      game.pause();
-      game.state.transition('LEVEL_SELECT');
-    } else if (item.key === 'muted') {
-      game.settings.muted = !game.settings.muted;
-      game.save.saveSettings(game.settings);
-    } else if (item.key === 'noFuelDrain') {
-      game.settings.noFuelDrain = !game.settings.noFuelDrain;
-      game.save.saveSettings(game.settings);
-    } else {
-      this.#adjustSetting(game, 1);
+      game.showLobby();
     }
   }
 
@@ -445,8 +390,7 @@ export class VRController {
     context.fillText(`${game.rocket.fuel.toFixed(0)}%`, 548, 253);
 
     this.#drawHudButton(context, 160, 280, 64, 38, 'MENU', false);
-    this.#drawHudButton(context, 236, 280, 58, 38, 'AUDIO', false);
-    this.#drawAltitudeDial(context, 342, 298, 29, needleAngle, altitude);
+    this.#drawAltitudeDial(context, 306, 298, 29, needleAngle, altitude);
     this.#drawBoostButton(context, 518, 299, 31, game.rocket.thrusting);
 
     context.font = '800 12px system-ui';

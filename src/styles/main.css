@@ -171,7 +171,7 @@ button:disabled {
 
 .instruments {
   display: grid;
-  grid-template-columns: 64px 52px 78px 64px;
+  grid-template-columns: 64px 78px 64px;
   gap: 8px;
   align-items: center;
   justify-content: space-between;
@@ -226,7 +226,6 @@ button:disabled {
 }
 
 .hud-menu,
-.hud-audio,
 .hud-boost {
   min-width: 54px;
   height: 36px;
@@ -240,12 +239,6 @@ button:disabled {
 
 .hud-menu {
   justify-self: start;
-}
-
-.hud-audio {
-  min-width: 52px;
-  padding: 0 7px;
-  color: #baf7ff;
 }
 
 .hud-boost {
@@ -266,10 +259,6 @@ button:disabled {
 [data-hud-side="right"] .hud-menu {
   order: 4;
   justify-self: end;
-}
-
-[data-hud-side="right"] .hud-audio {
-  order: 3;
 }
 
 [data-hud-side="right"] .altitude-dial {
@@ -778,6 +767,95 @@ button:disabled {
 .demo-panel {
   display: grid;
   gap: 10px;
+}
+
+.mobile-tutorial-panel {
+  width: min(92vw, 360px);
+  justify-items: center;
+  text-align: center;
+}
+
+.phone-demo {
+  position: relative;
+  width: 150px;
+  height: 120px;
+  display: grid;
+  place-items: center;
+  margin: 4px 0;
+}
+
+.phone-shape {
+  width: 62px;
+  height: 104px;
+  padding: 7px;
+  border: 2px solid rgba(244, 251, 255, 0.86);
+  border-radius: 14px;
+  background: linear-gradient(160deg, #06101a, #193149);
+  box-shadow: 0 0 24px rgba(36, 223, 255, 0.28);
+  transform: rotate(-11deg);
+  animation: phone-comfort 1900ms ease-in-out infinite;
+}
+
+.phone-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 9px;
+  background:
+    radial-gradient(circle at 50% 42%, rgba(255, 179, 106, 0.95), transparent 9px),
+    linear-gradient(180deg, rgba(36, 223, 255, 0.34), rgba(51, 255, 138, 0.18));
+}
+
+.comfort-lines {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.comfort-lines span {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 108px;
+  height: 38px;
+  border: 2px solid rgba(36, 223, 255, 0.42);
+  border-left-color: transparent;
+  border-right-color: transparent;
+  border-radius: 50%;
+  transform: translate(-50%, -50%) rotate(-11deg) scale(var(--scale, 1));
+}
+
+.comfort-lines span:nth-child(2) {
+  --scale: 1.24;
+  opacity: 0.52;
+}
+
+.comfort-lines span:nth-child(3) {
+  --scale: 1.48;
+  opacity: 0.28;
+}
+
+.calibrating .phone-shape {
+  animation: phone-steady 1200ms ease-in-out infinite;
+}
+
+@keyframes phone-comfort {
+  0%,
+  100% {
+    transform: rotate(-13deg) translateY(0);
+  }
+  50% {
+    transform: rotate(10deg) translateY(-4px);
+  }
+}
+
+@keyframes phone-steady {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
 }
 
 .demo-panel {

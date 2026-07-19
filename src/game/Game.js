@@ -58,7 +58,7 @@ export class Game {
     this.collectedDrops = new Set();
     this.refillRemaining = new Map();
     this.voiceFlags = {};
-    this.mobileTutorialDone = localStorage.getItem('launch3001.mobileTiltTutorialDone') === '1';
+    this.mobileTutorialDone = false;
     this.missionHintDone = localStorage.getItem('launch3001.missionHintDone') === '1';
     this.state.onChange((next, previous, payload) => this.ui.showState(next, payload));
     this.#bindLifecycle();
@@ -125,6 +125,7 @@ export class Game {
     this.audio.stopEngine();
     this.state.clearTimers();
     this.state.transition(STATES.LOBBY);
+    if (this.#isMobileLike() && !this.mobileTutorialDone) this.ui.showMobileTiltPrompt();
   }
 
   enterGame() {
@@ -199,14 +200,14 @@ export class Game {
 
   completeMobileTutorial() {
     this.mobileTutorialDone = true;
-    localStorage.setItem('launch3001.mobileTiltTutorialDone', '1');
-    this.state.transition(STATES.READY);
+    this.state.transition(STATES.LOBBY);
+    this.ui.showState(STATES.LOBBY);
   }
 
   skipMobileTutorial() {
-    this.mobileTutorialDone = true;
-    localStorage.setItem('launch3001.mobileTiltTutorialDone', '1');
-    this.state.transition(STATES.READY);
+    this.mobileTutorialDone = false;
+    this.state.transition(STATES.LOBBY);
+    this.ui.showState(STATES.LOBBY);
   }
 
   #frame(time) {
@@ -384,8 +385,6 @@ export class Game {
       this.missionHintDone = true;
       localStorage.setItem('launch3001.missionHintDone', '1');
     }
-    this.input.calibrate();
-    this.vr.calibrate();
   }
 
   #updateFuelPickups(dt) {

@@ -265,7 +265,7 @@ export class LevelManager {
       thrustPower: 7.35,
       steeringPower: 3.65,
       damping: 0.992,
-      fuelBurnRate: 10.5,
+      fuelBurnRate: 6.67,
       windStrength: 0,
       windDirection: { x: 0, y: 0, z: 0 },
       maxSpeed: { horizontal: 7.6, verticalUp: 7.6, verticalDown: 8.8 },

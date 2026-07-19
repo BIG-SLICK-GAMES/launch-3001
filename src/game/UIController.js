@@ -1,5 +1,5 @@
 import { STATES } from './GameState.js';
-import { CAMERA_MODE_SEQUENCE, VR_CAMERA_MODE_SEQUENCE } from './constants.js';
+import { CAMERA_MODE_SEQUENCE } from './constants.js';
 import { formatNumber } from './utils.js';
 import { BUILD_LABEL } from './buildInfo.js';
 
@@ -188,7 +188,6 @@ export class UIController {
           <button data-action="profile">Profile</button>
           <button data-action="level-select">Load Checkpoint</button>
           <button data-action="leaderboard">Leaderboard</button>
-          <button data-action="settings">Settings</button>
         </div>
         <div class="lobby-panel profile-card">
           <h2>Profile</h2>
@@ -248,29 +247,37 @@ export class UIController {
   }
 
   showMobileTiltPrompt() {
-    this.root.dataset.state = STATES.MENU;
+    this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
-      <section class="panel menu-panel">
+      <section class="panel menu-panel mobile-tutorial-panel">
         <h2>Mobile Controls</h2>
-        <p>Enable tilt control to steer the rocket with this phone.</p>
+        <div class="phone-demo" aria-hidden="true">
+          <div class="phone-shape"><div class="phone-screen"></div></div>
+          <div class="comfort-lines"><span></span><span></span><span></span></div>
+        </div>
+        <p>Hold the phone in a comfortable flying position.</p>
         <button data-action="mobile-tilt">Enable Tilt</button>
       </section>`;
   }
 
   showMobileCalibratePrompt() {
-    this.root.dataset.state = STATES.MENU;
+    this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
-      <section class="panel menu-panel">
+      <section class="panel menu-panel mobile-tutorial-panel">
         <h2>Calibrate Tilt</h2>
-        <p>Get comfortable, hold the phone how you want to play, then calibrate.</p>
+        <div class="phone-demo calibrating" aria-hidden="true">
+          <div class="phone-shape"><div class="phone-screen"></div></div>
+          <div class="comfort-lines"><span></span><span></span><span></span></div>
+        </div>
+        <p>Keep the phone steady in that position, then calibrate.</p>
         <button data-action="mobile-calibrate">Calibrate</button>
       </section>`;
   }
 
   showMobileReadyPrompt() {
-    this.root.dataset.state = STATES.MENU;
+    this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
-      <section class="panel menu-panel">
+      <section class="panel menu-panel mobile-tutorial-panel">
         <h2>Tilt Ready</h2>
         <p>Tilt steering is enabled and calibrated.</p>
         <button data-action="mobile-ok">OK</button>
@@ -299,29 +306,11 @@ export class UIController {
   }
 
   #pause() {
-    const s = this.game.settings;
-    const cameraOptions = CAMERA_MODE_SEQUENCE.map((mode) => `<option value="${mode}" ${s.cameraMode === mode ? 'selected' : ''}>${mode}</option>`).join('');
     this.overlay.innerHTML = `<section class="panel control-panel">
       <h2>Menu</h2>
       <div class="control-actions">
-        <button data-action="resume">Resume</button>
-        <button data-action="restart">Restart</button>
-        <button data-action="level-select">Load Checkpoint</button>
-        <button data-action="leaderboard">Leaderboard</button>
-        <button data-action="reset-run">Reset Run</button>
-        <button data-action="menu">Exit</button>
-      </div>
-      <div class="control-settings">
-        <label>Camera <select data-setting="cameraMode">${cameraOptions}</select></label>
-        <label>Volume <input data-setting="volume" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
-        <label>Max tilt <input data-setting="rocketTiltMax" type="range" min="0.28" max="1.2" step="0.02" value="${s.rocketTiltMax ?? 0.62}"></label>
-        <label><input data-setting="noFuelDrain" type="checkbox" ${s.noFuelDrain ? 'checked' : ''}> No fuel drain</label>
-        <label><input data-setting="muted" type="checkbox" ${s.muted ? 'checked' : ''}> Mute</label>
-      </div>
-      <div class="control-actions">
-        <button data-action="audio">Audio</button>
-        <button data-action="tilt">Enable Tilt</button>
-        <button data-action="calibrate">Calibrate</button>
+        <button data-action="menu">Lobby</button>
+        <button data-action="reset-run">Reset</button>
       </div>
     </section>`;
   }
@@ -340,36 +329,6 @@ export class UIController {
       <div class="leader-summary">Best distance <b>${formatNumber(board.bestDistance ?? 0, 0)}m</b> in <b>${formatNumber(board.bestDistanceTime ?? 0, 1)}s</b></div>
       <div class="leader-list">${rows || '<div class="leader-empty">No runs yet</div>'}</div>
       <button data-action="back">Back</button>
-    </section>`;
-  }
-
-  #settings() {
-    const s = this.game.settings;
-    this.root.dataset.settingsOpen = 'true';
-    const cameraOptions = CAMERA_MODE_SEQUENCE.map((mode) => `<option value="${mode}" ${s.cameraMode === mode ? 'selected' : ''}>${mode}</option>`).join('');
-    const vrCameraOptions = VR_CAMERA_MODE_SEQUENCE.map((mode) => `<option value="${mode}" ${s.vrCameraMode === mode ? 'selected' : ''}>${mode}</option>`).join('');
-    this.overlay.innerHTML = `<section class="panel settings-panel">
-      <h2>Settings</h2>
-      <label>Camera mode <select data-setting="cameraMode">${cameraOptions}</select></label>
-      <label>Camera distance <input data-setting="cameraDistance" type="range" min="0.75" max="1.7" step="0.05" value="${s.cameraDistance ?? 1}"></label>
-      <label>Camera height <input data-setting="cameraHeight" type="range" min="0.7" max="1.5" step="0.05" value="${s.cameraHeight ?? 1}"></label>
-      <button data-action="side-camera">Flip Side Camera</button>
-      <label>VR camera <select data-setting="vrCameraMode">${vrCameraOptions}</select></label>
-      <label>VR distance <input data-setting="vrCameraDistance" type="range" min="0.8" max="7" step="0.2" value="${s.vrCameraDistance ?? 2.3}"></label>
-      <label>VR height <input data-setting="vrCameraHeight" type="range" min="0.35" max="3.2" step="0.1" value="${s.vrCameraHeight ?? 0.85}"></label>
-      <label>VR panel distance <input data-setting="vrPanelDistance" type="range" min="1.1" max="3.4" step="0.1" value="${s.vrPanelDistance ?? 1.85}"></label>
-      <label>VR panel height <input data-setting="vrPanelHeight" type="range" min="-0.9" max="0.35" step="0.05" value="${s.vrPanelHeight ?? -0.22}"></label>
-      <label>VR comfort scale <input data-setting="vrComfortScale" type="range" min="0.65" max="1.35" step="0.05" value="${s.vrComfortScale ?? 1}"></label>
-      <label>Tilt sensitivity <input data-setting="tiltSensitivity" type="range" min="0.4" max="2" step="0.05" value="${s.tiltSensitivity}"></label>
-      <label>Tilt dead zone <input data-setting="tiltDeadZone" type="range" min="0" max="0.24" step="0.01" value="${s.tiltDeadZone}"></label>
-      <label>Tilt smoothing <input data-setting="tiltSmoothing" type="range" min="0.04" max="0.45" step="0.01" value="${s.tiltSmoothing}"></label>
-      <label>Max rocket tilt <input data-setting="rocketTiltMax" type="range" min="0.28" max="1.2" step="0.02" value="${s.rocketTiltMax ?? 0.62}"></label>
-      <label>Volume <input data-setting="volume" type="range" min="0" max="1" step="0.05" value="${s.volume}"></label>
-      <label><input data-setting="invertForward" type="checkbox" ${s.invertForward ? 'checked' : ''}> Invert forward tilt</label>
-      <label><input data-setting="noFuelDrain" type="checkbox" ${s.noFuelDrain ? 'checked' : ''}> No fuel drain</label>
-      <label><input data-setting="muted" type="checkbox" ${s.muted ? 'checked' : ''}> Mute</label>
-      <button data-action="calibrate">Recalibrate</button>
-      <button data-action="close-settings">Close</button>
     </section>`;
   }
 
@@ -407,19 +366,15 @@ export class UIController {
     if (action === 'pause') this.game.pause();
     if (action === 'leaderboard') this.#leaderboard();
     if (action === 'hud-side') this.#toggleHudSide();
-    if (action === 'audio') this.game.enableAudio();
     if (action === 'restart') this.game.restartLevel();
     if (action === 'reset-run') this.game.resetRun();
     if (action === 'camera') this.game.toggleCamera();
     if (action === 'camera-mode') this.game.setCameraMode(target.closest('[data-camera-mode]').dataset.cameraMode);
     if (action === 'side-camera') this.game.flipSideCamera();
-    if (action === 'tilt') this.game.enableTilt();
     if (action === 'mobile-tilt') this.game.enableTiltFromPrompt();
     if (action === 'mobile-calibrate') this.game.calibrateTiltFromPrompt();
     if (action === 'mobile-ok') this.game.completeMobileTutorial();
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
-    if (action === 'calibrate') this.game.input.calibrate();
-    if (action === 'settings') this.#settings();
     if (action === 'back') this.game.showLobby();
     if (action === 'level') this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
   }
@@ -482,7 +437,6 @@ export class UIController {
         </div>
         <div class="instruments">
           <button class="hud-menu" data-action="pause" aria-label="Menu">Menu</button>
-          <button class="hud-audio" data-action="audio" aria-label="Enable audio">Audio</button>
           <div class="altitude-dial" aria-label="Altitude above ground">
             <div class="dial-face">
               <div class="dial-needle"></div>
@@ -502,10 +456,6 @@ export class UIController {
         <div class="warning" data-warning></div>
         <div class="camera-strip">
           ${CAMERA_MODE_SEQUENCE.map((mode) => `<button data-action="camera-mode" data-camera-mode="${mode}">${mode}</button>`).join('')}
-        </div>
-        <div class="buttons">
-          <button data-action="tilt">Enable Tilt</button><button data-action="calibrate">Calibrate</button><button data-action="camera">Camera</button>
-          <button data-action="pause">Pause</button><button data-action="restart">Restart</button><button data-action="settings">Settings</button>
         </div>
       </div>`;
   }
