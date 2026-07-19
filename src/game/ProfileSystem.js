@@ -17,6 +17,10 @@ export class ProfileSystem {
     return false;
   }
 
+  isLoggedIn() {
+    return Boolean(this.profile.id && this.profile.id !== 'guest');
+  }
+
   #resolveProfile() {
     const injected = window.BSG_PROFILE ?? window.launch3001Profile ?? null;
     const fromMessage = window.__launch3001Profile ?? null;

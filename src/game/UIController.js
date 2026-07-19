@@ -174,6 +174,7 @@ export class UIController {
   #lobby() {
     const access = this.game.fullAccess ? 'FULL ACCESS' : 'DEMO';
     const profile = this.game.profile.profile;
+    const loggedIn = this.game.profile.isLoggedIn();
     const best = this.game.score.progress.leaderboard ?? {};
     this.overlay.innerHTML = `
       <section class="lobby-screen">
@@ -183,10 +184,10 @@ export class UIController {
           <p>${access} ACCESS</p>
         </div>
         <div class="lobby-panel lobby-menu">
-          <button class="primary" data-action="play">Play</button>
+          <button class="primary" data-action="${loggedIn ? 'play' : 'login'}">${loggedIn ? 'Play' : 'Log In With BSG'}</button>
           <button data-action="store">Store</button>
           <button data-action="profile">Profile</button>
-          <button data-action="level-select">Load Checkpoint</button>
+          <button data-action="${loggedIn ? 'level-select' : 'login'}">Load Checkpoint</button>
           <button data-action="leaderboard">Leaderboard</button>
         </div>
         <div class="lobby-panel profile-card">
@@ -196,7 +197,7 @@ export class UIController {
             <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
           </div>
         <div class="access-pill ${this.game.fullAccess ? 'owned' : ''}">${this.game.fullAccess ? 'Full Game Owned' : 'Demo Access'}</div>
-          ${profile.id === 'guest' ? '<button data-action="login">Log In With BSG</button>' : ''}
+          ${loggedIn ? '' : '<button data-action="login">Log In With BSG</button>'}
           <dl>
             <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
             <dt>Best time</dt><dd>${formatNumber(best.bestDistanceTime ?? 0, 1)}s</dd>
@@ -232,7 +233,7 @@ export class UIController {
           <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.email || profile.source || 'BSG profile pending'}</span></div>
         </div>
         <p>${this.game.fullAccess ? 'Launch 3001 full access is active on this profile.' : 'This profile is currently in demo mode.'}</p>
-        ${profile.id === 'guest' ? '<button data-action="login">Log In With BSG</button>' : ''}
+        ${this.game.profile.isLoggedIn() ? '' : '<button data-action="login">Log In With BSG</button>'}
         <button data-action="store">Store</button>
         <button data-action="lobby">Back To Lobby</button>
       </section>`;
@@ -358,12 +359,21 @@ export class UIController {
     }
     await this.game.audio.unlock();
     this.game.audio.playClick();
-    if (action === 'play') this.#launchSequence();
+    if (action === 'play') {
+      if (!this.game.profile.isLoggedIn()) {
+        this.#loginRequired();
+      } else {
+        this.#launchSequence();
+      }
+    }
     if (action === 'lobby') this.game.showLobby();
     if (action === 'store') this.#store();
     if (action === 'profile') this.#profile();
     if (action === 'login') this.game.hub.requestLogin();
-    if (action === 'level-select') this.game.state.transition(STATES.LEVEL_SELECT);
+    if (action === 'level-select') {
+      if (!this.game.profile.isLoggedIn()) this.#loginRequired();
+      else this.game.state.transition(STATES.LEVEL_SELECT);
+    }
     if (action === 'menu') this.game.showLobby();
     if (action === 'resume') this.game.resume();
     if (action === 'close-settings') this.#closeSettings();
@@ -377,7 +387,21 @@ export class UIController {
     if (action === 'mobile-ok') this.game.completeMobileTutorial();
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
     if (action === 'back') this.game.showLobby();
-    if (action === 'level') this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
+    if (action === 'level') {
+      if (!this.game.profile.isLoggedIn()) this.#loginRequired();
+      else this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
+    }
+  }
+
+  #loginRequired() {
+    this.game.hub.requestLogin();
+    this.overlay.innerHTML = `
+      <section class="panel profile-panel">
+        <h2>BSG Login Required</h2>
+        <p>You need to be logged in with your BSG profile to play Launch 3001.</p>
+        <button data-action="login">Log In With BSG</button>
+        <button data-action="lobby">Back To Lobby</button>
+      </section>`;
   }
 
   #launchSequence() {

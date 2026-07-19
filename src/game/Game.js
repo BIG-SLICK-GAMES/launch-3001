@@ -105,6 +105,11 @@ export class Game {
   }
 
   startLevel(id) {
+    if (!this.profile.isLoggedIn()) {
+      this.hub.requestLogin();
+      this.showLobby();
+      return;
+    }
     const startId = Math.min(id, this.levels.levels.length);
     if (startId > this.score.progress.highestUnlockedLevel) return;
     this.loadLevel(startId);
@@ -132,6 +137,11 @@ export class Game {
   }
 
   enterGame() {
+    if (!this.profile.isLoggedIn()) {
+      this.hub.requestLogin();
+      this.showLobby();
+      return;
+    }
     if (this.#isMobileLike() && !this.mobileTutorialDone) {
       this.ui.showMobileTiltPrompt();
       return;
