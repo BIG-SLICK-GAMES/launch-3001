@@ -172,7 +172,6 @@ export class UIController {
   }
 
   #lobby() {
-    const access = this.game.fullAccess ? 'FULL ACCESS' : 'DEMO';
     const profile = this.game.profile.profile;
     const loggedIn = this.game.profile.isLoggedIn();
     const best = this.game.score.progress.leaderboard ?? {};
@@ -181,12 +180,12 @@ export class UIController {
         <div class="lobby-brand">
           <span>BIG SLICK GAMES</span>
           <h1>Launch 3001</h1>
-          <p>${access} ACCESS</p>
+          ${this.game.fullAccess ? '<p>FULL ACCESS</p>' : ''}
         </div>
         <div class="lobby-panel lobby-menu">
           <button class="primary" data-action="${loggedIn ? 'play' : 'login'}">${loggedIn ? 'Play' : 'Log In With BSG'}</button>
           <button data-action="store">Store</button>
-          <button data-action="profile">Profile</button>
+          ${loggedIn ? '<button data-action="profile">Profile</button>' : ''}
           <button data-action="${loggedIn ? 'level-select' : 'login'}">Load Checkpoint</button>
           <button data-action="leaderboard">Leaderboard</button>
         </div>
@@ -196,7 +195,7 @@ export class UIController {
             <div class="pilot-avatar">${this.#initials(profile.name)}</div>
             <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
           </div>
-        <div class="access-pill ${this.game.fullAccess ? 'owned' : ''}">${this.game.fullAccess ? 'Full Game Owned' : 'Demo Access'}</div>
+          ${this.game.fullAccess ? '<div class="access-pill owned">Full Game Owned</div>' : ''}
           ${loggedIn ? '' : '<button data-action="login">Log In With BSG</button>'}
           <dl>
             <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
@@ -224,6 +223,10 @@ export class UIController {
   }
 
   #profile() {
+    if (!this.game.profile.isLoggedIn()) {
+      this.#loginRequired();
+      return;
+    }
     const profile = this.game.profile.profile;
     this.overlay.innerHTML = `
       <section class="panel profile-panel">
@@ -232,8 +235,7 @@ export class UIController {
           <div class="pilot-avatar">${this.#initials(profile.name)}</div>
           <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.email || profile.source || 'BSG profile pending'}</span></div>
         </div>
-        <p>${this.game.fullAccess ? 'Launch 3001 full access is active on this profile.' : 'This profile is currently in demo mode.'}</p>
-        ${this.game.profile.isLoggedIn() ? '' : '<button data-action="login">Log In With BSG</button>'}
+        <p>${this.game.fullAccess ? 'Launch 3001 full access is active on this profile.' : 'Launch 3001 full access is not active on this profile.'}</p>
         <button data-action="store">Store</button>
         <button data-action="lobby">Back To Lobby</button>
       </section>`;
