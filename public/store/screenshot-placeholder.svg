@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080">
+  <defs>
+    <linearGradient id="sky" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#020712"/>
+      <stop offset="0.62" stop-color="#071629"/>
+      <stop offset="1" stop-color="#02050a"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="7" result="blur"/>
+      <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="1920" height="1080" fill="url(#sky)"/>
+  <g fill="#24dfff" opacity="0.85">
+    <circle cx="250" cy="150" r="3"/><circle cx="620" cy="90" r="2"/><circle cx="1320" cy="180" r="3"/><circle cx="1630" cy="110" r="2"/>
+  </g>
+  <path d="M0 760h1920v320H0z" fill="#111925"/>
+  <path d="M220 820h1480" stroke="#24dfff" stroke-width="6" opacity="0.75" filter="url(#glow)"/>
+  <path d="M360 920h1200" stroke="#ff7a24" stroke-width="4" opacity="0.55"/>
+  <rect x="760" y="760" width="400" height="70" rx="8" fill="#102438" stroke="#24dfff" stroke-width="8" filter="url(#glow)"/>
+  <circle cx="960" cy="795" r="94" fill="none" stroke="#24dfff" stroke-width="12" filter="url(#glow)"/>
+  <path d="M960 440c-58 64-84 140-78 228h156c6-88-20-164-78-228z" fill="#eaf6ff" stroke="#bff7ff" stroke-width="5"/>
+  <path d="M960 440c-22 26-39 54-51 84h102c-12-30-29-58-51-84z" fill="#ff7428"/>
+  <path d="M880 676l-60 68v76l68-40zM1040 676l60 68v76l-68-40z" fill="#ff5f20"/>
+  <path d="M936 800h48l-24 120z" fill="#24dfff" filter="url(#glow)"/>
+  <text x="960" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="96" font-weight="800" fill="#ecfbff">LAUNCH 3001</text>
+  <text x="960" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="34" font-weight="700" fill="#24dfff">STORE SCREENSHOT PLACEHOLDER</text>
+</svg>

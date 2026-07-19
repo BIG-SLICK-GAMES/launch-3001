@@ -1,0 +1,30 @@
+{
+  "name": "Launch3001",
+  "short_name": "Launch3001",
+  "description": "Endless VR rocket run through neon gates, caves, fuel drops, and landing checkpoints.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#05070b",
+  "theme_color": "#05070b",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/icons/launch3001-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/store/screenshot-placeholder.svg",
+      "sizes": "1920x1080",
+      "type": "image/svg+xml",
+      "form_factor": "wide",
+      "label": "Launch3001 rocket route"
+    }
+  ]
+}

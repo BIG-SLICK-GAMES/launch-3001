@@ -43,7 +43,7 @@ export class LevelManager {
     const roofs = [];
     const tunnels = [];
     const movers = [];
-    const gateOpenings = [];
+    const safeCorridors = [];
     const markerCount = Math.floor((ROUTE_LENGTH - startDistance) / MARKER_SPACING);
 
     for (let i = 1; i <= markerCount; i += 1) {
@@ -59,8 +59,16 @@ export class LevelManager {
         position: { x, y: 0.12, z },
         size: { x: 6.6, y: 0.2, z: 6.6 }
       });
+      safeCorridors.push({
+        routeX: x,
+        z,
+        width: 9.4,
+        bottom: 0,
+        top: 7.2,
+        depth: 13
+      });
 
-      gateOpenings.push(this.#addForcedGate({
+      safeCorridors.push(this.#addForcedGate({
         walls,
         roofs,
         routeX: previous.position.x + (x - previous.position.x) * 0.58,
@@ -170,14 +178,14 @@ export class LevelManager {
       }
 
       if (markerId > 2 && markerId % 4 === 1) {
-        this.#addCaveSection({
+        safeCorridors.push(this.#addCaveSection({
           obstacles,
           roofs,
           routeX: previous.position.x + (x - previous.position.x) * 0.35,
           z: z - 74,
           difficulty,
           caveIndex: markerId
-        });
+        }));
       }
 
       if (markerId > 1 && markerId % 3 === 0) {
@@ -247,7 +255,7 @@ export class LevelManager {
       }
     }
 
-    obstacles = obstacles.filter((spec) => !this.#blocksGateOpening(spec, gateOpenings));
+    obstacles = obstacles.filter((spec) => !this.#blocksSafeCorridor(spec, safeCorridors));
 
     return {
       id: 1,
@@ -330,7 +338,7 @@ export class LevelManager {
         size: { x: openingWidth + 1.4, y: openingBottom, z: gateDepth }
       });
     }
-    return { routeX, z, openingWidth, openingBottom, openingTop };
+    return { routeX, z, width: openingWidth, bottom: openingBottom, top: openingTop, depth: 68 };
   }
 
   #addCaveSection({ obstacles, roofs, routeX, z, difficulty, caveIndex }) {
@@ -358,19 +366,20 @@ export class LevelManager {
         size: { x: 2.4 + difficulty * 0.7, y: height, z: 2.4 + difficulty * 0.7 }
       });
     }
+    return { routeX, z, width: Math.max(7.4, 10.5 - difficulty), bottom: 2.2, top: roofY - 2.2, depth: caveDepth + 18 };
   }
 
-  #blocksGateOpening(spec, gateOpenings) {
-    return gateOpenings.some((gate) => {
+  #blocksSafeCorridor(spec, safeCorridors) {
+    return safeCorridors.some((corridor) => {
       const halfX = spec.size.x / 2;
       const halfZ = spec.size.z / 2;
-      const reserveX = gate.openingWidth / 2 + 2.8;
-      const reserveZ = 34;
-      const overlapsX = Math.abs(spec.position.x - gate.routeX) < halfX + reserveX;
-      const overlapsZ = Math.abs(spec.position.z - gate.z) < halfZ + reserveZ;
+      const reserveX = corridor.width / 2 + 2.8;
+      const reserveZ = corridor.depth / 2;
+      const overlapsX = Math.abs(spec.position.x - corridor.routeX) < halfX + reserveX;
+      const overlapsZ = Math.abs(spec.position.z - corridor.z) < halfZ + reserveZ;
       const specBottom = spec.position.y - spec.size.y / 2;
       const specTop = spec.position.y + spec.size.y / 2;
-      const blocksOpeningHeight = specTop > gate.openingBottom - 1.2 && specBottom < gate.openingTop + 1.2;
+      const blocksOpeningHeight = specTop > corridor.bottom - 1.2 && specBottom < corridor.top + 1.2;
       return overlapsX && overlapsZ && blocksOpeningHeight;
     });
   }

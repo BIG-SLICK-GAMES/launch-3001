@@ -299,6 +299,44 @@ button:disabled {
   pointer-events: auto;
 }
 
+.checkpoint-toast {
+  width: min(90vw, 360px);
+  text-align: center;
+  border-color: rgba(51, 255, 138, 0.48);
+  box-shadow: 0 0 32px rgba(51, 255, 138, 0.18);
+}
+
+.checkpoint-toast strong {
+  display: block;
+  margin-bottom: 8px;
+  color: #eafff5;
+  font-size: 18px;
+}
+
+.checkpoint-toast span {
+  color: #9fffc7;
+  font-weight: 800;
+}
+
+.mission-hint {
+  align-self: start;
+  margin-top: max(70px, env(safe-area-inset-top));
+  width: min(90vw, 390px);
+  text-align: center;
+  background: rgba(3, 10, 18, 0.72);
+}
+
+.mission-hint strong {
+  display: block;
+  margin-bottom: 7px;
+  color: #24dfff;
+}
+
+.mission-hint span {
+  color: #d8fbff;
+  font-weight: 700;
+}
+
 [data-hud-side="right"] .hud-swap {
   right: auto;
   left: -27px;

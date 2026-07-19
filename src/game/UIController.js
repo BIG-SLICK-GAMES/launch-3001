@@ -60,6 +60,17 @@ export class UIController {
     if (state === STATES.GAME_COMPLETE) this.#message('ENDLESS RUN', 'Route continues.');
   }
 
+  showCheckpointReward(reward) {
+    this.overlay.innerHTML = `<section class="toast checkpoint-toast">
+      <strong>MARKER ${reward.markerId} SAVED</strong>
+      <span>+${reward.points} | ${reward.elapsed}s | ${reward.timeRank}</span>
+    </section>`;
+    window.clearTimeout(this.rewardTimer);
+    this.rewardTimer = window.setTimeout(() => {
+      if (this.game.state.is(STATES.READY)) this.overlay.innerHTML = '';
+    }, 2600);
+  }
+
   #set(key, value) {
     const el = this.root.querySelector(`[data-value="${key}"]`);
     if (el) el.textContent = value;
@@ -180,6 +191,14 @@ export class UIController {
         <h2>Tilt Ready</h2>
         <p>Tilt steering is enabled and calibrated.</p>
         <button data-action="mobile-ok">OK</button>
+      </section>`;
+  }
+
+  showMissionHint() {
+    this.overlay.innerHTML = `
+      <section class="toast mission-hint">
+        <strong>MISSION</strong>
+        <span>Thread the gates, collect fuel, land on numbered markers.</span>
       </section>`;
   }
 

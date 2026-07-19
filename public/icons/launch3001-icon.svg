@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Launch3001 icon</title>
+  <desc id="desc">A neon rocket launching from a glowing pad.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="28%" r="74%">
+      <stop offset="0" stop-color="#14324d"/>
+      <stop offset="0.58" stop-color="#07111f"/>
+      <stop offset="1" stop-color="#02050a"/>
+    </radialGradient>
+    <linearGradient id="rocket" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#f9fdff"/>
+      <stop offset="0.42" stop-color="#8da0ad"/>
+      <stop offset="1" stop-color="#202a35"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#bg)"/>
+  <circle cx="256" cy="382" r="112" fill="none" stroke="#24dfff" stroke-width="14" opacity="0.9" filter="url(#glow)"/>
+  <path d="M256 68c-50 54-72 118-66 194h132c6-76-16-140-66-194z" fill="url(#rocket)" stroke="#d8fbff" stroke-width="5"/>
+  <path d="M256 68c-19 21-34 44-45 70h90c-11-26-26-49-45-70z" fill="#ff7428"/>
+  <path d="M192 268l-48 54v64l54-32zM320 268l48 54v64l-54-32z" fill="#ff5f20" stroke="#ffb17d" stroke-width="4"/>
+  <rect x="218" y="244" width="76" height="126" rx="14" fill="#25313e"/>
+  <path d="M238 370h36l-18 72z" fill="#24dfff" filter="url(#glow)"/>
+  <path d="M104 407h304" stroke="#24dfff" stroke-width="10" stroke-linecap="round" opacity="0.75"/>
+  <text x="256" y="470" text-anchor="middle" font-family="Arial, sans-serif" font-size="42" font-weight="800" fill="#ecfbff">3001</text>
+</svg>

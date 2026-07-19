@@ -36,11 +36,19 @@ export class AudioSystem {
   }
 
   playCrash() {
-    this.#tone(82, 0.25, 0.18);
+    this.#tone(82, 0.32, 0.2, 'sawtooth');
+    window.setTimeout(() => this.#tone(48, 0.42, 0.16, 'triangle'), 90);
   }
 
   playLanding(perfect = false) {
-    this.#tone(perfect ? 880 : 620, 0.16, 0.12);
+    this.#tone(perfect ? 740 : 520, 0.12, 0.08);
+    window.setTimeout(() => this.#tone(perfect ? 980 : 660, 0.16, perfect ? 0.11 : 0.08), 90);
+  }
+
+  playCheckpoint() {
+    this.#tone(660, 0.08, 0.07);
+    window.setTimeout(() => this.#tone(880, 0.1, 0.08), 80);
+    window.setTimeout(() => this.#tone(1180, 0.16, 0.07), 170);
   }
 
   speak(line, key = line, cooldown = 2500) {
@@ -62,19 +70,19 @@ export class AudioSystem {
     const now = this.context.currentTime;
     const master = this.context.createGain();
     master.gain.setValueAtTime(0, now);
-    master.gain.linearRampToValueAtTime((this.settings.volume ?? 0.55) * 0.16, now + 0.16);
+    master.gain.linearRampToValueAtTime((this.settings.volume ?? 0.55) * 0.12, now + 0.16);
 
     const low = this.context.createOscillator();
     low.type = 'sine';
     low.frequency.setValueAtTime(54, now);
     const lowGain = this.context.createGain();
-    lowGain.gain.value = 0.48;
+    lowGain.gain.value = 0.42;
 
     const rumble = this.context.createOscillator();
     rumble.type = 'triangle';
     rumble.frequency.setValueAtTime(86, now);
     const rumbleGain = this.context.createGain();
-    rumbleGain.gain.value = 0.18;
+    rumbleGain.gain.value = 0.14;
 
     const noise = this.context.createBufferSource();
     noise.buffer = this.#noiseBuffer();
@@ -84,7 +92,7 @@ export class AudioSystem {
     filter.frequency.value = 420;
     filter.Q.value = 0.7;
     const noiseGain = this.context.createGain();
-    noiseGain.gain.value = 0.22;
+    noiseGain.gain.value = 0.16;
 
     low.connect(lowGain).connect(master);
     rumble.connect(rumbleGain).connect(master);
@@ -120,12 +128,12 @@ export class AudioSystem {
     return buffer;
   }
 
-  #tone(freq, duration, gainValue) {
+  #tone(freq, duration, gainValue, type = 'triangle') {
     if (!this.context || this.settings.muted) return;
     const osc = this.context.createOscillator();
     const gain = this.context.createGain();
     osc.frequency.value = freq;
-    osc.type = 'triangle';
+    osc.type = type;
     gain.gain.value = this.settings.volume * gainValue;
     osc.connect(gain).connect(this.context.destination);
     osc.start();

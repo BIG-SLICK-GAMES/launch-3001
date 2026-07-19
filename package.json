@@ -7,6 +7,7 @@
     "dev": "vite",
     "dev:vr": "cross-env LAUNCH3001_HTTPS=1 vite --host 0.0.0.0",
     "build": "vite build",
+    "validate:levels": "node scripts/validate-levels.mjs",
     "preview": "vite preview"
   },
   "dependencies": {

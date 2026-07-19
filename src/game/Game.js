@@ -56,6 +56,7 @@ export class Game {
     this.refillRemaining = new Map();
     this.voiceFlags = {};
     this.mobileTutorialDone = localStorage.getItem('launch3001.mobileTiltTutorialDone') === '1';
+    this.missionHintDone = localStorage.getItem('launch3001.missionHintDone') === '1';
     this.state.onChange((next, previous, payload) => this.ui.showState(next, payload));
     this.#bindLifecycle();
   }
@@ -68,6 +69,8 @@ export class Game {
     this.renderer.setAnimationLoop((time, frame) => this.#frame(time, frame));
     if (this.#isMobileLike() && !this.mobileTutorialDone) {
       this.ui.showMobileTiltPrompt();
+    } else if (!this.missionHintDone) {
+      this.ui.showMissionHint();
     }
   }
 
@@ -324,11 +327,13 @@ export class Game {
     this.rocket.velocity.set(0, 0, 0);
     const elapsed = Math.max(0.1, this.rocket.flightTime - this.lastCheckpointTime);
     const points = this.score.scoreCheckpoint(marker, elapsed, marker.distance ?? this.rocket.distance);
+    const reward = this.score.checkpointBreakdown(marker, elapsed, marker.distance ?? this.rocket.distance);
     const nextId = Math.min(this.levels.levels.length, Math.floor((marker.distance ?? 0) / 540) + 1);
     this.score.commitCheckpoint(marker, points, nextId);
     this.passedMarkers.add(marker.id);
     this.lastCheckpointTime = this.rocket.flightTime;
     this.audio.playLanding(grade === LANDING_GRADES.perfect);
+    this.audio.playCheckpoint();
     this.effects.emitLandingDust(this.rocket.position);
     this.effects.burst(this.rocket.position, grade === LANDING_GRADES.perfect ? 0x33ff8a : 0x24b7ff, 14);
     this.takeoffLocked = true;
@@ -336,6 +341,7 @@ export class Game {
     this.activeLanding = false;
     this.#applyPadRefuel(marker, FIXED_STEP);
     this.state.transition(STATES.READY);
+    this.ui.showCheckpointReward(reward);
     this.audio.speak('Touchdown.', 'touchdown', 2500);
   }
 
@@ -344,6 +350,10 @@ export class Game {
     this.rocket.landed = false;
     this.landedPad = null;
     this.activeLanding = false;
+    if (!this.missionHintDone) {
+      this.missionHintDone = true;
+      localStorage.setItem('launch3001.missionHintDone', '1');
+    }
     this.input.calibrate();
     this.vr.calibrate();
   }

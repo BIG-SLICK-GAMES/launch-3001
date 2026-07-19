@@ -100,12 +100,23 @@ export class ScoreSystem {
 
   scoreCheckpoint(marker, elapsed, distance) {
     const base = 100;
-    const points = elapsed <= 30
+    const timePoints = elapsed <= 30
       ? Math.min(200, base * (30 / Math.max(15, elapsed)))
       : Math.max(25, base - ((elapsed - 30) / 60) * 50);
     const distanceBonus = Math.floor(distance / 100) * 5;
-    this.currentLevelScore = Math.round(points + distanceBonus);
+    this.currentLevelScore = Math.round(timePoints + distanceBonus);
     return this.currentLevelScore;
+  }
+
+  checkpointBreakdown(marker, elapsed, distance) {
+    const timeRank = elapsed <= 15 ? 'DOUBLE TIME' : elapsed <= 30 ? 'FULL BONUS' : elapsed <= 60 ? 'LATE SAVE' : 'SURVIVAL SAVE';
+    return {
+      markerId: marker.id,
+      elapsed: Number(elapsed.toFixed(1)),
+      distance: Math.floor(distance),
+      timeRank,
+      points: this.currentLevelScore
+    };
   }
 
   commitCheckpoint(marker, points, unlockLevelId) {
