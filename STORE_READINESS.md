@@ -7,6 +7,25 @@
 - PWA manifest and basic install metadata are present.
 - Privacy and support pages are present as starter copy.
 - Build number is visible in flat and VR HUDs.
+- Demo mode gates players after checkpoint 2 unless the profile has a `launch3001` purchase tick.
+
+## Demo And Full Access
+
+Current demo rule:
+
+- Demo players can play through checkpoint 2.
+- Landing on checkpoint 2 shows the demo completion shop prompt.
+- Full-access players continue past checkpoint 2.
+
+Current local test entitlement:
+
+```js
+localStorage.setItem('launch3001.profile', JSON.stringify({ purchases: { launch3001: true } }))
+```
+
+Production requirement:
+
+- Replace the local profile tick with Meta entitlement validation or a server-verified profile before store release.
 
 ## Access Needed From Brent
 

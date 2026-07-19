@@ -511,9 +511,15 @@ button:disabled {
 }
 
 .menu-panel,
-.settings-panel {
+.settings-panel,
+.demo-panel {
   display: grid;
   gap: 10px;
+}
+
+.demo-panel {
+  border-color: rgba(51, 255, 138, 0.44);
+  box-shadow: 0 0 34px rgba(51, 255, 138, 0.18);
 }
 
 .control-panel {

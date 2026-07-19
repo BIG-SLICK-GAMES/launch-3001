@@ -1,4 +1,4 @@
-import { DEFAULT_SETTINGS, STORAGE_KEYS } from './constants.js';
+import { DEFAULT_SETTINGS, PRODUCT_ID, STORAGE_KEYS } from './constants.js';
 
 export class SaveSystem {
   loadSettings() {
@@ -29,6 +29,18 @@ export class SaveSystem {
 
   saveProgress(progress) {
     localStorage.setItem(STORAGE_KEYS.progress, JSON.stringify(progress));
+  }
+
+  loadProfile() {
+    return {
+      purchases: {},
+      ...this.#read(STORAGE_KEYS.profile, {})
+    };
+  }
+
+  hasPurchase(productId = PRODUCT_ID) {
+    const profile = this.loadProfile();
+    return Boolean(profile.purchases?.[productId]);
   }
 
   #read(key, fallback) {

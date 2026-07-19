@@ -14,7 +14,7 @@ import { EffectsSystem } from './EffectsSystem.js';
 import { VRController } from './VRController.js';
 import { UIController } from './UIController.js';
 import { GameState, STATES } from './GameState.js';
-import { FIXED_STEP, MAX_FRAME_DELTA, LANDING_GRADES, ROCKET_STANDING_HEIGHT } from './constants.js';
+import { DEMO_CHECKPOINT_LIMIT, FIXED_STEP, LANDING_GRADES, MAX_FRAME_DELTA, ROCKET_STANDING_HEIGHT, SHOP_URL } from './constants.js';
 
 export class Game {
   constructor(root) {
@@ -25,6 +25,7 @@ export class Game {
     this.renderer = new Renderer(root);
     this.save = new SaveSystem();
     this.settings = this.save.loadSettings();
+    this.fullAccess = this.save.hasPurchase();
     this.score = new ScoreSystem(this.save);
     this.audio = new AudioSystem(this.settings);
     this.levels = new LevelManager();
@@ -76,6 +77,7 @@ export class Game {
 
   loadLevel(id) {
     this.state.clearTimers();
+    this.fullAccess = this.save.hasPurchase();
     this.activeLanding = false;
     this.runRecorded = false;
     this.currentStartId = id;
@@ -192,7 +194,7 @@ export class Game {
     if (!this.running) return;
     const dt = Math.min((time - this.lastTime) / 1000 || 0, MAX_FRAME_DELTA);
     this.lastTime = time;
-    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT)) {
+    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE)) {
       this.accumulator += dt;
       while (this.accumulator >= FIXED_STEP) {
         this.#fixedUpdate(FIXED_STEP);
@@ -340,9 +342,18 @@ export class Game {
     this.rocket.alive = true;
     this.activeLanding = false;
     this.#applyPadRefuel(marker, FIXED_STEP);
+    if (this.#isDemoComplete(marker)) {
+      this.state.transition(STATES.DEMO_COMPLETE, { marker, shopUrl: SHOP_URL });
+      this.audio.speak('Nice! You have completed the demo version of Launch 3001.', 'demoComplete', 12000);
+      return;
+    }
     this.state.transition(STATES.READY);
     this.ui.showCheckpointReward(reward);
     this.audio.speak('Touchdown.', 'touchdown', 2500);
+  }
+
+  #isDemoComplete(marker) {
+    return !this.fullAccess && marker.id >= DEMO_CHECKPOINT_LIMIT;
   }
 
   #beginTakeoff() {

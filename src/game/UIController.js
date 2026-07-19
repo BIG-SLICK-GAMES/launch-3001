@@ -55,6 +55,7 @@ export class UIController {
     if (state === STATES.PAUSED) this.#pause();
     if (state === STATES.READY) this.overlay.innerHTML = '';
     if (state === STATES.CRASHED) this.#message(payload.reason ?? 'CRASH', this.#placementText(payload.placement));
+    if (state === STATES.DEMO_COMPLETE) this.#demoComplete(payload.shopUrl);
     if (state === STATES.LANDED) this.#message(payload.grade ?? 'SAVED', `+${payload.points ?? 0} points`);
     if (state === STATES.LEVEL_COMPLETE) this.#message('MARKER SAVED', 'Keep going.');
     if (state === STATES.GAME_COMPLETE) this.#message('ENDLESS RUN', 'Route continues.');
@@ -152,15 +153,27 @@ export class UIController {
   }
 
   #menu() {
+    const access = this.game.fullAccess ? 'FULL ACCESS' : 'DEMO';
     this.overlay.innerHTML = `
       <section class="panel menu-panel">
         <h1>Launch3001</h1>
-        <p>Endless rocket run. Reach save markers, collect Drop fuel, and bank time bonuses.</p>
+        <p>${access} | Endless rocket run. Reach save markers, collect Drop fuel, and bank time bonuses.</p>
         <button data-action="play">Play</button>
         <button data-action="level-select">Load Checkpoint</button>
         <button data-action="leaderboard">Leaderboard</button>
         <button data-action="reset-run">Reset Run</button>
         <button data-action="settings">Settings</button>
+      </section>`;
+  }
+
+  #demoComplete(shopUrl) {
+    this.overlay.innerHTML = `
+      <section class="panel demo-panel">
+        <h2>Nice!</h2>
+        <p>You've completed the demo version of Launch 3001. For full access to more quests, visit the shop.</p>
+        <button data-action="shop" data-shop-url="${shopUrl}">Visit Shop</button>
+        <button data-action="restart">Replay Demo</button>
+        <button data-action="menu">Menu</button>
       </section>`;
   }
 
@@ -330,6 +343,7 @@ export class UIController {
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
     if (action === 'calibrate') this.game.input.calibrate();
     if (action === 'settings') this.#settings();
+    if (action === 'shop') window.open(target.closest('[data-shop-url]')?.dataset.shopUrl ?? '/shop.html', '_blank', 'noopener');
     if (action === 'back') this.game.state.transition(STATES.MENU);
     if (action === 'level') this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
   }

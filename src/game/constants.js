@@ -1,7 +1,12 @@
 export const STORAGE_KEYS = {
   settings: 'launch3001.settings',
-  progress: 'launch3001.progress'
+  progress: 'launch3001.progress',
+  profile: 'launch3001.profile'
 };
+
+export const PRODUCT_ID = 'launch3001';
+export const DEMO_CHECKPOINT_LIMIT = 2;
+export const SHOP_URL = '/shop.html';
 
 export const CAMERA_MODES = {
   chase: 'CHASE',
