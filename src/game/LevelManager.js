@@ -5,11 +5,11 @@ export class LevelManager {
   constructor() {
     this.level = this.#buildEndlessLevel(0);
     this.levels = [
-      { id: 1, name: 'Launch', startDistance: 0 },
-      { id: 2, name: 'Marker 3', startDistance: MARKER_SPACING * 3 },
-      { id: 3, name: 'Marker 6', startDistance: MARKER_SPACING * 6 },
-      { id: 4, name: 'Marker 10', startDistance: MARKER_SPACING * 10 },
-      { id: 5, name: 'Marker 15', startDistance: MARKER_SPACING * 15 }
+      { id: 1, name: 'Launch', startDistance: 0, markerId: 0 },
+      { id: 2, name: 'Marker 3', startDistance: MARKER_SPACING * 3, markerId: 3 },
+      { id: 3, name: 'Marker 6', startDistance: MARKER_SPACING * 6, markerId: 6 },
+      { id: 4, name: 'Marker 10', startDistance: MARKER_SPACING * 10, markerId: 10 },
+      { id: 5, name: 'Marker 15', startDistance: MARKER_SPACING * 15, markerId: 15 }
     ];
     this.index = 0;
   }
@@ -25,7 +25,7 @@ export class LevelManager {
   load(id = 1) {
     this.index = Math.max(0, this.levels.findIndex((level) => level.id === id));
     const start = this.getById(id);
-    this.level = this.#buildEndlessLevel(start.startDistance);
+    this.level = this.#buildEndlessLevel(start.startDistance, start.markerId ?? 0);
     return this.level;
   }
 
@@ -33,8 +33,9 @@ export class LevelManager {
     return this.level;
   }
 
-  #buildEndlessLevel(startDistance) {
+  #buildEndlessLevel(startDistance, startMarkerId = 0) {
     const launchZ = 18 - startDistance;
+    const launchX = startMarkerId > 0 ? this.#markerX(startMarkerId) : 0;
     const checkpoints = [];
     const pickups = [];
     let obstacles = [];
@@ -43,16 +44,17 @@ export class LevelManager {
     const tunnels = [];
     const movers = [];
     const gateOpenings = [];
-    const markerCount = Math.floor(ROUTE_LENGTH / MARKER_SPACING);
+    const markerCount = Math.floor((ROUTE_LENGTH - startDistance) / MARKER_SPACING);
 
     for (let i = 1; i <= markerCount; i += 1) {
-      const distance = startDistance + i * MARKER_SPACING;
+      const markerId = startMarkerId + i;
+      const distance = markerId * MARKER_SPACING;
       const difficulty = this.#difficulty(distance);
       const z = launchZ - i * MARKER_SPACING;
-      const x = Math.sin(i * 1.73) * Math.min(11, 3 + difficulty * 9);
-      const previous = checkpoints[i - 2] ?? { position: { x: 0, z: launchZ } };
+      const x = this.#markerX(markerId);
+      const previous = checkpoints[i - 2] ?? { position: { x: launchX, z: launchZ } };
       checkpoints.push({
-        id: i,
+        id: markerId,
         distance,
         position: { x, y: 0.12, z },
         size: { x: 6.6, y: 0.2, z: 6.6 }
@@ -65,7 +67,7 @@ export class LevelManager {
         z: z + MARKER_SPACING * 0.48,
         difficulty,
         firstGate: i === 1,
-        gateIndex: i
+        gateIndex: markerId
       }));
 
       [
@@ -73,12 +75,12 @@ export class LevelManager {
         { suffix: 8, zOffset: -24, xOffset: 1.8 }
       ].forEach((drop) => {
         pickups.push({
-          id: i * 10 + drop.suffix,
+          id: markerId * 10 + drop.suffix,
           type: 'instant',
           amount: 25,
           position: {
             x: x + drop.xOffset,
-            y: 1.8 + Math.sin(i * 0.8 + drop.suffix) * 1.2 + difficulty * 1.8,
+            y: 1.8 + Math.sin(markerId * 0.8 + drop.suffix) * 1.2 + difficulty * 1.8,
             z: z + drop.zOffset
           },
           radius: 1.2
@@ -87,17 +89,17 @@ export class LevelManager {
 
       const dropOffsets = [-0.72, -0.5, -0.26, -0.04, 0.18, 0.38, 0.58, 0.78];
       dropOffsets.forEach((offset, dropIndex) => {
-        const heightWave = Math.sin(i * 0.73 + dropIndex * 1.31);
+        const heightWave = Math.sin(markerId * 0.73 + dropIndex * 1.31);
         const highLane = dropIndex % 4 === 0 ? 2.8 + difficulty * 1.6 : 0;
         const lowLane = dropIndex % 5 === 0 ? -0.85 : 0;
-        const refill = (i + dropIndex) % 5 === 0;
+        const refill = (markerId + dropIndex) % 5 === 0;
         pickups.push({
-          id: i * 10 + dropIndex,
+          id: markerId * 10 + dropIndex,
           type: refill ? 'refill' : 'instant',
           amount: refill ? 100 : 25,
           refillRate: 25,
           position: {
-            x: x + Math.sin(i * 1.11 + dropIndex * 1.7) * (5.2 + difficulty * 3.4),
+            x: x + Math.sin(markerId * 1.11 + dropIndex * 1.7) * (5.2 + difficulty * 3.4),
             y: Math.max(1.25, 2.0 + heightWave * (1.9 + difficulty) + highLane + lowLane),
             z: z + MARKER_SPACING * offset
           },
@@ -107,10 +109,10 @@ export class LevelManager {
 
       const laneCount = 3 + Math.floor(difficulty * 5);
       for (let j = 0; j < laneCount; j += 1) {
-        const phase = i * 13.37 + j * 5.19;
+        const phase = markerId * 13.37 + j * 5.19;
         const ox = Math.sin(phase) * (7 + difficulty * 7);
         const oz = z + 38 + j * (MARKER_SPACING / laneCount) - MARKER_SPACING;
-        const h = 2.4 + difficulty * 6 + ((i + j) % 3);
+        const h = 2.4 + difficulty * 6 + ((markerId + j) % 3);
         obstacles.push({
           type: 'spire',
           position: { x: ox, y: h / 2 - 0.05, z: oz },
@@ -118,13 +120,13 @@ export class LevelManager {
         });
       }
 
-      if (i > 1) {
+      if (markerId > 1) {
         [-1, 1].forEach((side, index) => {
-          const h = 5.5 + difficulty * 9 + ((i + index) % 4);
+          const h = 5.5 + difficulty * 9 + ((markerId + index) % 4);
           obstacles.push({
             type: 'mountain',
             position: {
-              x: side * (11.5 + Math.sin(i * 0.71 + index) * 3.2),
+              x: side * (11.5 + Math.sin(markerId * 0.71 + index) * 3.2),
               y: h / 2 - 0.2,
               z: z - 58 - index * 34
             },
@@ -133,54 +135,54 @@ export class LevelManager {
         });
       }
 
-      if (i > 1 && i % 2 === 0) {
+      if (markerId > 1 && markerId % 2 === 0) {
         const gateZ = z + 72;
-        const gapY = 4.2 + difficulty * 4.8 + (i % 2) * 2.2;
+        const gapY = 4.2 + difficulty * 4.8 + (markerId % 2) * 2.2;
         const gapHeight = Math.max(3.4, 5.6 - difficulty * 1.6);
         walls.push({
           type: 'wall',
-          position: { x: Math.sin(i * 0.91) * 4 - 10.5, y: gapY, z: gateZ },
+          position: { x: Math.sin(markerId * 0.91) * 4 - 10.5, y: gapY, z: gateZ },
           size: { x: 4.8 + difficulty * 2.5, y: 9 + difficulty * 5, z: 0.9 }
         });
         walls.push({
           type: 'wall',
-          position: { x: Math.sin(i * 0.91) * 4 + 10.5, y: gapY, z: gateZ },
+          position: { x: Math.sin(markerId * 0.91) * 4 + 10.5, y: gapY, z: gateZ },
           size: { x: 4.8 + difficulty * 2.5, y: 9 + difficulty * 5, z: 0.9 }
         });
         roofs.push({
           type: 'roof',
-          position: { x: Math.sin(i * 0.91) * 4, y: gapY + gapHeight * 0.5 + 4.2, z: gateZ },
+          position: { x: Math.sin(markerId * 0.91) * 4, y: gapY + gapHeight * 0.5 + 4.2, z: gateZ },
           size: { x: 17 + difficulty * 6, y: 0.9, z: 1.2 }
         });
         roofs.push({
           type: 'roof',
-          position: { x: Math.sin(i * 0.91) * 4, y: Math.max(1, gapY - gapHeight * 0.5 - 2.4), z: gateZ },
+          position: { x: Math.sin(markerId * 0.91) * 4, y: Math.max(1, gapY - gapHeight * 0.5 - 2.4), z: gateZ },
           size: { x: 14 + difficulty * 4, y: 0.55, z: 1.2 }
         });
       }
 
-      if (i > 2 && i % 4 === 0) {
+      if (markerId > 2 && markerId % 4 === 0) {
         roofs.push({
           type: 'roof',
-          position: { x: Math.cos(i * 0.71) * 5, y: 7.4 - difficulty * 1.6, z: z + 24 },
+          position: { x: Math.cos(markerId * 0.71) * 5, y: 7.4 - difficulty * 1.6, z: z + 24 },
           size: { x: 13 + difficulty * 9, y: 0.75, z: 11 }
         });
       }
 
-      if (i > 2 && i % 4 === 1) {
+      if (markerId > 2 && markerId % 4 === 1) {
         this.#addCaveSection({
           obstacles,
           roofs,
           routeX: previous.position.x + (x - previous.position.x) * 0.35,
           z: z - 74,
           difficulty,
-          caveIndex: i
+          caveIndex: markerId
         });
       }
 
-      if (i > 1 && i % 3 === 0) {
+      if (markerId > 1 && markerId % 3 === 0) {
         const tunnelZ = z - 44;
-        const tunnelX = Math.sin(i * 0.63) * 4.5;
+        const tunnelX = Math.sin(markerId * 0.63) * 4.5;
         const tunnelY = 6.2 + difficulty * 6.8;
         const tunnelWidth = Math.max(7.2, 11.5 - difficulty * 2.4);
         const tunnelHeight = Math.max(5.2, 8.5 - difficulty * 1.6);
@@ -213,7 +215,7 @@ export class LevelManager {
           }
         );
         pickups.push({
-          id: i * 10 + 9,
+          id: markerId * 10 + 9,
           type: 'instant',
           amount: 25,
           position: { x: tunnelX, y: tunnelY, z: tunnelZ },
@@ -221,7 +223,7 @@ export class LevelManager {
         });
       }
 
-      if (i > 3) {
+      if (markerId > 3) {
         const movingCount = 1 + Math.floor(Math.min(2, difficulty));
         for (let m = 0; m < movingCount; m += 1) {
           const sweep = 7 + difficulty * 2.5;
@@ -229,11 +231,11 @@ export class LevelManager {
           movers.push({
             type: m % 2 === 0 ? 'movingWall' : 'movingSpire',
             motion: m % 2 === 0 ? 'slideX' : 'bobY',
-            phase: i * 0.9 + m * 1.7,
+            phase: markerId * 0.9 + m * 1.7,
             speed: 0.75 + difficulty * 0.38,
             amplitude: m % 2 === 0 ? sweep : 2.2 + difficulty * 0.9,
             position: {
-              x: Math.sin(i * 0.67 + m) * 3,
+              x: Math.sin(markerId * 0.67 + m) * 3,
               y: m % 2 === 0 ? 3.2 + difficulty * 1.4 : 4.2 + difficulty * 1.8,
               z: movingZ
             },
@@ -259,7 +261,7 @@ export class LevelManager {
       windStrength: 0,
       windDirection: { x: 0, y: 0, z: 0 },
       maxSpeed: { horizontal: 7.6, verticalUp: 7.6, verticalDown: 8.8 },
-      launchPad: { position: { x: 0, y: 0.1, z: launchZ }, size: { x: 6, y: 0.2, z: 6 } },
+      launchPad: { id: startMarkerId || 'launch', position: { x: launchX, y: 0.1, z: launchZ }, size: { x: 6, y: 0.2, z: 6 } },
       landingPad: checkpoints[0],
       checkpoints,
       pickups,
@@ -280,6 +282,11 @@ export class LevelManager {
 
   #difficulty(distance) {
     return Math.min(2.6, 0.35 + distance / 900);
+  }
+
+  #markerX(markerId) {
+    const distance = markerId * MARKER_SPACING;
+    return Math.sin(markerId * 1.73) * Math.min(11, 3 + this.#difficulty(distance) * 9);
   }
 
   #addForcedGate({ walls, roofs, routeX, z, difficulty, firstGate, gateIndex }) {

@@ -25,7 +25,7 @@ export class LevelBuilder {
     for (const pickup of level.pickups ?? []) {
       pickupGroup.add(this.#pickup(pickup));
     }
-    group.add(pickupGroup, this.#bounds(level.worldBounds), this.#routeMarkers(level), this.#skyline(level), this.#stars());
+    group.add(pickupGroup, this.#bounds(level.worldBounds), this.#routeMarkers(level), this.#skyline(level), this.#stars(level));
     return {
       group,
       terrain,
@@ -294,14 +294,19 @@ export class LevelBuilder {
     return group;
   }
 
-  #stars() {
+  #stars(level) {
     const group = new THREE.Group();
     const geometry = new THREE.BufferGeometry();
     const positions = [];
     const colors = [];
     const color = new THREE.Color();
+    let seed = (level.terrain.seed ?? 1) * 9973;
+    const random = () => {
+      seed = (seed * 1664525 + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
     for (let i = 0; i < 180; i += 1) {
-      positions.push((Math.random() - 0.5) * 140, 18 + Math.random() * 44, -36 - Math.random() * 70);
+      positions.push((random() - 0.5) * 140, 18 + random() * 44, -36 - random() * 70);
       color.setHex(i % 5 === 0 ? 0x24dfff : 0xb8d7ff);
       colors.push(color.r, color.g, color.b);
     }
