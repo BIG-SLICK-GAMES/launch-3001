@@ -157,7 +157,7 @@ export class Game {
   async enableTiltFromPrompt() {
     const ok = await this.enableTilt();
     if (ok) this.ui.showMobileCalibratePrompt();
-    else this.state.transition(STATES.READY);
+    else this.ui.showMobileTiltPrompt();
     return ok;
   }
 
@@ -168,6 +168,10 @@ export class Game {
 
   calibrateTiltFromPrompt() {
     this.input.calibrate();
+    this.ui.showMobileReadyPrompt();
+  }
+
+  completeMobileTutorial() {
     this.mobileTutorialDone = true;
     localStorage.setItem('launch3001.mobileTiltTutorialDone', '1');
     this.state.transition(STATES.READY);

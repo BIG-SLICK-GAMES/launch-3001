@@ -159,7 +159,6 @@ export class UIController {
         <h2>Mobile Controls</h2>
         <p>Enable tilt control to steer the rocket with this phone.</p>
         <button data-action="mobile-tilt">Enable Tilt</button>
-        <button data-action="mobile-skip">Not Now</button>
       </section>`;
   }
 
@@ -170,6 +169,16 @@ export class UIController {
         <h2>Calibrate Tilt</h2>
         <p>Get comfortable, hold the phone how you want to play, then calibrate.</p>
         <button data-action="mobile-calibrate">Calibrate</button>
+      </section>`;
+  }
+
+  showMobileReadyPrompt() {
+    this.root.dataset.state = STATES.MENU;
+    this.overlay.innerHTML = `
+      <section class="panel menu-panel">
+        <h2>Tilt Ready</h2>
+        <p>Tilt steering is enabled and calibrated.</p>
+        <button data-action="mobile-ok">OK</button>
       </section>`;
   }
 
@@ -297,6 +306,7 @@ export class UIController {
     if (action === 'tilt') this.game.enableTilt();
     if (action === 'mobile-tilt') this.game.enableTiltFromPrompt();
     if (action === 'mobile-calibrate') this.game.calibrateTiltFromPrompt();
+    if (action === 'mobile-ok') this.game.completeMobileTutorial();
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
     if (action === 'calibrate') this.game.input.calibrate();
     if (action === 'settings') this.#settings();
