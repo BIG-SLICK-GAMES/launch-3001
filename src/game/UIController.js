@@ -1,5 +1,5 @@
 import { STATES } from './GameState.js';
-import { CAMERA_MODE_SEQUENCE } from './constants.js';
+import { CAMERA_MODE_SEQUENCE, SHOP_URL } from './constants.js';
 import { formatNumber } from './utils.js';
 import { BUILD_LABEL } from './buildInfo.js';
 
@@ -215,7 +215,7 @@ export class UIController {
       <section class="panel store-panel">
         <h2>Full Version</h2>
         <p>Unlock Launch 3001 for <b>$1.99 USD</b>. Purchases are handled by your BSG website profile.</p>
-        <button data-action="shop" data-shop-url="/shop.html">Go To BSG Shop</button>
+        <button data-action="shop" data-shop-url="${SHOP_URL}">Go To BSG Shop</button>
         <button data-action="lobby">Back To Lobby</button>
       </section>`;
   }
@@ -350,7 +350,7 @@ export class UIController {
 
   async #handleAction(action, target) {
     if (action === 'shop') {
-      window.open(target.closest('[data-shop-url]')?.dataset.shopUrl ?? '/shop.html', '_blank', 'noopener');
+      window.open(target.closest('[data-shop-url]')?.dataset.shopUrl ?? SHOP_URL, '_blank', 'noopener');
       return;
     }
     await this.game.audio.unlock();
