@@ -177,8 +177,50 @@ export class LevelBuilder {
     left.position.set(-marker.size.x * 0.5, 1.65, 0);
     right.position.set(marker.size.x * 0.5, 1.65, 0);
     top.position.set(0, 3.25, 0);
-    group.add(left, right, top);
+    group.add(left, right, top, this.#checkpointNumber(marker));
     return group;
+  }
+
+  #checkpointNumber(marker) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 128;
+    const context = canvas.getContext('2d');
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    context.fillStyle = 'rgba(4, 12, 20, 0.72)';
+    context.strokeStyle = '#33ff8a';
+    context.lineWidth = 8;
+    this.#roundRectPath(context, 42, 18, 172, 92, 22);
+    context.fill();
+    context.stroke();
+    context.shadowColor = '#33ff8a';
+    context.shadowBlur = 18;
+    context.fillStyle = '#eafff5';
+    context.font = '700 64px Arial, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(String(marker.id), 128, 66);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: texture, transparent: true, depthWrite: false }));
+    sprite.name = `Save ${marker.id} number`;
+    sprite.position.set(0, 4.35, 0);
+    sprite.scale.set(2.7, 1.35, 1);
+    return sprite;
+  }
+
+  #roundRectPath(context, x, y, width, height, radius) {
+    context.beginPath();
+    context.moveTo(x + radius, y);
+    context.lineTo(x + width - radius, y);
+    context.quadraticCurveTo(x + width, y, x + width, y + radius);
+    context.lineTo(x + width, y + height - radius);
+    context.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+    context.lineTo(x + radius, y + height);
+    context.quadraticCurveTo(x, y + height, x, y + height - radius);
+    context.lineTo(x, y + radius);
+    context.quadraticCurveTo(x, y, x + radius, y);
+    context.closePath();
   }
 
   #pickup(pickup) {

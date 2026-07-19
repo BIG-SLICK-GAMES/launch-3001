@@ -37,11 +37,12 @@ export class LevelManager {
     const launchZ = 18 - startDistance;
     const checkpoints = [];
     const pickups = [];
-    const obstacles = [];
+    let obstacles = [];
     const walls = [];
     const roofs = [];
     const tunnels = [];
     const movers = [];
+    const gateOpenings = [];
     const markerCount = Math.floor(ROUTE_LENGTH / MARKER_SPACING);
 
     for (let i = 1; i <= markerCount; i += 1) {
@@ -57,14 +58,14 @@ export class LevelManager {
         size: { x: 6.6, y: 0.2, z: 6.6 }
       });
 
-      this.#addForcedGate({
+      gateOpenings.push(this.#addForcedGate({
         walls,
         roofs,
         routeX: previous.position.x + (x - previous.position.x) * 0.58,
         z: z + MARKER_SPACING * 0.48,
         difficulty,
         firstGate: i === 1
-      });
+      }));
 
       [
         { suffix: 7, zOffset: 24, xOffset: -1.8 },
@@ -232,6 +233,8 @@ export class LevelManager {
       }
     }
 
+    obstacles = obstacles.filter((spec) => !this.#blocksGateOpening(spec, gateOpenings));
+
     return {
       id: 1,
       name: 'Endless Route',
@@ -295,6 +298,20 @@ export class LevelManager {
       type: 'roof',
       position: { x: routeX, y: openingTop + (maxY - openingTop) / 2, z },
       size: { x: openingWidth + 1.4, y: maxY - openingTop, z: gateDepth }
+    });
+    return { routeX, z, openingWidth, openingTop };
+  }
+
+  #blocksGateOpening(spec, gateOpenings) {
+    return gateOpenings.some((gate) => {
+      const halfX = spec.size.x / 2;
+      const halfZ = spec.size.z / 2;
+      const reserveX = gate.openingWidth / 2 + 2.8;
+      const reserveZ = 34;
+      const overlapsX = Math.abs(spec.position.x - gate.routeX) < halfX + reserveX;
+      const overlapsZ = Math.abs(spec.position.z - gate.z) < halfZ + reserveZ;
+      const reachesOpening = spec.position.y + spec.size.y / 2 > 0.8;
+      return overlapsX && overlapsZ && reachesOpening;
     });
   }
 }
