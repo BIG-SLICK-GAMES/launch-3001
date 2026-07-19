@@ -14,6 +14,7 @@ import { AudioSystem } from './AudioSystem.js';
 import { EffectsSystem } from './EffectsSystem.js';
 import { VRController } from './VRController.js';
 import { UIController } from './UIController.js';
+import { BSGHubBridge } from './BSGHubBridge.js';
 import { GameState, STATES } from './GameState.js';
 import { DEMO_CHECKPOINT_LIMIT, FIXED_STEP, LANDING_GRADES, MAX_FRAME_DELTA, ROCKET_STANDING_HEIGHT, SHOP_URL } from './constants.js';
 
@@ -40,6 +41,7 @@ export class Game {
     this.physics = new PhysicsController();
     this.cameraController = new CameraController(this.camera, this.settings);
     this.vr = new VRController(this.renderer, this.scene, this.camera);
+    this.hub = new BSGHubBridge(this);
     this.effects = new EffectsSystem(this.scene);
     this.collision = new CollisionSystem(this.world);
     this.state = new GameState();
@@ -72,6 +74,7 @@ export class Game {
 
   start() {
     this.loadLevel(1);
+    this.hub.start();
     this.state.transition(STATES.SPLASH);
     this.renderer.resize(this.camera);
     this.running = true;

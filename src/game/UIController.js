@@ -195,7 +195,8 @@ export class UIController {
             <div class="pilot-avatar">${this.#initials(profile.name)}</div>
             <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
           </div>
-          <div class="access-pill ${this.game.fullAccess ? 'owned' : ''}">${this.game.fullAccess ? 'Full Game Owned' : 'Demo Access'}</div>
+        <div class="access-pill ${this.game.fullAccess ? 'owned' : ''}">${this.game.fullAccess ? 'Full Game Owned' : 'Demo Access'}</div>
+          ${profile.id === 'guest' ? '<button data-action="login">Log In With BSG</button>' : ''}
           <dl>
             <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
             <dt>Best time</dt><dd>${formatNumber(best.bestDistanceTime ?? 0, 1)}s</dd>
@@ -203,7 +204,7 @@ export class UIController {
         </div>
         <div class="lobby-panel store-card">
           <h2>Full Game</h2>
-          <strong>$1.99 USD</strong>
+          <strong>$1.99 AUD</strong>
           <p>Unlock the full route, more checkpoints, quests, caves, moving hazards, and leaderboard runs.</p>
           <button data-action="store">${this.game.fullAccess ? 'Owned' : 'Unlock Full Game'}</button>
         </div>
@@ -214,8 +215,9 @@ export class UIController {
     this.overlay.innerHTML = `
       <section class="panel store-panel">
         <h2>Full Version</h2>
-        <p>Unlock Launch 3001 for <b>$1.99 USD</b>. Purchases are handled by your BSG website profile.</p>
+        <p>Unlock Launch 3001 for <b>$1.99 AUD</b>. Purchases are handled by your BSG website profile.</p>
         <button data-action="shop" data-shop-url="${SHOP_URL}">Go To BSG Shop</button>
+        <button data-action="login">Log In With BSG</button>
         <button data-action="lobby">Back To Lobby</button>
       </section>`;
   }
@@ -230,6 +232,7 @@ export class UIController {
           <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.email || profile.source || 'BSG profile pending'}</span></div>
         </div>
         <p>${this.game.fullAccess ? 'Launch 3001 full access is active on this profile.' : 'This profile is currently in demo mode.'}</p>
+        ${profile.id === 'guest' ? '<button data-action="login">Log In With BSG</button>' : ''}
         <button data-action="store">Store</button>
         <button data-action="lobby">Back To Lobby</button>
       </section>`;
@@ -350,7 +353,7 @@ export class UIController {
 
   async #handleAction(action, target) {
     if (action === 'shop') {
-      window.open(target.closest('[data-shop-url]')?.dataset.shopUrl ?? SHOP_URL, '_blank', 'noopener');
+      this.game.hub.openShop();
       return;
     }
     await this.game.audio.unlock();
@@ -359,6 +362,7 @@ export class UIController {
     if (action === 'lobby') this.game.showLobby();
     if (action === 'store') this.#store();
     if (action === 'profile') this.#profile();
+    if (action === 'login') this.game.hub.requestLogin();
     if (action === 'level-select') this.game.state.transition(STATES.LEVEL_SELECT);
     if (action === 'menu') this.game.showLobby();
     if (action === 'resume') this.game.resume();

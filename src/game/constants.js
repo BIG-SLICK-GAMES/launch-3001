@@ -7,6 +7,10 @@ export const STORAGE_KEYS = {
 export const PRODUCT_ID = 'launch3001';
 export const DEMO_CHECKPOINT_LIMIT = 2;
 export const SHOP_URL = 'https://bigslickgames.com/shop.html';
+export const BSG_HUB_ORIGINS = [
+  'https://bigslickgames.com',
+  'https://www.bigslickgames.com'
+];
 
 export const CAMERA_MODES = {
   chase: 'CHASE',

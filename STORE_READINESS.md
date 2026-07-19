@@ -25,8 +25,27 @@ localStorage.setItem('launch3001.profile', JSON.stringify({ purchases: { launch3
 
 Production requirement:
 
-- The BSG website must pass the logged-in profile into the game with `purchases.launch3001 === true` after the $1.99 USD purchase.
-- Supported profile sources in the game are `window.BSG_PROFILE`, `window.launch3001Profile`, or `postMessage({ type: 'BSG_PROFILE', profile })`.
+- The BSG website must pass the logged-in profile into the game with `purchases.launch3001 === true` after the $1.99 AUD purchase.
+- Supported profile sources in the game are `window.BSG_PROFILE`, `window.launch3001Profile`, `window.launch3001SetProfile(profile)`, or a hub `postMessage`.
+- The game now sends `BSG_GAME_READY` and `BSG_PROFILE_REQUEST` to the parent/opener window when it loads.
+- The BSG hub should reply with `postMessage({ type: 'BSG_PROFILE', profile }, gameOrigin)`.
+- The profile can unlock the game with either `purchases: { launch3001: true }`, `purchases: ['launch3001']`, `entitlements: { launch3001: true }`, or `entitlements: ['launch3001']`.
+- Store clicks send `BSG_SHOP_REQUEST` to the hub and open `https://bigslickgames.com/shop.html?product=launch3001&currency=AUD&return=<game-url>`.
+- Login clicks send `BSG_LOGIN_REQUEST` to the hub with the current game URL as `returnUrl`.
+
+Example hub response:
+
+```js
+gameFrame.contentWindow.postMessage({
+  type: 'BSG_PROFILE',
+  profile: {
+    id: 'bsg-user-id',
+    name: 'Pilot Name',
+    email: 'pilot@example.com',
+    purchases: { launch3001: true }
+  }
+}, gameOrigin);
+```
 
 ## Access Needed From Brent
 
