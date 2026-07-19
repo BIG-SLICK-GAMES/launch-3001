@@ -6,7 +6,7 @@ export const STORAGE_KEYS = {
 
 export const PRODUCT_ID = 'launch3001';
 export const DEMO_CHECKPOINT_LIMIT = 2;
-export const LOGIN_URL = 'https://21-holdem.com/login';
+export const LOGIN_URL = 'https://bigslickgames.com/login';
 export const SHOP_URL = 'https://bigslickgames.com/shop.html';
 export const BSG_HUB_ORIGINS = [
   'https://bigslickgames.com',

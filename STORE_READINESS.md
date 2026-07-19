@@ -33,7 +33,7 @@ Production requirement:
 - The BSG hub should reply with `postMessage({ type: 'BSG_PROFILE', profile }, gameOrigin)`.
 - The profile can unlock the game with either `purchases: { launch3001: true }`, `purchases: ['launch3001']`, `entitlements: { launch3001: true }`, or `entitlements: ['launch3001']`.
 - Store clicks send `BSG_SHOP_REQUEST` to the hub and open `https://bigslickgames.com/shop.html?product=launch3001&currency=AUD&return=<game-url>`.
-- Login clicks send `BSG_LOGIN_REQUEST` to the hub with the current game URL as `returnUrl`, then navigate to `https://21-holdem.com/login?product=launch3001&return=<game-url>` as a fallback.
+- Login clicks send `BSG_LOGIN_REQUEST` to the hub with the current game URL as `returnUrl`, then navigate to `https://bigslickgames.com/login?product=launch3001&return=<game-url>` as a fallback.
 
 Example hub response:
 
