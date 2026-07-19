@@ -167,6 +167,17 @@ export class LevelManager {
         });
       }
 
+      if (i > 2 && i % 4 === 1) {
+        this.#addCaveSection({
+          obstacles,
+          roofs,
+          routeX: previous.position.x + (x - previous.position.x) * 0.35,
+          z: z - 74,
+          difficulty,
+          caveIndex: i
+        });
+      }
+
       if (i > 1 && i % 3 === 0) {
         const tunnelZ = z - 44;
         const tunnelX = Math.sin(i * 0.63) * 4.5;
@@ -313,6 +324,33 @@ export class LevelManager {
       });
     }
     return { routeX, z, openingWidth, openingBottom, openingTop };
+  }
+
+  #addCaveSection({ obstacles, roofs, routeX, z, difficulty, caveIndex }) {
+    const roofY = Math.min(24, 14.2 + difficulty * 2.2);
+    const caveWidth = Math.min(38, 24 + difficulty * 5.5);
+    const caveDepth = 54 + difficulty * 12;
+    roofs.push({
+      type: 'caveRoof',
+      position: { x: routeX, y: roofY, z },
+      size: { x: caveWidth, y: 1.1, z: caveDepth }
+    });
+
+    const spikeCount = 4 + Math.floor(Math.min(4, difficulty * 1.4));
+    for (let s = 0; s < spikeCount; s += 1) {
+      const side = s % 2 === 0 ? -1 : 1;
+      const lane = 3.8 + (s % 3) * 2.2 + difficulty * 0.8;
+      const height = Math.min(10.5, 4.4 + difficulty * 2.2 + ((caveIndex + s) % 3) * 1.2);
+      obstacles.push({
+        type: 'caveSpike',
+        position: {
+          x: routeX + side * lane + Math.sin(caveIndex * 0.8 + s) * 1.2,
+          y: roofY - height / 2,
+          z: z - caveDepth * 0.35 + (s + 0.5) * (caveDepth / spikeCount)
+        },
+        size: { x: 2.4 + difficulty * 0.7, y: height, z: 2.4 + difficulty * 0.7 }
+      });
+    }
   }
 
   #blocksGateOpening(spec, gateOpenings) {
