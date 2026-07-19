@@ -257,6 +257,7 @@ export class Game {
       const result = this.collision.check(this.rocket, this.currentLevel);
       if (result?.type === 'crash') this.#crash(result.reason);
       if (result?.type === 'landed') this.#land(result.grade, result.marker);
+      this.#checkDemoWall();
     }
   }
 
@@ -363,8 +364,7 @@ export class Game {
     this.activeLanding = false;
     this.#applyPadRefuel(marker, FIXED_STEP);
     if (this.#isDemoComplete(marker)) {
-      this.state.transition(STATES.DEMO_COMPLETE, { marker, shopUrl: SHOP_URL });
-      this.audio.speak('Nice! You have completed the demo version of Launch 3001.', 'demoComplete', 12000);
+      this.#completeDemo(marker);
       return;
     }
     this.state.transition(STATES.READY);
@@ -374,6 +374,23 @@ export class Game {
 
   #isDemoComplete(marker) {
     return !this.fullAccess && marker.id >= DEMO_CHECKPOINT_LIMIT;
+  }
+
+  #checkDemoWall() {
+    if (this.fullAccess || !this.state.is(STATES.FLYING)) return;
+    const marker = (this.currentLevel.checkpoints ?? []).find((entry) => entry.id === DEMO_CHECKPOINT_LIMIT);
+    if (!marker || this.rocket.distance < marker.distance) return;
+    this.rocket.alive = false;
+    this.rocket.landed = false;
+    this.rocket.setFlame(false);
+    this.rocket.velocity.set(0, 0, 0);
+    this.audio.stopEngine();
+    this.#completeDemo(marker);
+  }
+
+  #completeDemo(marker) {
+    this.state.transition(STATES.DEMO_COMPLETE, { marker, shopUrl: SHOP_URL });
+    this.audio.speak('Nice! You have completed the demo version of Launch 3001.', 'demoComplete', 12000);
   }
 
   #beginTakeoff() {
