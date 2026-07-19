@@ -132,6 +132,17 @@ button:disabled {
   --altitude-angle: -135deg;
 }
 
+.build-badge {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  color: #7fa6ba;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0;
+  pointer-events: none;
+}
+
 .top-stats {
   position: absolute;
   top: max(8px, env(safe-area-inset-top));

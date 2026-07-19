@@ -1,6 +1,7 @@
 import { STATES } from './GameState.js';
 import { CAMERA_MODE_SEQUENCE, VR_CAMERA_MODE_SEQUENCE } from './constants.js';
 import { formatNumber } from './utils.js';
+import { BUILD_LABEL } from './buildInfo.js';
 
 export class UIController {
   constructor(root, game) {
@@ -347,6 +348,7 @@ export class UIController {
         <span>TIME <b data-value="time">0.0</b>s</span>
       </div>
       <div class="hud">
+        <div class="build-badge">BUILD ${BUILD_LABEL}</div>
         <button class="hud-swap" data-action="hud-side" aria-label="Move HUD">›</button>
         <div class="fuel-meter" aria-label="Fuel">
           <div class="instrument-label">FUEL</div>

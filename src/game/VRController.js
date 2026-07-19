@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CAMERA_MODES, VR_CAMERA_MODES, VR_CAMERA_MODE_SEQUENCE } from './constants.js';
 import { clamp } from './utils.js';
+import { BUILD_LABEL } from './buildInfo.js';
 
 export class VRController {
   constructor(renderer, scene, camera) {
@@ -454,6 +455,7 @@ export class VRController {
     context.fillText(`H/S ${Math.hypot(game.rocket.velocity.x, game.rocket.velocity.z).toFixed(1)}`, 244, 342);
     context.fillText(`ANGLE ${(game.rocket.getTiltAngle() * 57.3).toFixed(0)}deg`, 335, 342);
     context.fillText(`TIME ${markerTime.toFixed(1)}s`, 448, 342);
+    context.fillText(`BUILD ${BUILD_LABEL}`, 548, 342);
   }
 
   #drawTopStats(context, game) {
