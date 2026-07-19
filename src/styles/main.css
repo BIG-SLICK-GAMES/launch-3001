@@ -133,13 +133,13 @@ button:disabled {
 }
 
 .build-badge {
-  position: absolute;
-  top: 6px;
-  right: 8px;
+  order: 99;
+  justify-self: center;
   color: #7fa6ba;
   font-size: 9px;
   font-weight: 800;
   letter-spacing: 0;
+  line-height: 1;
   pointer-events: none;
 }
 
