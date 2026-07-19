@@ -185,6 +185,7 @@ export class LevelBuilder {
     const group = new THREE.Group();
     group.name = `Drop ${pickup.id}`;
     group.position.set(pickup.position.x, pickup.position.y, pickup.position.z);
+    if (pickup.type === 'refill') return this.#refillPickup(group);
     const mat = new THREE.MeshStandardMaterial({ color: 0x4de6ff, emissive: 0x17b8ff, emissiveIntensity: 1.5, roughness: 0.18, metalness: 0.1 });
     const drop = new THREE.Mesh(new THREE.SphereGeometry(0.48, 18, 14), mat);
     drop.scale.set(0.72, 1.15, 0.72);
@@ -197,6 +198,26 @@ export class LevelBuilder {
     );
     ring.rotation.x = Math.PI / 2;
     group.add(drop, point, ring);
+    return group;
+  }
+
+  #refillPickup(group) {
+    const mat = new THREE.MeshStandardMaterial({ color: 0xffd166, emissive: 0xff8f1f, emissiveIntensity: 1.45, roughness: 0.22, metalness: 0.2 });
+    const tank = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 1.1, 18), mat);
+    tank.rotation.z = Math.PI / 2;
+    const capA = new THREE.Mesh(new THREE.SphereGeometry(0.34, 18, 12), mat);
+    const capB = capA.clone();
+    capA.position.x = -0.55;
+    capB.position.x = 0.55;
+    const plusMat = new THREE.MeshBasicMaterial({ color: 0xfff1a8, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending });
+    const barA = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.09, 0.09), plusMat);
+    const barB = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.92, 0.09), plusMat);
+    const ring = new THREE.Mesh(
+      new THREE.TorusGeometry(0.9, 0.04, 8, 36),
+      new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending })
+    );
+    ring.rotation.x = Math.PI / 2;
+    group.add(tank, capA, capB, barA, barB, ring);
     return group;
   }
 

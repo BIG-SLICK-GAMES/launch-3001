@@ -77,9 +77,12 @@ export class LevelManager {
         const heightWave = Math.sin(i * 0.73 + dropIndex * 1.31);
         const highLane = dropIndex % 4 === 0 ? 2.8 + difficulty * 1.6 : 0;
         const lowLane = dropIndex % 5 === 0 ? -0.85 : 0;
+        const refill = (i + dropIndex) % 5 === 0;
         pickups.push({
           id: i * 10 + dropIndex,
-          amount: 18,
+          type: refill ? 'refill' : 'instant',
+          amount: refill ? 70 : 18,
+          refillRate: 24 + difficulty * 6,
           position: {
             x: x + Math.sin(i * 1.11 + dropIndex * 1.7) * (5.2 + difficulty * 3.4),
             y: Math.max(1.25, 2.0 + heightWave * (1.9 + difficulty) + highLane + lowLane),

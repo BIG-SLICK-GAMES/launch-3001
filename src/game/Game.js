@@ -52,6 +52,7 @@ export class Game {
     this.lastCheckpointTime = 0;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
+    this.refillRemaining = new Map();
     this.voiceFlags = {};
     this.mobileTutorialDone = localStorage.getItem('launch3001.mobileTiltTutorialDone') === '1';
     this.state.onChange((next, previous, payload) => this.ui.showState(next, payload));
@@ -83,6 +84,7 @@ export class Game {
     this.lastCheckpointTime = 0;
     this.passedMarkers = new Set();
     this.collectedDrops = new Set();
+    this.refillRemaining = new Map();
     this.voiceFlags = { launch: false, lowFuel: false, approachMarkerId: null, refuelPad: null };
     this.cameraController.update(this.rocket, 1);
     this.renderer.resize(this.camera);
@@ -220,7 +222,7 @@ export class Game {
     this.#refuelOnPad(dt);
     this.score.updateLeaderboard(this.rocket.distance, this.rocket.flightTime);
     if (active) {
-      this.#collectDrops();
+      this.#updateFuelPickups(dt);
       const result = this.collision.check(this.rocket, this.currentLevel);
       if (result?.type === 'crash') this.#crash(result.reason);
       if (result?.type === 'landed') this.#land(result.grade, result.marker);
@@ -337,10 +339,14 @@ export class Game {
     this.vr.calibrate();
   }
 
-  #collectDrops() {
+  #updateFuelPickups(dt) {
     for (const pickup of this.currentLevel.pickups ?? []) {
-      if (this.collectedDrops.has(pickup.id)) continue;
       if (!this.#nearFuelDrop(pickup)) continue;
+      if (pickup.type === 'refill') {
+        this.#refillFromPickup(pickup, dt);
+        continue;
+      }
+      if (this.collectedDrops.has(pickup.id)) continue;
       this.collectedDrops.add(pickup.id);
       this.rocket.fuel = Math.min(100, this.rocket.fuel + pickup.amount);
       const mesh = this.world.current.pickupMeshes?.find((item) => item.name === `Drop ${pickup.id}`);
@@ -348,6 +354,32 @@ export class Game {
       this.effects.burst(this.rocket.position, 0x4de6ff, 12);
       this.audio.speak('Refueled Sir!', 'fuelPickup', 1200);
     }
+  }
+
+  #refillFromPickup(pickup, dt) {
+    if (this.collectedDrops.has(pickup.id) || this.rocket.fuel >= 100) return;
+    const remaining = this.refillRemaining.get(pickup.id) ?? pickup.amount;
+    if (remaining <= 0) {
+      this.#depleteFuelPickup(pickup);
+      return;
+    }
+    const transfer = Math.min(remaining, 100 - this.rocket.fuel, (pickup.refillRate ?? 26) * dt);
+    if (transfer <= 0) return;
+    this.refillRemaining.set(pickup.id, remaining - transfer);
+    this.rocket.fuel = Math.min(100, this.rocket.fuel + transfer);
+    this.effects.burst(this.rocket.position, 0xffd166, 2);
+    if (this.voiceFlags.activeRefill !== pickup.id) {
+      this.audio.speak('Refueling Sir!', 'holdRefuel', 1800);
+      this.voiceFlags.activeRefill = pickup.id;
+    }
+    if (remaining - transfer <= 0.05) this.#depleteFuelPickup(pickup);
+  }
+
+  #depleteFuelPickup(pickup) {
+    this.collectedDrops.add(pickup.id);
+    const mesh = this.world.current.pickupMeshes?.find((item) => item.name === `Drop ${pickup.id}`);
+    if (mesh) mesh.visible = false;
+    this.effects.burst(this.rocket.position, 0xffd166, 12);
   }
 
   #nearFuelDrop(pickup) {
