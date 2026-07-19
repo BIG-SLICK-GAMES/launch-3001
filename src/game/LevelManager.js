@@ -62,7 +62,8 @@ export class LevelManager {
       ].forEach((drop) => {
         pickups.push({
           id: i * 10 + drop.suffix,
-          amount: 30,
+          type: 'instant',
+          amount: 25,
           position: {
             x: x + drop.xOffset,
             y: 1.8 + Math.sin(i * 0.8 + drop.suffix) * 1.2 + difficulty * 1.8,
@@ -81,8 +82,8 @@ export class LevelManager {
         pickups.push({
           id: i * 10 + dropIndex,
           type: refill ? 'refill' : 'instant',
-          amount: refill ? 70 : 18,
-          refillRate: 24 + difficulty * 6,
+          amount: refill ? 100 : 25,
+          refillRate: 25,
           position: {
             x: x + Math.sin(i * 1.11 + dropIndex * 1.7) * (5.2 + difficulty * 3.4),
             y: Math.max(1.25, 2.0 + heightWave * (1.9 + difficulty) + highLane + lowLane),
@@ -190,7 +191,8 @@ export class LevelManager {
         );
         pickups.push({
           id: i * 10 + 9,
-          amount: 26,
+          type: 'instant',
+          amount: 25,
           position: { x: tunnelX, y: tunnelY, z: tunnelZ },
           radius: 1.35
         });
