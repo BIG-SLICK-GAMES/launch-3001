@@ -13,6 +13,7 @@ export class BSGHubBridge {
   start() {
     window.addEventListener('message', this.boundMessage);
     window.launch3001SetProfile = (profile) => this.applyProfile(profile, 'global-api');
+    this.#applyUrlHandoff();
     window.requestAnimationFrame(() => this.requestProfile());
   }
 
@@ -69,7 +70,35 @@ export class BSGHubBridge {
       ...profile,
       source: profile.source ?? source
     };
+    try {
+      localStorage.setItem('launch3001.profile', JSON.stringify(window.__launch3001Profile));
+    } catch {
+      // Storage can be blocked; the in-memory profile still works for this session.
+    }
     this.game.refreshProfile();
+  }
+
+  #applyUrlHandoff() {
+    if (!window.location.hash.includes('bsgToken=')) return;
+
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    if (params.get('bsg') !== '1') return;
+
+    const access = params.get('access') === 'full';
+    const profile = {
+      id: params.get('id') || `bsg-${params.get('player') || 'player'}`,
+      name: params.get('player') || 'BSG Player',
+      email: params.get('email') || '',
+      avatar: params.get('avatar') || '',
+      token: params.get('bsgToken') || '',
+      chips: Math.max(0, Number(params.get('chips')) || 0),
+      purchases: access ? { [PRODUCT_ID]: true } : {},
+      entitlements: access ? { [PRODUCT_ID]: true } : {},
+      source: params.get('source') || 'bsg-hub'
+    };
+
+    this.applyProfile(profile, 'url-handoff');
+    window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
   }
 
   #handleMessage(event) {

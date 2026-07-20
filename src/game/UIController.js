@@ -198,6 +198,7 @@ export class UIController {
           ${this.game.fullAccess ? '<div class="access-pill owned">Full Game Owned</div>' : ''}
           ${loggedIn ? '' : '<p class="login-note">Log in with BSG to play the demo.</p><button data-action="login">Log In With BSG</button>'}
           <dl>
+            <dt>BSG chips</dt><dd>${formatNumber(profile.chips ?? 0, 0)}</dd>
             <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
             <dt>Best time</dt><dd>${formatNumber(best.bestDistanceTime ?? 0, 1)}s</dd>
           </dl>
@@ -234,6 +235,9 @@ export class UIController {
           <div class="pilot-avatar">${this.#initials(profile.name)}</div>
           <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.email || profile.source || 'BSG profile pending'}</span></div>
         </div>
+        <dl>
+          <dt>BSG chips</dt><dd>${formatNumber(profile.chips ?? 0, 0)}</dd>
+        </dl>
         <p>${this.game.fullAccess ? 'Launch 3001 full access is active on this profile.' : 'Launch 3001 full access is not active on this profile.'}</p>
         <button data-action="store">Store</button>
         <button data-action="lobby">Back To Lobby</button>
