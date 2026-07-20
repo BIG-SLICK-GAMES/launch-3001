@@ -61,7 +61,7 @@ export class UIController {
     if (state === STATES.PAUSED) this.#pause();
     if (state === STATES.READY) this.overlay.innerHTML = '';
     if (state === STATES.CRASHED) this.#message(payload.reason ?? 'CRASH', this.#placementText(payload.placement));
-    if (state === STATES.DEMO_COMPLETE) this.#demoComplete(payload.shopUrl);
+    if (state === STATES.DEMO_COMPLETE) this.#demoComplete(payload.shopUrl, payload.reason);
     if (state === STATES.LANDED) this.#message(payload.grade ?? 'SAVED', `+${payload.points ?? 0} points`);
     if (state === STATES.LEVEL_COMPLETE) this.#message('MARKER SAVED', 'Keep going.');
     if (state === STATES.GAME_COMPLETE) this.#message('ENDLESS RUN', 'Route continues.');
@@ -183,7 +183,7 @@ export class UIController {
           ${this.game.fullAccess ? '<p>FULL ACCESS</p>' : ''}
         </div>
         <div class="lobby-panel lobby-menu">
-          <button class="primary" data-action="${loggedIn ? 'play' : 'login'}">${loggedIn ? 'Play' : 'Log In With BSG'}</button>
+          <button class="primary" data-action="${loggedIn ? 'play' : 'login'}">${loggedIn ? 'Play' : 'Log In To Play Demo'}</button>
           <button data-action="store">Store</button>
           ${loggedIn ? '<button data-action="profile">Profile</button>' : ''}
           <button data-action="${loggedIn ? 'level-select' : 'login'}">Load Checkpoint</button>
@@ -196,7 +196,7 @@ export class UIController {
             <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
           </div>
           ${this.game.fullAccess ? '<div class="access-pill owned">Full Game Owned</div>' : ''}
-          ${loggedIn ? '' : '<button data-action="login">Log In With BSG</button>'}
+          ${loggedIn ? '' : '<p class="login-note">Log in with BSG to play the demo.</p><button data-action="login">Log In With BSG</button>'}
           <dl>
             <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
             <dt>Best time</dt><dd>${formatNumber(best.bestDistanceTime ?? 0, 1)}s</dd>
@@ -204,7 +204,6 @@ export class UIController {
         </div>
         <div class="lobby-panel store-card">
           <h2>Full Game</h2>
-          <strong>$1.99 AUD</strong>
           <p>Unlock the full route, more checkpoints, quests, caves, moving hazards, and leaderboard runs.</p>
           <button data-action="store">${this.game.fullAccess ? 'Owned' : 'Unlock Full Game'}</button>
         </div>
@@ -215,7 +214,7 @@ export class UIController {
     this.overlay.innerHTML = `
       <section class="panel store-panel">
         <h2>Full Version</h2>
-        <p>Unlock Launch 3001 for <b>$1.99 AUD</b>. Purchases are handled by your BSG website profile.</p>
+        <p>Finish the demo to unlock the full Launch 3001 route from your BSG profile.</p>
         <button data-action="shop" data-shop-url="${SHOP_URL}">Go To BSG Shop</button>
         <button data-action="login">Log In With BSG</button>
         <button data-action="lobby">Back To Lobby</button>
@@ -241,11 +240,15 @@ export class UIController {
       </section>`;
   }
 
-  #demoComplete(shopUrl) {
+  #demoComplete(shopUrl, reason = 'landed') {
+    const title = reason === 'wall' ? 'Out Of Bounds' : 'Nice!';
+    const body = reason === 'wall'
+      ? 'You reached the end of the demo zone. Unlock the full Launch 3001 route for $1.99 AUD.'
+      : 'You have completed the demo version of Launch 3001. Unlock the full route for $1.99 AUD.';
     this.overlay.innerHTML = `
       <section class="panel demo-panel">
-        <h2>Nice!</h2>
-        <p>You've completed the demo version of Launch 3001. For full access to more quests, visit the shop.</p>
+        <h2>${title}</h2>
+        <p>${body}</p>
         <button data-action="shop" data-shop-url="${shopUrl}">Visit Shop</button>
         <button data-action="restart">Replay Demo</button>
         <button data-action="menu">Menu</button>

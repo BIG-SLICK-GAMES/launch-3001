@@ -392,17 +392,17 @@ export class Game {
   #checkDemoWall() {
     if (this.fullAccess || !this.state.is(STATES.FLYING)) return;
     const marker = (this.currentLevel.checkpoints ?? []).find((entry) => entry.id === DEMO_CHECKPOINT_LIMIT);
-    if (!marker || this.rocket.distance < marker.distance) return;
+    if (!marker || this.rocket.distance < marker.distance + 24) return;
     this.rocket.alive = false;
     this.rocket.landed = false;
     this.rocket.setFlame(false);
     this.rocket.velocity.set(0, 0, 0);
     this.audio.stopEngine();
-    this.#completeDemo(marker);
+    this.#completeDemo(marker, 'wall');
   }
 
-  #completeDemo(marker) {
-    this.state.transition(STATES.DEMO_COMPLETE, { marker, shopUrl: SHOP_URL });
+  #completeDemo(marker, reason = 'landed') {
+    this.state.transition(STATES.DEMO_COMPLETE, { marker, shopUrl: SHOP_URL, reason });
     this.audio.speak('Nice! You have completed the demo version of Launch 3001.', 'demoComplete', 12000);
   }
 
