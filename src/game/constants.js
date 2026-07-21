@@ -8,9 +8,11 @@ export const PRODUCT_ID = 'launch3001';
 export const DEMO_CHECKPOINT_LIMIT = 2;
 export const LOGIN_URL = 'https://bigslickgames.com/login/index.html';
 export const SHOP_URL = 'https://bigslickgames.com/shop.html';
+export const LOCAL_PLATFORM_PROFILE_URL = '/platform/auth/session';
 export const BSG_HUB_ORIGINS = [
   'https://bigslickgames.com',
-  'https://www.bigslickgames.com'
+  'https://www.bigslickgames.com',
+  'http://hub.bsg.local:8080'
 ];
 
 export const CAMERA_MODES = {

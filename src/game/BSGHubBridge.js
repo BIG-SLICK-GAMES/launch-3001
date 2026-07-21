@@ -1,4 +1,4 @@
-import { BSG_HUB_ORIGINS, LOGIN_URL, PRODUCT_ID, SHOP_URL } from './constants.js';
+import { BSG_HUB_ORIGINS, LOCAL_PLATFORM_PROFILE_URL, LOGIN_URL, PRODUCT_ID, SHOP_URL } from './constants.js';
 import { BUILD_LABEL } from './buildInfo.js';
 
 const PROFILE_TYPES = ['BSG_PROFILE', 'BSG_PROFILE_RESPONSE', 'BSG_AUTH_PROFILE'];
@@ -14,6 +14,7 @@ export class BSGHubBridge {
     window.addEventListener('message', this.boundMessage);
     window.launch3001SetProfile = (profile) => this.applyProfile(profile, 'global-api');
     this.#applyUrlHandoff();
+    this.#loadLocalPlatformProfile();
     window.requestAnimationFrame(() => this.requestProfile());
   }
 
@@ -99,6 +100,29 @@ export class BSGHubBridge {
 
     this.applyProfile(profile, 'url-handoff');
     window.history.replaceState(null, document.title, `${window.location.pathname}${window.location.search}`);
+  }
+
+  async #loadLocalPlatformProfile() {
+    if (!window.location.hostname.endsWith('.bsg.local')) return;
+    try {
+      const response = await fetch(LOCAL_PLATFORM_PROFILE_URL, { credentials: 'include' });
+      if (!response.ok) return;
+      const payload = await response.json();
+      const user = payload?.user || payload?.profile;
+      if (!user) return;
+      this.applyProfile({
+        id: user.id,
+        name: user.name || user.username || user.sUserName,
+        email: user.email || user.sEmail,
+        avatar: user.avatar || '',
+        chips: user.chips ?? user.nChips ?? 0,
+        purchases: user.purchases || {},
+        entitlements: user.entitlements || {},
+        source: 'bsg-local-platform',
+      }, 'bsg-local-platform');
+    } catch {
+      // Local platform is optional for standalone Launch3001 development.
+    }
   }
 
   #handleMessage(event) {
