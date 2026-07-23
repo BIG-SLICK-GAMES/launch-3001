@@ -62,11 +62,11 @@ export class UIController {
     if (state === STATES.LEVEL_SELECT) this.#levelSelect();
     if (state === STATES.PAUSED) this.#pause();
     if (state === STATES.READY) this.overlay.innerHTML = '';
-    if (state === STATES.CRASHED) this.#message(payload.reason ?? 'CRASH', this.#placementText(payload.placement));
+    if (state === STATES.CRASHED) this.#endActions();
     if (state === STATES.DEMO_COMPLETE) this.#demoComplete(payload.shopUrl, payload.reason);
-    if (state === STATES.LANDED) this.#message(payload.grade ?? 'SAVED', `+${payload.points ?? 0} points`);
-    if (state === STATES.LEVEL_COMPLETE) this.#message('MARKER SAVED', 'Keep going.');
-    if (state === STATES.GAME_COMPLETE) this.#message('ENDLESS RUN', 'Route continues.');
+    if (state === STATES.LANDED) this.#endActions();
+    if (state === STATES.LEVEL_COMPLETE) this.#endActions();
+    if (state === STATES.GAME_COMPLETE) this.#endActions();
   }
 
   showCheckpointReward(reward) {
@@ -310,18 +310,15 @@ export class UIController {
       </section>`;
   }
 
-  #demoComplete(shopUrl, reason = 'landed') {
-    const title = reason === 'wall' ? 'Out Of Bounds' : 'Nice!';
-    const body = reason === 'wall'
-      ? 'You reached the end of the demo zone. Unlock the full Launch 3001 route from the store.'
-      : 'You have completed the demo version of Launch 3001. Unlock the full route from the store.';
+  #demoComplete() {
+    this.#endActions();
+  }
+
+  #endActions() {
     this.overlay.innerHTML = `
       <section class="panel demo-panel">
-        <h2>${title}</h2>
-        <p>${body}</p>
-        <button data-action="shop" data-shop-url="${shopUrl}">Visit Shop</button>
-        <button data-action="restart">Replay Demo</button>
-        <button data-action="menu">Menu</button>
+        <button data-action="restart">Restart</button>
+        <button data-action="menu">Lobby</button>
       </section>`;
   }
 
@@ -419,15 +416,6 @@ export class UIController {
       <div class="leader-list">${rows || '<div class="leader-empty">No runs yet</div>'}</div>
       <button data-action="back">Back</button>
     </section>`;
-  }
-
-  #message(title, body) {
-    this.overlay.innerHTML = `<section class="toast"><strong>${title}</strong><span>${body}</span></section>`;
-  }
-
-  #placementText(placement) {
-    if (!placement) return 'Tap Restart or press R.';
-    return `${this.#trophyFor(placement.placement)} Placed #${placement.placement} | ${formatNumber(placement.distance, 0)}m in ${formatNumber(placement.time, 1)}s`;
   }
 
   #trophyFor(place) {
