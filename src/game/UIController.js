@@ -202,6 +202,7 @@ export class UIController {
           </label>
           ${error ? `<div class="auth-error" role="alert">${this.#escape(error)}</div>` : ''}
           <button class="primary" type="submit" data-auth-submit>Log In</button>
+          <button type="button" data-action="skip-login">Skip Login</button>
           <button type="button" data-action="external-login">Open BSG Login</button>
           <div class="auth-security">
             <span>21 Holden DB</span>
@@ -238,6 +239,7 @@ export class UIController {
   #lobby() {
     const profile = this.game.profile.profile;
     const loggedIn = this.game.profile.isLoggedIn();
+    const canPlay = this.game.isAuthReady();
     const best = this.game.score.progress.leaderboard ?? {};
     this.overlay.innerHTML = `
       <section class="lobby-screen">
@@ -247,10 +249,10 @@ export class UIController {
           ${this.game.fullAccess ? '<p>FULL ACCESS</p>' : ''}
         </div>
         <div class="lobby-panel lobby-menu">
-          <button class="primary" data-action="${loggedIn ? 'play' : 'login'}">${loggedIn ? 'Play' : 'Log In To Play Demo'}</button>
+          <button class="primary" data-action="${canPlay ? 'play' : 'login'}">${loggedIn ? 'Play' : 'Play As Guest'}</button>
           <button data-action="store">Store</button>
           ${loggedIn ? '<button data-action="profile">Profile</button>' : ''}
-          <button data-action="${loggedIn ? 'level-select' : 'login'}">Load Checkpoint</button>
+          <button data-action="${canPlay ? 'level-select' : 'login'}">Load Checkpoint</button>
           <button data-action="leaderboard">Leaderboard</button>
         </div>
         <div class="lobby-panel profile-card">
@@ -260,7 +262,7 @@ export class UIController {
             <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
           </div>
           ${this.game.fullAccess ? '<div class="access-pill owned">Full Game Owned</div>' : ''}
-          ${loggedIn ? '' : '<p class="login-note">Log in with BSG to play the demo.</p><button data-action="login">Log In With BSG</button>'}
+          ${canPlay ? '' : '<p class="login-note">Log in with BSG to play the demo.</p><button data-action="login">Log In With BSG</button>'}
           <dl>
             <dt>BSG chips</dt><dd>${formatNumber(profile.chips ?? 0, 0)}</dd>
             <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
@@ -444,7 +446,7 @@ export class UIController {
     this.game.audio.playClick();
     if (action === 'enter-hangar') this.game.enterHangar();
     if (action === 'play') {
-      if (!this.game.profile.isLoggedIn()) {
+      if (!this.game.isAuthReady()) {
         this.#loginRequired();
       } else {
         this.#launchSequence();
@@ -454,12 +456,13 @@ export class UIController {
     if (action === 'store') this.#store();
     if (action === 'profile') this.#profile();
     if (action === 'login') this.game.showAuth();
+    if (action === 'skip-login') this.game.skipLogin();
     if (action === 'external-login') this.game.hub.requestLogin();
     if (action === 'device-mobile') this.game.selectDeviceMode('mobile');
     if (action === 'device-pc') this.game.selectDeviceMode('pc');
     if (action === 'device-vr') this.game.selectDeviceMode('vr');
     if (action === 'level-select') {
-      if (!this.game.profile.isLoggedIn()) this.#loginRequired();
+      if (!this.game.isAuthReady()) this.#loginRequired();
       else this.game.state.transition(STATES.LEVEL_SELECT);
     }
     if (action === 'menu') this.game.showLobby();
@@ -476,7 +479,7 @@ export class UIController {
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
     if (action === 'back') this.game.showLobby();
     if (action === 'level') {
-      if (!this.game.profile.isLoggedIn()) this.#loginRequired();
+      if (!this.game.isAuthReady()) this.#loginRequired();
       else this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
     }
   }

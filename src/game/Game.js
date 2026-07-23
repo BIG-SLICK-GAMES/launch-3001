@@ -61,6 +61,7 @@ export class Game {
     this.refillRemaining = new Map();
     this.voiceFlags = {};
     this.mobileTutorialDone = false;
+    this.authSkipped = false;
     this.deviceMode = this.settings.deviceMode ?? '';
     if (this.deviceMode) this.root.dataset.deviceMode = this.deviceMode;
     this.missionHintDone = localStorage.getItem('launch3001.missionHintDone') === '1';
@@ -72,7 +73,7 @@ export class Game {
     this.profile.refresh();
     this.fullAccess = this.profile.hasPurchase();
     this.ui.refreshProfile();
-    if (this.profile.isLoggedIn() && this.state.is(STATES.AUTH)) this.showDeviceSelect();
+    if (this.isAuthReady() && this.state.is(STATES.AUTH)) this.showDeviceSelect();
   }
 
   start() {
@@ -108,7 +109,7 @@ export class Game {
   }
 
   startLevel(id) {
-    if (!this.profile.isLoggedIn()) {
+    if (!this.isAuthReady()) {
       this.showAuth();
       return;
     }
@@ -136,7 +137,7 @@ export class Game {
   }
 
   showLobby() {
-    if (!this.profile.isLoggedIn()) {
+    if (!this.isAuthReady()) {
       this.showAuth();
       return;
     }
@@ -150,7 +151,7 @@ export class Game {
   }
 
   enterHangar() {
-    if (!this.profile.isLoggedIn()) {
+    if (!this.isAuthReady()) {
       this.showAuth();
       return;
     }
@@ -174,6 +175,15 @@ export class Game {
     this.showDeviceSelect();
   }
 
+  skipLogin() {
+    this.authSkipped = true;
+    this.showDeviceSelect();
+  }
+
+  isAuthReady() {
+    return this.authSkipped || this.profile.isLoggedIn();
+  }
+
   selectDeviceMode(mode) {
     if (!['mobile', 'pc', 'vr'].includes(mode)) return;
     this.deviceMode = mode;
@@ -194,7 +204,7 @@ export class Game {
   }
 
   enterGame() {
-    if (!this.profile.isLoggedIn()) {
+    if (!this.isAuthReady()) {
       this.showAuth();
       return;
     }
