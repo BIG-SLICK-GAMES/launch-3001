@@ -55,6 +55,8 @@ export class UIController {
     this.root.dataset.state = state;
     delete this.root.dataset.settingsOpen;
     if (state === STATES.SPLASH) this.#splash();
+    if (state === STATES.AUTH) this.#authLogin(payload.error);
+    if (state === STATES.DEVICE_SELECT) this.#deviceSelect();
     if (state === STATES.LOBBY) this.#lobby();
     if (state === STATES.MENU) this.#menu();
     if (state === STATES.LEVEL_SELECT) this.#levelSelect();
@@ -156,6 +158,12 @@ export class UIController {
         this.game.save.saveSettings(this.game.settings);
       }
     });
+    this.root.addEventListener('submit', async (event) => {
+      const form = event.target.closest('[data-auth-form]');
+      if (!form) return;
+      event.preventDefault();
+      await this.#submitAuth(form);
+    });
   }
 
   #menu() {
@@ -167,7 +175,63 @@ export class UIController {
       <section class="splash-screen">
         <div class="splash-mark">LAUNCH <b>3001</b></div>
         <div class="splash-sub">BIG SLICK GAMES</div>
-        <button data-action="lobby">Enter Hangar</button>
+        <button data-action="enter-hangar">Enter Hangar</button>
+      </section>`;
+  }
+
+  #authLogin(error = '') {
+    this.overlay.innerHTML = `
+      <section class="auth-screen">
+        <div class="auth-brand">
+          <span>BIG SLICK GAMES</span>
+          <h1>Launch 3001</h1>
+          <p>Sign in with your 21 Holden account to enter the hangar.</p>
+        </div>
+        <form class="auth-panel" data-auth-form>
+          <div>
+            <h2>Secure Login</h2>
+            <p>Use the account tied to your BSG profile, purchases, chips, and leaderboard runs.</p>
+          </div>
+          <label>
+            <span>Email</span>
+            <input name="email" type="email" autocomplete="email" inputmode="email" required />
+          </label>
+          <label>
+            <span>Password</span>
+            <input name="password" type="password" autocomplete="current-password" required />
+          </label>
+          ${error ? `<div class="auth-error" role="alert">${this.#escape(error)}</div>` : ''}
+          <button class="primary" type="submit" data-auth-submit>Log In</button>
+          <button type="button" data-action="external-login">Open BSG Login</button>
+          <div class="auth-security">
+            <span>21 Holden DB</span>
+            <span>Encrypted session</span>
+          </div>
+        </form>
+      </section>`;
+  }
+
+  #deviceSelect() {
+    this.overlay.innerHTML = `
+      <section class="device-screen">
+        <div class="device-heading">
+          <span>HANGAR ENTRY CHECK</span>
+          <h2>What device are you playing on?</h2>
+        </div>
+        <div class="device-grid">
+          <button class="device-card" data-action="device-mobile" type="button">
+            <b>Mobile</b>
+            <span>Tilt controls and touch boost.</span>
+          </button>
+          <button class="device-card" data-action="device-pc" type="button">
+            <b>PC</b>
+            <span>Keyboard steering and mouse/touchpad thrust.</span>
+          </button>
+          <button class="device-card" data-action="device-vr" type="button">
+            <b>VR</b>
+            <span>Immersive cockpit and controller input.</span>
+          </button>
+        </div>
       </section>`;
   }
 
@@ -247,8 +311,8 @@ export class UIController {
   #demoComplete(shopUrl, reason = 'landed') {
     const title = reason === 'wall' ? 'Out Of Bounds' : 'Nice!';
     const body = reason === 'wall'
-      ? 'You reached the end of the demo zone. Unlock the full Launch 3001 route for $1.99 AUD.'
-      : 'You have completed the demo version of Launch 3001. Unlock the full route for $1.99 AUD.';
+      ? 'You reached the end of the demo zone. Unlock the full Launch 3001 route from the store.'
+      : 'You have completed the demo version of Launch 3001. Unlock the full route from the store.';
     this.overlay.innerHTML = `
       <section class="panel demo-panel">
         <h2>${title}</h2>
@@ -294,6 +358,16 @@ export class UIController {
         <h2>Tilt Ready</h2>
         <p>Tilt steering is enabled and calibrated.</p>
         <button data-action="mobile-ok">OK</button>
+      </section>`;
+  }
+
+  showVrPrompt() {
+    this.root.dataset.state = STATES.LOBBY;
+    this.overlay.innerHTML = `
+      <section class="panel menu-panel vr-ready-panel">
+        <h2>VR Mode</h2>
+        <p>Use the VR button in the top right to enter immersive mode. Cockpit camera is selected for this session.</p>
+        <button data-action="lobby">Continue</button>
       </section>`;
   }
 
@@ -368,6 +442,7 @@ export class UIController {
     }
     await this.game.audio.unlock();
     this.game.audio.playClick();
+    if (action === 'enter-hangar') this.game.enterHangar();
     if (action === 'play') {
       if (!this.game.profile.isLoggedIn()) {
         this.#loginRequired();
@@ -378,7 +453,11 @@ export class UIController {
     if (action === 'lobby') this.game.showLobby();
     if (action === 'store') this.#store();
     if (action === 'profile') this.#profile();
-    if (action === 'login') this.game.hub.requestLogin();
+    if (action === 'login') this.game.showAuth();
+    if (action === 'external-login') this.game.hub.requestLogin();
+    if (action === 'device-mobile') this.game.selectDeviceMode('mobile');
+    if (action === 'device-pc') this.game.selectDeviceMode('pc');
+    if (action === 'device-vr') this.game.selectDeviceMode('vr');
     if (action === 'level-select') {
       if (!this.game.profile.isLoggedIn()) this.#loginRequired();
       else this.game.state.transition(STATES.LEVEL_SELECT);
@@ -403,14 +482,7 @@ export class UIController {
   }
 
   #loginRequired() {
-    this.game.hub.requestLogin();
-    this.overlay.innerHTML = `
-      <section class="panel profile-panel">
-        <h2>BSG Login Required</h2>
-        <p>You need to be logged in with your BSG profile to play Launch 3001.</p>
-        <button data-action="login">Log In With BSG</button>
-        <button data-action="lobby">Back To Lobby</button>
-      </section>`;
+    this.game.showAuth();
   }
 
   #launchSequence() {
@@ -425,8 +497,31 @@ export class UIController {
     window.setTimeout(() => this.game.enterGame(), 1800);
   }
 
+  async #submitAuth(form) {
+    const submit = form.querySelector('[data-auth-submit]');
+    const email = form.elements.email?.value?.trim() ?? '';
+    const password = form.elements.password?.value ?? '';
+    submit.disabled = true;
+    submit.textContent = 'Signing In...';
+    try {
+      await this.game.loginWithCredentials(email, password);
+    } catch (error) {
+      this.#authLogin(error?.message || 'Login failed. Check your email and password.');
+    }
+  }
+
   #initials(name = 'Guest Pilot') {
     return name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('') || 'GP';
+  }
+
+  #escape(value) {
+    return String(value).replace(/[&<>"']/g, (char) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;'
+    })[char]);
   }
 
   #closeSettings() {

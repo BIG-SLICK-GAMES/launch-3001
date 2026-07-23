@@ -37,6 +37,24 @@ input {
   font: inherit;
 }
 
+input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(82, 220, 255, 0.34);
+  border-radius: 8px;
+  background: rgba(5, 13, 23, 0.92);
+  color: #f4fbff;
+  padding: 0 12px;
+  outline: none;
+  -webkit-user-select: text !important;
+  user-select: text !important;
+}
+
+input:focus {
+  border-color: rgba(51, 255, 138, 0.72);
+  box-shadow: 0 0 0 3px rgba(51, 255, 138, 0.14);
+}
+
 select {
   min-height: 44px;
   border: 1px solid rgba(82, 220, 255, 0.34);
@@ -110,6 +128,17 @@ button:disabled {
   font: 700 13px Inter, ui-sans-serif, system-ui, sans-serif !important;
   letter-spacing: 0 !important;
   padding: 0 14px !important;
+}
+
+.game-root:not([data-device-mode="vr"]) .vr-entry-button,
+.game-root:not([data-device-mode="vr"]) #VRButton,
+.game-root[data-state="SPLASH"] .vr-entry-button,
+.game-root[data-state="SPLASH"] #VRButton,
+.game-root[data-state="AUTH"] .vr-entry-button,
+.game-root[data-state="AUTH"] #VRButton,
+.game-root[data-state="DEVICE_SELECT"] .vr-entry-button,
+.game-root[data-state="DEVICE_SELECT"] #VRButton {
+  display: none !important;
 }
 
 .hud {
@@ -451,17 +480,23 @@ button:disabled {
 }
 
 .splash-screen,
+.auth-screen,
+.device-screen,
 .lobby-screen,
 .launch-transition {
   pointer-events: auto;
 }
 
 .game-root[data-state="SPLASH"],
+.game-root[data-state="AUTH"],
+.game-root[data-state="DEVICE_SELECT"],
 .game-root[data-state="LOBBY"] {
   background: #05070b;
 }
 
 .game-root[data-state="SPLASH"]::before,
+.game-root[data-state="AUTH"]::before,
+.game-root[data-state="DEVICE_SELECT"]::before,
 .game-root[data-state="LOBBY"]::before {
   content: "";
   position: absolute;
@@ -499,6 +534,140 @@ button:disabled {
   color: #ffb36a;
   font-size: 13px;
   font-weight: 900;
+}
+
+.auth-screen,
+.device-screen {
+  position: relative;
+  z-index: 2;
+  width: min(1040px, calc(100vw - 32px));
+  display: grid;
+  grid-template-columns: minmax(280px, 1fr) minmax(300px, 420px);
+  gap: 18px;
+  align-items: center;
+}
+
+.auth-brand span,
+.device-heading span {
+  color: #ffb36a;
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.auth-brand h1 {
+  margin: 6px 0 10px;
+  color: #f4fbff;
+  font-size: clamp(44px, 8vw, 88px);
+  line-height: 0.92;
+  text-shadow: 0 0 24px rgba(36, 223, 255, 0.3);
+}
+
+.auth-brand p,
+.auth-panel p,
+.device-card span,
+.device-heading p {
+  margin: 0;
+  color: #a7c0ce;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 13px;
+  border: 1px solid rgba(82, 220, 255, 0.32);
+  border-radius: 8px;
+  background: rgba(3, 10, 18, 0.86);
+  box-shadow: 0 0 28px rgba(0, 214, 255, 0.14);
+  backdrop-filter: blur(14px);
+  padding: clamp(18px, 4vw, 28px);
+}
+
+.auth-panel h2,
+.device-heading h2 {
+  margin: 0 0 8px;
+  color: #ffffff;
+  font-size: clamp(26px, 5vw, 42px);
+  line-height: 1;
+}
+
+.auth-panel label {
+  display: grid;
+  gap: 6px;
+}
+
+.auth-panel label span {
+  color: #9fc3d0;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.auth-panel .primary {
+  border-color: rgba(51, 255, 138, 0.72);
+  background: linear-gradient(180deg, rgba(27, 210, 126, 0.92), rgba(9, 91, 61, 0.96));
+}
+
+.auth-error {
+  border: 1px solid rgba(255, 95, 74, 0.48);
+  border-radius: 8px;
+  background: rgba(80, 12, 16, 0.62);
+  color: #ffd1c9;
+  padding: 10px 12px;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.auth-security {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  color: #7fa6ba;
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.auth-security span {
+  border: 1px solid rgba(82, 220, 255, 0.2);
+  border-radius: 6px;
+  padding: 5px 7px;
+  background: rgba(8, 18, 30, 0.64);
+}
+
+.device-screen {
+  grid-template-columns: 1fr;
+  width: min(900px, calc(100vw - 32px));
+}
+
+.device-heading {
+  max-width: 620px;
+}
+
+.device-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.device-card {
+  min-height: 178px;
+  display: grid;
+  align-content: end;
+  gap: 8px;
+  padding: 16px;
+  text-align: left;
+  background:
+    linear-gradient(180deg, rgba(36, 223, 255, 0.08), rgba(3, 10, 18, 0.9)),
+    rgba(3, 10, 18, 0.84);
+}
+
+.device-card b {
+  color: #f4fbff;
+  font-size: clamp(24px, 4vw, 34px);
+  line-height: 1;
+}
+
+.device-card:hover,
+.device-card:focus-visible {
+  border-color: rgba(51, 255, 138, 0.64);
+  box-shadow: 0 0 24px rgba(51, 255, 138, 0.16);
 }
 
 .lobby-screen {
@@ -950,6 +1119,8 @@ button:disabled {
 
 [data-state="MENU"] .hud,
 [data-state="SPLASH"] .hud,
+[data-state="AUTH"] .hud,
+[data-state="DEVICE_SELECT"] .hud,
 [data-state="LOBBY"] .hud,
 [data-state="DEMO_COMPLETE"] .hud,
 [data-state="LEVEL_SELECT"] .hud {
@@ -1048,6 +1219,8 @@ button:disabled {
 
 [data-state="MENU"] .top-stats,
 [data-state="SPLASH"] .top-stats,
+[data-state="AUTH"] .top-stats,
+[data-state="DEVICE_SELECT"] .top-stats,
 [data-state="LOBBY"] .top-stats,
 [data-state="DEMO_COMPLETE"] .top-stats,
 [data-state="LEVEL_SELECT"] .top-stats,
@@ -1058,10 +1231,34 @@ button:disabled {
 }
 
 @media (max-width: 820px) {
+  [data-state="AUTH"] .overlay,
+  [data-state="DEVICE_SELECT"] .overlay,
   [data-state="LOBBY"] .overlay {
     align-items: start;
     overflow: auto;
     padding: max(10px, env(safe-area-inset-top)) 12px max(18px, env(safe-area-inset-bottom));
+  }
+
+  .auth-screen,
+  .device-screen {
+    width: min(100%, 420px);
+    grid-template-columns: 1fr;
+    align-items: stretch;
+    gap: 12px;
+    padding: 4px 0 18px;
+  }
+
+  .auth-brand h1 {
+    font-size: clamp(34px, 13vw, 58px);
+  }
+
+  .device-grid {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .device-card {
+    min-height: 118px;
   }
 
   .lobby-screen {

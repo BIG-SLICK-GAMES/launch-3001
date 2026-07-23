@@ -61,6 +61,8 @@ export class Game {
     this.refillRemaining = new Map();
     this.voiceFlags = {};
     this.mobileTutorialDone = false;
+    this.deviceMode = this.settings.deviceMode ?? '';
+    if (this.deviceMode) this.root.dataset.deviceMode = this.deviceMode;
     this.missionHintDone = localStorage.getItem('launch3001.missionHintDone') === '1';
     this.state.onChange((next, previous, payload) => this.ui.showState(next, payload));
     this.#bindLifecycle();
@@ -70,6 +72,7 @@ export class Game {
     this.profile.refresh();
     this.fullAccess = this.profile.hasPurchase();
     this.ui.refreshProfile();
+    if (this.profile.isLoggedIn() && this.state.is(STATES.AUTH)) this.showDeviceSelect();
   }
 
   start() {
@@ -106,8 +109,11 @@ export class Game {
 
   startLevel(id) {
     if (!this.profile.isLoggedIn()) {
-      this.hub.requestLogin();
-      this.showLobby();
+      this.showAuth();
+      return;
+    }
+    if (!this.deviceMode) {
+      this.showDeviceSelect();
       return;
     }
     const startId = Math.min(id, this.levels.levels.length);
@@ -130,19 +136,73 @@ export class Game {
   }
 
   showLobby() {
+    if (!this.profile.isLoggedIn()) {
+      this.showAuth();
+      return;
+    }
+    if (!this.deviceMode) {
+      this.showDeviceSelect();
+      return;
+    }
     this.audio.stopEngine();
     this.state.clearTimers();
     this.state.transition(STATES.LOBBY);
-    if (this.#isMobileLike() && !this.mobileTutorialDone) this.ui.showMobileTiltPrompt();
+  }
+
+  enterHangar() {
+    if (!this.profile.isLoggedIn()) {
+      this.showAuth();
+      return;
+    }
+    this.showDeviceSelect();
+  }
+
+  showAuth() {
+    this.audio.stopEngine();
+    this.state.clearTimers();
+    this.state.transition(STATES.AUTH);
+  }
+
+  showDeviceSelect() {
+    this.audio.stopEngine();
+    this.state.clearTimers();
+    this.state.transition(STATES.DEVICE_SELECT);
+  }
+
+  async loginWithCredentials(email, password) {
+    await this.hub.loginWithCredentials(email, password);
+    this.showDeviceSelect();
+  }
+
+  selectDeviceMode(mode) {
+    if (!['mobile', 'pc', 'vr'].includes(mode)) return;
+    this.deviceMode = mode;
+    this.root.dataset.deviceMode = mode;
+    this.settings.deviceMode = mode;
+    this.save.saveSettings(this.settings);
+    this.mobileTutorialDone = mode !== 'mobile';
+    if (mode === 'vr') {
+      this.cameraController.setMode('COCKPIT');
+      this.ui.showVrPrompt();
+      return;
+    }
+    if (mode === 'mobile') {
+      this.ui.showMobileTiltPrompt();
+      return;
+    }
+    this.showLobby();
   }
 
   enterGame() {
     if (!this.profile.isLoggedIn()) {
-      this.hub.requestLogin();
-      this.showLobby();
+      this.showAuth();
       return;
     }
-    if (this.#isMobileLike() && !this.mobileTutorialDone) {
+    if (!this.deviceMode) {
+      this.showDeviceSelect();
+      return;
+    }
+    if (this.deviceMode === 'mobile' && !this.mobileTutorialDone) {
       this.ui.showMobileTiltPrompt();
       return;
     }
@@ -227,7 +287,7 @@ export class Game {
     if (!this.running) return;
     const dt = Math.min((time - this.lastTime) / 1000 || 0, MAX_FRAME_DELTA);
     this.lastTime = time;
-    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE) && !this.state.is(STATES.SPLASH) && !this.state.is(STATES.LOBBY)) {
+    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE) && !this.state.is(STATES.SPLASH) && !this.state.is(STATES.AUTH) && !this.state.is(STATES.DEVICE_SELECT) && !this.state.is(STATES.LOBBY)) {
       this.accumulator += dt;
       while (this.accumulator >= FIXED_STEP) {
         this.#fixedUpdate(FIXED_STEP);
@@ -559,8 +619,16 @@ export class Game {
     };
     window.addEventListener('pointerdown', unlockAudio, { passive: true });
     window.addEventListener('keydown', unlockAudio);
-    document.addEventListener('selectstart', (event) => event.preventDefault());
-    document.addEventListener('selectionchange', () => window.getSelection()?.removeAllRanges());
+    document.addEventListener('selectstart', (event) => {
+      const tag = event.target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+      event.preventDefault();
+    });
+    document.addEventListener('selectionchange', () => {
+      const tag = document.activeElement?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+      window.getSelection()?.removeAllRanges();
+    });
     document.addEventListener('contextmenu', (event) => event.preventDefault());
     document.addEventListener('touchstart', suppressTouch, { passive: false });
     document.addEventListener('touchmove', suppressTouch, { passive: false });

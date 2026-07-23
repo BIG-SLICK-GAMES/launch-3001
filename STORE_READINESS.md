@@ -26,7 +26,7 @@ localStorage.setItem('launch3001.profile', JSON.stringify({ purchases: { launch3
 
 Production requirement:
 
-- The BSG website must pass the logged-in profile into the game with `purchases.launch3001 === true` after the $1.99 AUD purchase.
+- The BSG website must pass the logged-in profile into the game with `purchases.launch3001 === true` after purchase.
 - The profile must include a non-guest `id`; otherwise the game treats the user as logged out and sends `BSG_LOGIN_REQUEST`.
 - Supported profile sources in the game are `window.BSG_PROFILE`, `window.launch3001Profile`, `window.launch3001SetProfile(profile)`, or a hub `postMessage`.
 - The game now sends `BSG_GAME_READY` and `BSG_PROFILE_REQUEST` to the parent/opener window when it loads.
