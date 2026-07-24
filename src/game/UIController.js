@@ -114,6 +114,7 @@ export class UIController {
       const boost = event.target.closest('[data-boost]');
       if (!boost) return;
       event.preventDefault();
+      boost.setPointerCapture?.(event.pointerId);
       this.boostHeld = true;
       this.game.input.thrust = true;
       this.game.audio.unlock();
@@ -121,6 +122,7 @@ export class UIController {
     const releaseBoost = (event) => {
       if (!this.boostHeld) return;
       event.preventDefault();
+      event.target.releasePointerCapture?.(event.pointerId);
       this.boostHeld = false;
       this.game.input.thrust = false;
     };
