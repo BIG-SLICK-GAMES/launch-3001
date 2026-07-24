@@ -1,15 +1,21 @@
 const ROUTE_LENGTH = 5400;
 const MARKER_SPACING = 180;
+const MARKER_COUNT = Math.floor(ROUTE_LENGTH / MARKER_SPACING);
 
 export class LevelManager {
   constructor() {
     this.level = this.#buildEndlessLevel(0);
     this.levels = [
       { id: 1, name: 'Launch', startDistance: 0, markerId: 0 },
-      { id: 2, name: 'Marker 3', startDistance: MARKER_SPACING * 3, markerId: 3 },
-      { id: 3, name: 'Marker 6', startDistance: MARKER_SPACING * 6, markerId: 6 },
-      { id: 4, name: 'Marker 10', startDistance: MARKER_SPACING * 10, markerId: 10 },
-      { id: 5, name: 'Marker 15', startDistance: MARKER_SPACING * 15, markerId: 15 }
+      ...Array.from({ length: MARKER_COUNT }, (_, index) => {
+        const markerId = index + 1;
+        return {
+          id: markerId + 1,
+          name: `Marker ${markerId}`,
+          startDistance: MARKER_SPACING * markerId,
+          markerId
+        };
+      })
     ];
     this.index = 0;
   }
@@ -44,7 +50,7 @@ export class LevelManager {
     const tunnels = [];
     const movers = [];
     const safeCorridors = [];
-    const markerCount = Math.floor((ROUTE_LENGTH - startDistance) / MARKER_SPACING);
+    const markerCount = MARKER_COUNT;
 
     for (let i = 1; i <= markerCount; i += 1) {
       const markerId = startMarkerId + i;

@@ -69,6 +69,7 @@ export class VRController {
     if (!this.enabled) return;
     this.stickCooldown = Math.max(0, this.stickCooldown - dt);
     this.#updateRig(game);
+    this.#updateGamepadButtons();
     this.#updateGamepadSteering();
     this.#updateMenuButton(game);
     this.#updateSettingsInput(game);
@@ -99,7 +100,7 @@ export class VRController {
     const controller = this.renderer.xr.getController(index);
     if (index === 1) this.rightController = controller;
     controller.addEventListener('selectstart', () => {
-      if (index !== 1) return;
+      controller.userData.selectHeld = true;
       if (this.settingsOpen) {
         this.menuConfirm = true;
         return;
@@ -107,7 +108,8 @@ export class VRController {
       this.thrust = true;
     });
     controller.addEventListener('selectend', () => {
-      if (index === 1) this.thrust = false;
+      controller.userData.selectHeld = false;
+      if (!this.controllers.some((item) => item.userData.selectHeld)) this.thrust = false;
     });
     const pointer = new THREE.Line(
       new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, -2.2)]),
@@ -158,6 +160,25 @@ export class VRController {
     this.steering.x = clamp(x, -1, 1);
     this.steering.z = clamp(z, -1, 1);
   }
+
+  #updateGamepadButtons() {
+    if (this.settingsOpen) {
+      this.thrust = false;
+      return;
+    }
+    let thrustPressed = false;
+    for (const source of this.renderer.xr.getSession()?.inputSources ?? []) {
+      const buttons = source.gamepad?.buttons;
+      if (!buttons) continue;
+      thrustPressed ||= Boolean(
+        buttons[0]?.pressed ||
+        buttons[1]?.pressed
+      );
+    }
+    if (thrustPressed) this.thrust = true;
+    else if (!this.controllers.some((controller) => controller.userData.selectHeld)) this.thrust = false;
+  }
+
 
   #updateSettingsInput(game) {
     if (!this.settingsOpen) {

@@ -28,7 +28,7 @@ export class Game {
     this.save = new SaveSystem();
     this.settings = this.save.loadSettings();
     this.profile = new ProfileSystem(this.save);
-    this.fullAccess = this.profile.hasPurchase();
+    this.fullAccess = true;
     this.score = new ScoreSystem(this.save);
     this.audio = new AudioSystem(this.settings);
     this.levels = new LevelManager();
@@ -71,7 +71,7 @@ export class Game {
 
   refreshProfile() {
     this.profile.refresh();
-    this.fullAccess = this.profile.hasPurchase();
+    this.fullAccess = true;
     this.ui.refreshProfile();
     if (this.isAuthReady() && this.state.is(STATES.AUTH)) this.showDeviceSelect();
   }
@@ -88,7 +88,7 @@ export class Game {
   loadLevel(id) {
     this.state.clearTimers();
     this.profile.refresh();
-    this.fullAccess = this.profile.hasPurchase();
+    this.fullAccess = true;
     this.activeLanding = false;
     this.runRecorded = false;
     this.currentStartId = id;
@@ -118,7 +118,6 @@ export class Game {
       return;
     }
     const startId = Math.min(id, this.levels.levels.length);
-    if (startId > this.score.progress.highestUnlockedLevel) return;
     this.loadLevel(startId);
     this.score.recordAttempt(startId);
     this.state.transition(STATES.READY);
@@ -346,8 +345,8 @@ export class Game {
 
   #update(dt) {
     if (this.vr.consumeSessionStart()) {
-      if (this.state.is(STATES.MENU) || this.state.is(STATES.LEVEL_SELECT)) {
-        this.startLevel(this.score.progress.highestUnlockedLevel);
+      if (this.state.is(STATES.MENU) || this.state.is(STATES.LEVEL_SELECT) || this.state.is(STATES.LOBBY) || this.state.is(STATES.DEVICE_SELECT)) {
+        this.startLevel(1);
       } else if (this.state.is(STATES.PAUSED)) {
         this.resume();
       }
@@ -577,18 +576,24 @@ export class Game {
     const pad = (this.currentLevel.checkpoints ?? []).find((entry) => (
       Math.abs(this.rocket.position.x - entry.position.x) <= entry.size.x / 2 &&
       Math.abs(this.rocket.position.z - entry.position.z) <= entry.size.z / 2
-    ));
-    if (!pad) {
+    )) || (
+      Math.abs(this.rocket.position.x - this.currentLevel.launchPad.position.x) <= this.currentLevel.launchPad.size.x / 2 &&
+      Math.abs(this.rocket.position.z - this.currentLevel.launchPad.position.z) <= this.currentLevel.launchPad.size.z / 2
+        ? this.currentLevel.launchPad
+        : null
+    );
+    const groundY = this.world.getTerrainHeight(this.rocket.position.x, this.rocket.position.z);
+    const surfaceY = pad ? Math.max(groundY, pad.position.y + 0.14) : groundY;
+    const height = Math.max(0.1, this.rocket.position.y - surfaceY - ROCKET_STANDING_HEIGHT);
+    const strength = Math.max(0, Math.min(0.46, 0.46 - height * 0.045));
+    if (strength <= 0.03) {
       this.padShadow.visible = false;
       return;
     }
-    const padTop = pad.position.y + 0.14;
-    const height = Math.max(0.1, this.rocket.position.y - padTop - ROCKET_STANDING_HEIGHT);
-    const strength = Math.max(0, Math.min(0.42, 0.42 - height * 0.055));
-    this.padShadow.visible = strength > 0.03;
+    this.padShadow.visible = true;
     this.padShadow.material.opacity = strength;
-    this.padShadow.position.set(this.rocket.position.x, padTop + 0.025, this.rocket.position.z);
-    const scale = Math.max(0.65, Math.min(2.2, 0.75 + height * 0.16));
+    this.padShadow.position.set(this.rocket.position.x, surfaceY + 0.035, this.rocket.position.z);
+    const scale = Math.max(0.62, Math.min(2.8, 0.72 + height * 0.18));
     this.padShadow.scale.set(scale, scale, 1);
   }
 

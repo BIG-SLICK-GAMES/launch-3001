@@ -380,12 +380,11 @@ export class UIController {
 
   #levelSelect() {
     const levels = this.game.levels.levels.map((level) => {
-      const locked = level.id > this.game.score.progress.highestUnlockedLevel;
-      const markerId = Math.max(1, Math.floor(level.startDistance / 180));
+      const markerId = level.markerId ?? Math.max(0, Math.floor(level.startDistance / 180));
       const score = this.game.score.progress.bestScores[markerId] ?? 0;
-      const grade = level.startDistance === 0 ? 'START' : (this.game.score.progress.bestGrades[markerId] ?? '-');
-      return `<button class="level-card" data-action="level" data-level-id="${level.id}" ${locked ? 'disabled' : ''}>
-        <strong>${level.name}</strong><span>${locked ? 'LOCKED' : `${formatNumber(level.startDistance, 0)}m | ${grade} | ${score}`}</span>
+      const grade = markerId === 0 ? 'START' : (this.game.score.progress.bestGrades[markerId] ?? 'READY');
+      return `<button class="level-card" data-action="level" data-level-id="${level.id}">
+        <strong>${level.name}</strong><span>${formatNumber(level.startDistance, 0)}m | ${grade} | ${score}</span>
       </button>`;
     }).join('');
     this.overlay.innerHTML = `<section class="panel level-panel"><h2>Load Checkpoint</h2><div class="level-grid">${levels}</div><button data-action="back">Back</button></section>`;
