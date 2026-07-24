@@ -84,42 +84,23 @@ export class LevelManager {
         gateIndex: markerId
       }));
 
-      [
-        { suffix: 7, zOffset: 24, xOffset: -1.8 },
-        { suffix: 8, zOffset: -24, xOffset: 1.8 }
-      ].forEach((drop) => {
-        pickups.push({
-          id: markerId * 10 + drop.suffix,
-          type: 'instant',
-          amount: 25,
-          position: {
-            x: x + drop.xOffset,
-            y: 1.8 + Math.sin(markerId * 0.8 + drop.suffix) * 1.2 + difficulty * 1.8,
-            z: z + drop.zOffset
-          },
-          radius: 1.2
-        });
+      this.#addFuelRun({
+        pickups,
+        markerId,
+        routeX: previous.position.x + (x - previous.position.x) * 0.5,
+        z,
+        difficulty
       });
 
-      const dropOffsets = [-0.72, -0.5, -0.26, -0.04, 0.18, 0.38, 0.58, 0.78];
-      dropOffsets.forEach((offset, dropIndex) => {
-        const heightWave = Math.sin(markerId * 0.73 + dropIndex * 1.31);
-        const highLane = dropIndex % 4 === 0 ? 2.8 + difficulty * 1.6 : 0;
-        const lowLane = dropIndex % 5 === 0 ? -0.85 : 0;
-        const refill = (markerId + dropIndex) % 5 === 0;
-        pickups.push({
-          id: markerId * 10 + dropIndex,
-          type: refill ? 'refill' : 'instant',
-          amount: refill ? 100 : 25,
-          refillRate: 25,
-          position: {
-            x: x + Math.sin(markerId * 1.11 + dropIndex * 1.7) * (5.2 + difficulty * 3.4),
-            y: Math.max(1.25, 2.0 + heightWave * (1.9 + difficulty) + highLane + lowLane),
-            z: z + MARKER_SPACING * offset
-          },
-          radius: 1.15
+      if (markerId > 1) {
+        this.#addSideWallCanyon({
+          walls,
+          routeX: previous.position.x + (x - previous.position.x) * 0.5,
+          z: z + 12,
+          difficulty,
+          markerId
         });
-      });
+      }
 
       const laneCount = 3 + Math.floor(difficulty * 5);
       for (let j = 0; j < laneCount; j += 1) {
@@ -136,16 +117,23 @@ export class LevelManager {
 
       if (markerId > 1) {
         [-1, 1].forEach((side, index) => {
-          const h = 5.5 + difficulty * 9 + ((markerId + index) % 4);
+          const h = 8 + difficulty * 10 + ((markerId + index) % 5);
           obstacles.push({
             type: 'mountain',
             position: {
-              x: side * (11.5 + Math.sin(markerId * 0.71 + index) * 3.2),
+              x: x + side * (8.2 + Math.sin(markerId * 0.71 + index) * 2.2),
               y: h / 2 - 0.2,
-              z: z - 58 - index * 34
+              z: z - 54 - index * 38
             },
-            size: { x: 4.8 + difficulty * 3.4, y: h, z: 4.8 + difficulty * 3.4 }
+            size: { x: 6.2 + difficulty * 4.2, y: h, z: 6.2 + difficulty * 4.2 }
           });
+        });
+        this.#addBoulderField({
+          obstacles,
+          routeX: previous.position.x + (x - previous.position.x) * 0.42,
+          z: z - 18,
+          difficulty,
+          markerId
         });
       }
 
@@ -183,7 +171,7 @@ export class LevelManager {
         });
       }
 
-      if (markerId > 2 && markerId % 4 === 1) {
+      if (markerId > 2 && markerId % 3 === 1) {
         safeCorridors.push(this.#addCaveSection({
           obstacles,
           roofs,
@@ -237,31 +225,38 @@ export class LevelManager {
         });
       }
 
-      if (markerId > 3) {
-        const movingCount = 1 + Math.floor(Math.min(2, difficulty));
+      if (markerId > 2) {
+        const movingCount = 2 + Math.floor(Math.min(3, difficulty));
         for (let m = 0; m < movingCount; m += 1) {
-          const sweep = 7 + difficulty * 2.5;
+          const sweep = 8 + difficulty * 3.4;
           const movingZ = z - 26 - m * 52;
+          const movingBoulder = m % 3 === 2;
           movers.push({
-            type: m % 2 === 0 ? 'movingWall' : 'movingSpire',
-            motion: m % 2 === 0 ? 'slideX' : 'bobY',
+            type: movingBoulder ? 'movingBoulder' : m % 2 === 0 ? 'movingWall' : 'movingSpire',
+            motion: movingBoulder ? 'slideZ' : m % 2 === 0 ? 'slideX' : 'bobY',
             phase: markerId * 0.9 + m * 1.7,
-            speed: 0.75 + difficulty * 0.38,
-            amplitude: m % 2 === 0 ? sweep : 2.2 + difficulty * 0.9,
+            speed: 0.88 + difficulty * 0.48,
+            amplitude: movingBoulder ? 18 + difficulty * 4 : m % 2 === 0 ? sweep : 2.8 + difficulty * 1.1,
             position: {
-              x: Math.sin(markerId * 0.67 + m) * 3,
-              y: m % 2 === 0 ? 3.2 + difficulty * 1.4 : 4.2 + difficulty * 1.8,
+              x: previous.position.x + (x - previous.position.x) * 0.48 + Math.sin(markerId * 0.67 + m) * 3.8,
+              y: movingBoulder ? 3.6 + difficulty * 1.2 : m % 2 === 0 ? 4.4 + difficulty * 1.8 : 5.2 + difficulty * 2,
               z: movingZ
             },
-            size: m % 2 === 0
-              ? { x: 2.1 + difficulty * 0.8, y: 5.4 + difficulty * 1.6, z: 1.0 }
-              : { x: 2.2 + difficulty * 0.6, y: 4.4 + difficulty * 1.7, z: 2.2 + difficulty * 0.6 }
+            size: movingBoulder
+              ? { x: 3.4 + difficulty, y: 3.4 + difficulty, z: 3.4 + difficulty }
+              : m % 2 === 0
+                ? { x: 2.4 + difficulty, y: 6.2 + difficulty * 2, z: 1.0 }
+                : { x: 2.4 + difficulty * 0.7, y: 5.2 + difficulty * 1.9, z: 2.4 + difficulty * 0.7 }
           });
         }
       }
     }
 
-    obstacles = obstacles.filter((spec) => !this.#blocksSafeCorridor(spec, safeCorridors));
+    obstacles = obstacles.filter((spec) => !this.#blocksSafeCorridor(spec, safeCorridors) && !this.#blocksPad(spec, checkpoints));
+    this.#removePadIntersections(walls, checkpoints);
+    this.#removePadIntersections(roofs, checkpoints);
+    this.#removePadIntersections(tunnels, checkpoints);
+    this.#removePadIntersections(movers, checkpoints);
 
     return {
       id: 1,
@@ -271,7 +266,7 @@ export class LevelManager {
       thrustPower: 7.35,
       steeringPower: 3.65,
       damping: 0.992,
-      fuelBurnRate: 6.67,
+      fuelBurnRate: 8.2,
       windStrength: 0,
       windDirection: { x: 0, y: 0, z: 0 },
       maxSpeed: { horizontal: 7.6, verticalUp: 7.6, verticalDown: 8.8 },
@@ -279,7 +274,7 @@ export class LevelManager {
       landingPad: checkpoints[0],
       checkpoints,
       pickups,
-      landingThresholds: { verticalSpeed: 2.35, horizontalSpeed: 2.15, angle: 0.48 },
+      landingThresholds: { verticalSpeed: 2.15, horizontalSpeed: 1.95, angle: 0.44 },
       worldBounds: { minX: -26, maxX: 26, minZ: launchZ - ROUTE_LENGTH - 220, maxZ: launchZ + 28, maxY: 32 },
       terrain: { width: 62, depth: ROUTE_LENGTH + 380, segments: 128, amplitude: 0.72, frequency: 0.085, seed: 11 + Math.floor(startDistance / MARKER_SPACING), centerZ: launchZ - ROUTE_LENGTH / 2, startDistance },
       obstacles,
@@ -292,6 +287,68 @@ export class LevelManager {
       visualTheme: { terrain: 0x202833 },
       startDistance
     };
+  }
+
+  #addFuelRun({ pickups, markerId, routeX, z, difficulty }) {
+    const laneCount = markerId < 3 ? 4 : markerId < 9 ? 3 : 2;
+    const offsets = markerId < 3
+      ? [-0.62, -0.28, 0.12, 0.46]
+      : markerId < 9
+        ? [-0.56, -0.08, 0.42]
+        : [-0.42, 0.34];
+    offsets.slice(0, laneCount).forEach((offset, dropIndex) => {
+      const highLane = 3.6 + difficulty * 1.9;
+      const climb = (dropIndex % 2) * (2.4 + difficulty * 1.2);
+      const wave = Math.sin(markerId * 0.73 + dropIndex * 1.31) * (1.2 + difficulty * 0.7);
+      const refill = markerId % 6 === 0 && dropIndex === offsets.length - 1;
+      pickups.push({
+        id: markerId * 10 + dropIndex,
+        type: refill ? 'refill' : 'instant',
+        amount: refill ? 80 : 22,
+        refillRate: 20,
+        position: {
+          x: routeX + Math.sin(markerId * 1.11 + dropIndex * 1.7) * (4.2 + difficulty * 2.9),
+          y: Math.max(3.2, highLane + climb + wave),
+          z: z + MARKER_SPACING * offset
+        },
+        radius: refill ? 1.25 : 1.1
+      });
+    });
+  }
+
+  #addSideWallCanyon({ walls, routeX, z, difficulty, markerId }) {
+    const width = Math.max(10.4, 16.5 - difficulty * 2.1);
+    const height = 9 + difficulty * 6;
+    const depth = 46 + difficulty * 12;
+    const lean = Math.sin(markerId * 0.83) * 1.2;
+    [-1, 1].forEach((side) => {
+      walls.push({
+        type: 'sideWall',
+        position: {
+          x: routeX + side * (width / 2 + 1.25) + lean,
+          y: height / 2 - 0.1,
+          z
+        },
+        size: { x: 2.2 + difficulty * 0.8, y: height, z: depth }
+      });
+    });
+  }
+
+  #addBoulderField({ obstacles, routeX, z, difficulty, markerId }) {
+    const count = 3 + Math.floor(Math.min(4, difficulty * 1.4));
+    for (let i = 0; i < count; i += 1) {
+      const side = i % 2 === 0 ? -1 : 1;
+      const radius = 1.8 + difficulty * 0.72 + (i % 3) * 0.38;
+      obstacles.push({
+        type: 'boulder',
+        position: {
+          x: routeX + side * (3.2 + i * 1.15) + Math.sin(markerId * 1.2 + i) * 1.6,
+          y: radius * 0.58,
+          z: z - 58 + i * (15 + difficulty * 2)
+        },
+        size: { x: radius * 2, y: radius * 1.55, z: radius * 2 }
+      });
+    }
   }
 
   #difficulty(distance) {
@@ -348,20 +405,20 @@ export class LevelManager {
   }
 
   #addCaveSection({ obstacles, roofs, routeX, z, difficulty, caveIndex }) {
-    const roofY = Math.min(24, 14.2 + difficulty * 2.2);
-    const caveWidth = Math.min(38, 24 + difficulty * 5.5);
-    const caveDepth = 54 + difficulty * 12;
+    const roofY = Math.min(21, 11.8 + difficulty * 2.5);
+    const caveWidth = Math.min(34, 20 + difficulty * 4.4);
+    const caveDepth = 68 + difficulty * 16;
     roofs.push({
       type: 'caveRoof',
       position: { x: routeX, y: roofY, z },
       size: { x: caveWidth, y: 1.1, z: caveDepth }
     });
 
-    const spikeCount = 4 + Math.floor(Math.min(4, difficulty * 1.4));
+    const spikeCount = 6 + Math.floor(Math.min(5, difficulty * 1.7));
     for (let s = 0; s < spikeCount; s += 1) {
       const side = s % 2 === 0 ? -1 : 1;
-      const lane = 3.8 + (s % 3) * 2.2 + difficulty * 0.8;
-      const height = Math.min(10.5, 4.4 + difficulty * 2.2 + ((caveIndex + s) % 3) * 1.2);
+      const lane = 2.8 + (s % 3) * 1.8 + difficulty * 0.55;
+      const height = Math.min(12.8, 5.6 + difficulty * 2.4 + ((caveIndex + s) % 3) * 1.5);
       obstacles.push({
         type: 'caveSpike',
         position: {
@@ -372,7 +429,7 @@ export class LevelManager {
         size: { x: 2.4 + difficulty * 0.7, y: height, z: 2.4 + difficulty * 0.7 }
       });
     }
-    return { routeX, z, width: Math.max(7.4, 10.5 - difficulty), bottom: 2.2, top: roofY - 2.2, depth: caveDepth + 18 };
+    return { routeX, z, width: Math.max(6.2, 9.6 - difficulty), bottom: 2.8, top: roofY - 2.8, depth: caveDepth + 18 };
   }
 
   #blocksSafeCorridor(spec, safeCorridors) {
@@ -387,6 +444,25 @@ export class LevelManager {
       const specTop = spec.position.y + spec.size.y / 2;
       const blocksOpeningHeight = specTop > corridor.bottom - 1.2 && specBottom < corridor.top + 1.2;
       return overlapsX && overlapsZ && blocksOpeningHeight;
+    });
+  }
+
+  #removePadIntersections(specs, checkpoints) {
+    for (let i = specs.length - 1; i >= 0; i -= 1) {
+      if (this.#blocksPad(specs[i], checkpoints)) specs.splice(i, 1);
+    }
+  }
+
+  #blocksPad(spec, checkpoints) {
+    return checkpoints.some((pad) => {
+      const padHalfX = pad.size.x / 2 + 1.15;
+      const padHalfZ = pad.size.z / 2 + 1.15;
+      const halfX = spec.size.x / 2;
+      const halfZ = spec.size.z / 2;
+      const overlapsX = Math.abs(spec.position.x - pad.position.x) < halfX + padHalfX;
+      const overlapsZ = Math.abs(spec.position.z - pad.position.z) < halfZ + padHalfZ;
+      const bottom = spec.position.y - spec.size.y / 2;
+      return overlapsX && overlapsZ && bottom < 4.8;
     });
   }
 }

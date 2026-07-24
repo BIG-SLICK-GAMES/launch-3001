@@ -117,26 +117,33 @@ export class LevelBuilder {
   }
 
   #box(spec) {
-    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'caveRoof' ? 0x536985 : spec.type === 'wall' || spec.type === 'movingWall' ? 0xff2433 : spec.type === 'mountain' || spec.type === 'caveSpike' ? 0x8a98a7 : 0xff8a24;
+    const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'caveRoof' ? 0x536985 : spec.type === 'wall' || spec.type === 'sideWall' || spec.type === 'movingWall' ? 0xff2433 : spec.type === 'mountain' || spec.type === 'caveSpike' || spec.type === 'boulder' || spec.type === 'movingBoulder' ? 0x8a98a7 : 0xff8a24;
     const group = new THREE.Group();
     group.position.set(spec.position.x, spec.position.y, spec.position.z);
     group.name = spec.type;
     const material = new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.58, transparent: true, opacity: 0.97, roughness: 0.34, metalness: 0.18 });
-    const mesh = new THREE.Mesh(
-      spec.type === 'spire' || spec.type === 'movingSpire' || spec.type === 'mountain' || spec.type === 'caveSpike'
+    const geometry = spec.type === 'boulder' || spec.type === 'movingBoulder'
+      ? new THREE.DodecahedronGeometry(Math.max(spec.size.x, spec.size.y, spec.size.z) * 0.48, 1)
+      : spec.type === 'spire' || spec.type === 'movingSpire' || spec.type === 'mountain' || spec.type === 'caveSpike'
         ? new THREE.ConeGeometry(Math.max(spec.size.x, spec.size.z) * 0.55, spec.size.y, 7)
-        : new THREE.BoxGeometry(spec.size.x, spec.size.y, spec.size.z),
+        : new THREE.BoxGeometry(spec.size.x, spec.size.y, spec.size.z);
+    const mesh = new THREE.Mesh(
+      geometry,
       material
     );
     mesh.name = `${spec.type} core`;
     if (spec.type === 'caveSpike') mesh.rotation.z = Math.PI;
+    if (spec.type === 'boulder' || spec.type === 'movingBoulder') {
+      mesh.scale.y = spec.size.y / Math.max(spec.size.x, spec.size.z);
+      mesh.rotation.set(spec.position.z * 0.07, spec.position.x * 0.09, spec.position.y * 0.11);
+    }
     group.add(mesh);
     const edge = new THREE.LineSegments(
       new THREE.EdgesGeometry(mesh.geometry),
-      new THREE.LineBasicMaterial({ color: spec.type === 'mountain' || spec.type === 'caveSpike' ? 0x9ff7ff : 0xffc08a, transparent: true, opacity: 0.62 })
+      new THREE.LineBasicMaterial({ color: spec.type === 'mountain' || spec.type === 'caveSpike' || spec.type === 'boulder' || spec.type === 'movingBoulder' ? 0x9ff7ff : 0xffc08a, transparent: true, opacity: 0.62 })
     );
     mesh.add(edge);
-    if (spec.type !== 'roof' && spec.type !== 'caveRoof' && spec.type !== 'tunnel' && spec.type !== 'mountain' && spec.type !== 'caveSpike') {
+    if (spec.type !== 'roof' && spec.type !== 'caveRoof' && spec.type !== 'tunnel' && spec.type !== 'mountain' && spec.type !== 'caveSpike' && spec.type !== 'boulder' && spec.type !== 'movingBoulder' && spec.type !== 'sideWall') {
       const cap = new THREE.Mesh(
         new THREE.TorusGeometry(Math.max(spec.size.x, spec.size.z) * 0.35, 0.055, 8, 22),
         new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.75 })
@@ -145,7 +152,7 @@ export class LevelBuilder {
       cap.rotation.x = Math.PI / 2;
       group.add(cap);
     }
-    if (spec.type === 'wall') {
+    if (spec.type === 'wall' || spec.type === 'sideWall') {
       for (let i = -2; i <= 2; i += 1) {
         const slit = new THREE.Mesh(
           new THREE.BoxGeometry(0.16, spec.size.y * 0.82, spec.size.z + 0.04),
