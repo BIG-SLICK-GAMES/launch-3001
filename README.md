@@ -64,6 +64,18 @@ Preview the built app:
 npm run preview -- --host
 ```
 
+## Upgrades, Stars, and Boosts
+
+Launch3001 stores rocket progression in the existing `launch3001.progress` save record. The upgrade and boost systems are data-driven:
+
+- Upgrade definitions: `src/game/UpgradeDefinitions.js`
+- Boost definitions and bonus star packages: `src/game/BoostDefinitions.js`
+- Runtime stat calculation: `src/game/RocketStatResolver.js`
+
+Checkpoint landings award non-farmable stars from the best result per marker. Permanent upgrades spend stars and recalculate rocket runtime stats without overwriting the base rocket values. Temporary boosts can be equipped before launch and are consumed according to their activation rules.
+
+BSG chip purchases are client-initiated but not client-authoritative. Boost and bonus-star purchases call `/platform/wallet/launch3001/purchase`; if that wallet endpoint is unavailable or rejects the request, the client does not grant items or alter chip balances.
+
 ## Mobile Testing
 
 - The page uses `viewport-fit=cover` and safe-area CSS variables for notches, Dynamic Island, and gesture bars.

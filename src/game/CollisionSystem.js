@@ -54,6 +54,7 @@ export class CollisionSystem {
     if (vertical < thresholds.verticalSpeed * 0.32 && horizontal < thresholds.horizontalSpeed * 0.32 && angle < thresholds.angle * 0.32) grade = LANDING_GRADES.perfect;
     else if (vertical < thresholds.verticalSpeed * 0.48 && horizontal < thresholds.horizontalSpeed * 0.5 && angle < thresholds.angle * 0.5) grade = LANDING_GRADES.excellent;
     else if (vertical < thresholds.verticalSpeed * 0.7 && horizontal < thresholds.horizontalSpeed * 0.72 && angle < thresholds.angle * 0.72) grade = LANDING_GRADES.good;
+    else if (vertical > thresholds.verticalSpeed * 0.86 || horizontal > thresholds.horizontalSpeed * 0.86 || angle > thresholds.angle * 0.86) grade = LANDING_GRADES.hard;
     return { type: 'landed', grade, marker };
   }
 }

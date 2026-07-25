@@ -2,6 +2,8 @@ import { STATES } from './GameState.js';
 import { SHOP_URL } from './constants.js';
 import { formatNumber } from './utils.js';
 import { BUILD_LABEL } from './buildInfo.js';
+import { UPGRADE_DEFINITIONS } from './UpgradeDefinitions.js';
+import { BOOST_DEFINITIONS, BONUS_STAR_PACKAGES } from './BoostDefinitions.js';
 
 export class UIController {
   constructor(root, game) {
@@ -26,7 +28,7 @@ export class UIController {
   update(data) {
     const markerDistance = data.nextMarker ? Math.max(0, data.nextMarker.distance - data.rocket.distance) : 0;
     const markerTime = Math.max(0, data.rocket.flightTime - this.game.lastCheckpointTime);
-    const fuelPercent = Math.max(0, Math.min(100, data.rocket.fuel));
+    const fuelPercent = Math.max(0, Math.min(100, (data.rocket.fuel / (data.rocket.maxFuel ?? 100)) * 100));
     const altitudePercent = Math.max(0, Math.min(1, data.altitude / 24));
     this.hud?.style.setProperty('--fuel', `${fuelPercent}%`);
     this.hud?.style.setProperty('--altitude-angle', `${-135 + altitudePercent * 270}deg`);
@@ -70,9 +72,15 @@ export class UIController {
   }
 
   showCheckpointReward(reward) {
+    const stars = reward.stars
+      ? `<span>${'*'.repeat(reward.stars.finalStars).padEnd(3, '-')} | +${reward.stars.newStarsEarned} new stars | ${reward.stars.availableStars} available</span>`
+      : '';
+    const consumed = reward.consumedBoosts?.length ? `<span>Boosts used: ${reward.consumedBoosts.join(', ')}</span>` : '';
     this.overlay.innerHTML = `<section class="toast checkpoint-toast">
       <strong>MARKER ${reward.markerId} SAVED</strong>
       <span>+${reward.points} | ${reward.elapsed}s | ${reward.timeRank}</span>
+      ${stars}
+      ${consumed}
     </section>`;
     window.clearTimeout(this.rewardTimer);
     this.rewardTimer = window.setTimeout(() => {
@@ -252,6 +260,8 @@ export class UIController {
         </div>
         <div class="lobby-panel lobby-menu">
           <button class="primary" data-action="${canPlay ? 'play' : 'login'}">${loggedIn ? 'Play' : 'Play As Guest'}</button>
+          <button data-action="upgrades">Upgrades</button>
+          <button data-action="boosts">Boosts</button>
           <button data-action="store">Store</button>
           ${loggedIn ? '<button data-action="profile">Profile</button>' : ''}
           <button data-action="${canPlay ? 'level-select' : 'login'}">Load Checkpoint</button>
@@ -267,16 +277,96 @@ export class UIController {
           ${canPlay ? '' : '<p class="login-note">Log in with BSG to play the demo.</p><button data-action="login">Log In With BSG</button>'}
           <dl>
             <dt>BSG chips</dt><dd>${formatNumber(profile.chips ?? 0, 0)}</dd>
+            <dt>Stars</dt><dd>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</dd>
+            <dt>Upgrades</dt><dd>${this.game.upgrades.completionPercent()}%</dd>
             <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
             <dt>Best time</dt><dd>${formatNumber(best.bestDistanceTime ?? 0, 1)}s</dd>
           </dl>
         </div>
         <div class="lobby-panel store-card">
-          <h2>Full Game</h2>
-          <p>Unlock the full route, more checkpoints, quests, caves, moving hazards, and leaderboard runs.</p>
-          <button data-action="store">${this.game.fullAccess ? 'Owned' : 'Unlock Full Game'}</button>
+          <h2>Rocket</h2>
+          <p>Fuel ${formatNumber(this.game.rocket.maxFuel ?? 100, 0)} | Burn x${formatNumber(this.game.rocket.stats?.fuelBurnMultiplier ?? 1, 2)} | Boost x${formatNumber(this.game.rocket.stats?.thrustPowerMultiplier ?? 1, 2)}</p>
+          <p>Equipped: ${this.game.boosts.equipped().length ? this.game.boosts.equipped().join(', ') : 'None'}</p>
+          <button data-action="buy-stars">Buy Stars</button>
+          <button data-action="boost-shop">Boost Shop</button>
         </div>
       </section>`;
+  }
+
+  #upgrades(selectedId = UPGRADE_DEFINITIONS[0]?.upgradeId) {
+    const selected = UPGRADE_DEFINITIONS.find((entry) => entry.upgradeId === selectedId) ?? UPGRADE_DEFINITIONS[0];
+    const level = this.game.upgrades.levelFor(selected.upgradeId);
+    const nextCost = this.game.upgrades.nextCost(selected.upgradeId);
+    const check = this.game.upgrades.canUpgrade(selected.upgradeId);
+    const rows = UPGRADE_DEFINITIONS.map((upgrade) => {
+      const current = this.game.upgrades.levelFor(upgrade.upgradeId);
+      return `<button class="upgrade-row ${upgrade.upgradeId === selected.upgradeId ? 'selected' : ''}" data-action="select-upgrade" data-upgrade-id="${upgrade.upgradeId}">
+        <strong>${upgrade.displayName}</strong><span>${upgrade.category} | ${current}/${upgrade.maximumLevel}</span>
+      </button>`;
+    }).join('');
+    const effects = Object.entries(selected.statModifiers ?? {}).map(([key, values]) => {
+      const current = level ? values[level - 1] : 0;
+      const next = values[Math.min(level, values.length - 1)] ?? current;
+      return `<div class="stat-row"><span>${this.#label(key)}</span><b>${formatNumber(current, 1)} -> ${formatNumber(next, 1)}</b></div>`;
+    }).join('');
+    this.overlay.innerHTML = `<section class="panel upgrade-panel">
+      <h2>Upgrades</h2>
+      <div class="wallet-strip"><span>Stars <b>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</b></span><span>Chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span><span>Complete <b>${this.game.upgrades.completionPercent()}%</b></span></div>
+      <div class="upgrade-layout"><div class="upgrade-list">${rows}</div><div class="upgrade-detail">
+        <h3>${selected.displayName}</h3>
+        <p>${selected.category} upgrade level ${level}/${selected.maximumLevel}</p>
+        ${effects}
+        <div class="cost-line">Cost: <b>${nextCost ?? 'MAX'}</b> stars</div>
+        <button data-action="upgrade" data-upgrade-id="${selected.upgradeId}" ${check.ok ? '' : 'disabled'}>${check.ok ? 'Upgrade' : check.reason}</button>
+      </div></div>
+      <div class="control-actions"><button data-action="buy-stars">Buy Stars</button><button data-action="reset-upgrades">Reset Upgrades</button><button data-action="back">Back</button></div>
+    </section>`;
+  }
+
+  #boosts() {
+    const equipped = this.game.boosts.equipped();
+    const rows = BOOST_DEFINITIONS.map((boost) => {
+      const isEquipped = equipped.includes(boost.boostId);
+      const quantity = this.game.boosts.quantity(boost.boostId);
+      return `<div class="boost-row">
+        <div><strong>${boost.displayName}</strong><span>${boost.activationType} | ${boost.durationType} | Owned ${quantity}</span></div>
+        <button data-action="${isEquipped ? 'unequip-boost' : 'equip-boost'}" data-boost-id="${boost.boostId}" ${!isEquipped && quantity <= 0 ? 'disabled' : ''}>${isEquipped ? 'Unequip' : 'Equip'}</button>
+      </div>`;
+    }).join('');
+    this.overlay.innerHTML = `<section class="panel upgrade-panel">
+      <h2>Boosts</h2>
+      <p>Equip up to three boosts before launch. Entire-checkpoint boosts are consumed when the checkpoint starts; activation boosts are consumed only when triggered.</p>
+      <div class="wallet-strip"><span>Equipped <b>${equipped.length}/3</b></span><span>Fuel <b>${formatNumber(this.game.rocket.maxFuel ?? 100, 0)}</b></span><span>Landing x<b>${formatNumber(this.game.rocket.stats?.landingAngleMultiplier ?? 1, 2)}</b></span></div>
+      <div class="boost-list">${rows}</div>
+      <div class="control-actions"><button data-action="boost-shop">Boost Shop</button><button data-action="play">Launch</button><button data-action="back">Back</button></div>
+    </section>`;
+  }
+
+  #boostShop() {
+    const rows = BOOST_DEFINITIONS.map((boost) => `<div class="boost-row">
+      <div><strong>${boost.displayName}</strong><span>${this.#effectText(boost.effects)} | ${boost.chipPrice} chips</span></div>
+      <button data-action="buy-boost" data-boost-id="${boost.boostId}">Buy</button>
+    </div>`).join('');
+    this.overlay.innerHTML = `<section class="panel upgrade-panel">
+      <h2>Boost Shop</h2>
+      <div class="wallet-strip"><span>BSG chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span></div>
+      <div class="boost-list">${rows}</div>
+      <div class="control-actions"><button data-action="boosts">Boosts</button><button data-action="back">Back</button></div>
+    </section>`;
+  }
+
+  #buyStars() {
+    const rows = BONUS_STAR_PACKAGES.map((pack) => `<div class="boost-row">
+      <div><strong>${pack.stars} stars</strong><span>${pack.chipPrice} BSG chips</span></div>
+      <button data-action="buy-star-pack" data-package-id="${pack.packageId}">Buy</button>
+    </div>`).join('');
+    this.overlay.innerHTML = `<section class="panel upgrade-panel">
+      <h2>Buy Stars</h2>
+      <p>Bonus stars spend like earned stars. Chip balance is validated by the BSG wallet server.</p>
+      <div class="wallet-strip"><span>Stars <b>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</b></span><span>Chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span></div>
+      <div class="boost-list">${rows}</div>
+      <div class="control-actions"><button data-action="upgrades">Upgrades</button><button data-action="back">Back</button></div>
+    </section>`;
   }
 
   #store() {
@@ -444,6 +534,10 @@ export class UIController {
     if (action === 'lobby') this.game.showLobby();
     if (action === 'store') this.#store();
     if (action === 'profile') this.#profile();
+    if (action === 'upgrades') this.#upgrades();
+    if (action === 'boosts') this.#boosts();
+    if (action === 'boost-shop') this.#boostShop();
+    if (action === 'buy-stars') this.#buyStars();
     if (action === 'login') this.game.showAuth();
     if (action === 'skip-login') this.game.skipLogin();
     if (action === 'external-login') this.game.hub.requestLogin();
@@ -467,10 +561,73 @@ export class UIController {
     if (action === 'mobile-ok') this.game.completeMobileTutorial();
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
     if (action === 'back') this.game.showLobby();
+    if (action === 'select-upgrade') this.#upgrades(target.closest('[data-upgrade-id]').dataset.upgradeId);
+    if (action === 'upgrade') {
+      const upgradeId = target.closest('[data-upgrade-id]').dataset.upgradeId;
+      const check = this.game.upgrades.canUpgrade(upgradeId);
+      if (check.ok && window.confirm(`Spend ${check.cost} stars on ${check.definition.displayName} level ${check.nextLevel}?`)) {
+        const result = this.game.purchaseUpgrade(upgradeId);
+        this.#notice(result.ok ? 'Upgrade installed' : result.reason);
+        this.#upgrades(upgradeId);
+      }
+    }
+    if (action === 'reset-upgrades') {
+      const spent = this.game.score.progress.starsSpent ?? 0;
+      const refund = Math.floor(spent * 0.8);
+      if (window.confirm(`Reset upgrades and return ${refund} of ${spent} spent stars?`)) {
+        this.game.resetUpgrades();
+        this.#upgrades();
+      }
+    }
+    if (action === 'equip-boost') {
+      const result = this.game.equipBoost(target.closest('[data-boost-id]').dataset.boostId);
+      if (!result.ok) this.#notice(result.reason);
+      this.#boosts();
+    }
+    if (action === 'unequip-boost') {
+      this.game.unequipBoost(target.closest('[data-boost-id]').dataset.boostId);
+      this.#boosts();
+    }
+    if (action === 'buy-boost') {
+      const boostId = target.closest('[data-boost-id]').dataset.boostId;
+      const boost = BOOST_DEFINITIONS.find((entry) => entry.boostId === boostId);
+      if (boost && window.confirm(`Buy ${boost.displayName} for ${boost.chipPrice} BSG chips?`)) {
+        const result = await this.game.buyBoost(boostId);
+        this.#notice(result.ok ? 'Boost added' : result.reason);
+        this.#boostShop();
+      }
+    }
+    if (action === 'buy-star-pack') {
+      const packageId = target.closest('[data-package-id]').dataset.packageId;
+      const pack = BONUS_STAR_PACKAGES.find((entry) => entry.packageId === packageId);
+      if (pack && window.confirm(`Buy ${pack.stars} stars for ${pack.chipPrice} BSG chips?`)) {
+        const result = await this.game.buyStars(packageId);
+        this.#notice(result.ok ? `${pack.stars} stars added` : result.reason);
+        this.#buyStars();
+      }
+    }
     if (action === 'level') {
       if (!this.game.isAuthReady()) this.#loginRequired();
       else this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
     }
+  }
+
+  #notice(text) {
+    if (!text) return;
+    window.clearTimeout(this.noticeTimer);
+    const notice = document.createElement('div');
+    notice.className = 'notice-toast';
+    notice.textContent = text;
+    this.root.appendChild(notice);
+    this.noticeTimer = window.setTimeout(() => notice.remove(), 2200);
+  }
+
+  #label(key) {
+    return key.replace(/([A-Z])/g, ' $1').replace(/Percent|Flat/g, '').trim();
+  }
+
+  #effectText(effects = {}) {
+    return Object.entries(effects).slice(0, 2).map(([key, value]) => `${this.#label(key)} ${value > 0 ? '+' : ''}${value}`).join(', ');
   }
 
   #loginRequired() {

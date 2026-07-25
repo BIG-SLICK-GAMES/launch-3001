@@ -13,7 +13,9 @@ export class Rocket {
     this.thrusting = false;
     this.thrustUse = 0;
     this.flightTime = 0;
+    this.maxFuel = 100;
     this.fuel = 100;
+    this.stats = {};
     this.distance = 0;
     this.visualTiltX = 0;
     this.visualTiltZ = 0;
@@ -29,7 +31,7 @@ export class Rocket {
     this.thrusting = false;
     this.thrustUse = 0;
     this.flightTime = 0;
-    this.fuel = 100;
+    this.fuel = this.maxFuel ?? 100;
     this.distance = 0;
     this.setFlame(false);
   }

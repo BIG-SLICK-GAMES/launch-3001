@@ -191,7 +191,7 @@ export class BSGHubBridge {
       productId: PRODUCT_ID,
       build: BUILD_LABEL,
       url: window.location.href,
-      requestedFields: ['id', 'name', 'email', 'avatar', 'purchases', 'entitlements']
+      requestedFields: ['id', 'name', 'email', 'avatar', 'chips', 'purchases', 'entitlements']
     };
   }
 

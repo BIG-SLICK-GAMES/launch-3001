@@ -17,6 +17,12 @@ import { UIController } from './UIController.js';
 import { BSGHubBridge } from './BSGHubBridge.js';
 import { GameState, STATES } from './GameState.js';
 import { DEMO_CHECKPOINT_LIMIT, FIXED_STEP, LANDING_GRADES, MAX_FRAME_DELTA, ROCKET_STANDING_HEIGHT, SHOP_URL } from './constants.js';
+import { UpgradeManager } from './UpgradeManager.js';
+import { BoostManager } from './BoostManager.js';
+import { RocketStatResolver } from './RocketStatResolver.js';
+import { CheckpointStarSystem } from './CheckpointStarSystem.js';
+import { WalletClient } from './WalletClient.js';
+import { BONUS_STAR_PACKAGES } from './BoostDefinitions.js';
 
 export class Game {
   constructor(root) {
@@ -30,10 +36,17 @@ export class Game {
     this.profile = new ProfileSystem(this.save);
     this.fullAccess = true;
     this.score = new ScoreSystem(this.save);
+    this.upgrades = new UpgradeManager(this.save, this.score.progress);
+    this.boosts = new BoostManager(this.save, this.score.progress);
+    this.stars = new CheckpointStarSystem(this.save, this.boosts, this.score.progress);
+    this.statResolver = new RocketStatResolver(this.upgrades, this.boosts);
+    this.wallet = new WalletClient(this);
     this.audio = new AudioSystem(this.settings);
     this.levels = new LevelManager();
     this.world = new World(this.scene);
     this.rocket = new Rocket();
+    this.statResolver.recalculate();
+    this.statResolver.applyToRocket(this.rocket);
     this.scene.add(this.rocket.group);
     this.padShadow = this.#createPadShadow();
     this.scene.add(this.padShadow);
@@ -60,6 +73,7 @@ export class Game {
     this.collectedDrops = new Set();
     this.refillRemaining = new Map();
     this.voiceFlags = {};
+    this.reserveFuelUsed = false;
     this.mobileTutorialDone = false;
     this.authSkipped = false;
     this.deviceMode = this.settings.deviceMode ?? '';
@@ -93,6 +107,7 @@ export class Game {
     this.runRecorded = false;
     this.currentStartId = id;
     this.currentLevel = this.levels.load(id);
+    this.recalculateRocketStats();
     this.world.load(this.currentLevel);
     const launch = this.currentLevel.launchPad.position;
     this.rocket.reset({ x: launch.x, y: launch.y + 0.12 + ROCKET_STANDING_HEIGHT, z: launch.z });
@@ -104,6 +119,7 @@ export class Game {
     this.collectedDrops = new Set();
     this.refillRemaining = new Map();
     this.voiceFlags = { launch: false, lowFuel: false, approachMarkerId: null, refuelPad: null };
+    this.reserveFuelUsed = false;
     this.cameraController.update(this.rocket, 1);
     this.renderer.resize(this.camera);
   }
@@ -128,6 +144,58 @@ export class Game {
     this.loadLevel(this.currentStartId);
     this.score.recordAttempt(this.currentStartId);
     this.state.transition(STATES.READY);
+  }
+
+  recalculateRocketStats() {
+    this.statResolver.recalculate();
+    this.statResolver.applyToRocket(this.rocket);
+  }
+
+  purchaseUpgrade(upgradeId) {
+    const result = this.upgrades.purchase(upgradeId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  resetUpgrades() {
+    const result = this.upgrades.reset();
+    this.recalculateRocketStats();
+    return result;
+  }
+
+  equipBoost(boostId) {
+    const result = this.boosts.equip(boostId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  unequipBoost(boostId) {
+    const result = this.boosts.unequip(boostId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  async buyBoost(boostId) {
+    const result = await this.wallet.purchaseBoost(boostId, 1);
+    if (!result.ok) return result;
+    this.boosts.grant(boostId, 1, 'boost_purchase');
+    this.recalculateRocketStats();
+    return result;
+  }
+
+  async buyStars(packageId) {
+    const pack = BONUS_STAR_PACKAGES.find((entry) => entry.packageId === packageId);
+    if (!pack) return { ok: false, reason: 'Unknown star package' };
+    const result = await this.wallet.purchaseStars(packageId);
+    if (!result.ok) return result;
+    this.score.progress.availableStars = (this.score.progress.availableStars ?? 0) + pack.stars;
+    this.score.progress.bonusStarsPurchased = (this.score.progress.bonusStarsPurchased ?? 0) + pack.stars;
+    this.score.progress.upgradeTransactions = [
+      ...(this.score.progress.upgradeTransactions ?? []),
+      { id: result.transactionId, type: 'chip_purchased_stars', stars: pack.stars, chips: -pack.chipPrice, at: new Date().toISOString() }
+    ].slice(-100);
+    this.save.saveProgress(this.score.progress);
+    return { ok: true, ...result, stars: pack.stars };
   }
 
   resetRun() {
@@ -309,6 +377,7 @@ export class Game {
 
   #fixedUpdate(dt) {
     this.input.update();
+    const runtimeLevel = this.statResolver.adjustedLevel(this.currentLevel);
     const steering = this.#combinedSteering();
     const thrust = this.#combinedThrust();
     if (!thrust) this.takeoffLocked = false;
@@ -328,16 +397,21 @@ export class Game {
     this.rocket.setFlame(active && thrust && this.rocket.fuel > 0);
     if (this.rocket.thrusting) this.audio.startEngine();
     else this.audio.stopEngine();
-    this.physics.step(this.rocket, this.currentLevel, steering, dt, active, this.settings);
+    this.physics.step(this.rocket, runtimeLevel, steering, dt, active, this.settings);
     this.world.updateMovingHazards(this.rocket.flightTime);
     this.#tickGroundTimer(dt, active);
-    this.rocket.updateVisual(dt, steering, this.settings);
+    this.#applyEmergencyFuel();
+    this.#applyAirBrake(dt, active);
+    this.rocket.updateVisual(dt, steering, {
+      ...this.settings,
+      rocketTiltMax: (this.settings.rocketTiltMax ?? 0.62) * (this.rocket.stats?.tiltResponseMultiplier ?? 1)
+    });
     this.#refuelOnPad(dt);
     this.score.updateLeaderboard(this.rocket.distance, this.rocket.flightTime);
     if (active) {
       this.#updateFuelPickups(dt);
-      const result = this.collision.check(this.rocket, this.currentLevel);
-      if (result?.type === 'crash') this.#crash(result.reason);
+      const result = this.collision.check(this.rocket, runtimeLevel);
+      if (result?.type === 'crash') this.#handleCrashResult(result.reason);
       if (result?.type === 'landed') this.#land(result.grade, result.marker);
       this.#checkDemoWall();
     }
@@ -367,7 +441,7 @@ export class Game {
     this.#updatePadShadow();
     this.#voiceStatus(altitude);
       this.ui.update({
-      level: this.currentLevel,
+      level: this.statResolver.adjustedLevel(this.currentLevel),
       rocket: this.rocket,
       altitude,
       score: this.score,
@@ -412,6 +486,35 @@ export class Game {
     this.state.transition(STATES.CRASHED, { reason, placement });
   }
 
+  #handleCrashResult(reason) {
+    const tolerance = this.rocket.stats?.collisionToleranceMultiplier ?? 1;
+    const impact = Math.hypot(this.rocket.velocity.x, this.rocket.velocity.y, this.rocket.velocity.z);
+    if (tolerance > 1 && impact < 2.2 * tolerance) {
+      this.rocket.velocity.multiplyScalar(-0.18);
+      this.rocket.fuel = Math.max(0, this.rocket.fuel - 8);
+      this.effects.burst(this.rocket.position, 0xffd166, 10);
+      this.audio.speak('Hull absorbed impact.', 'hullAbsorb', 5000);
+      return;
+    }
+    const shield = this.boosts.activate('crash_shield');
+    if (shield) {
+      this.rocket.velocity.multiplyScalar(-0.22);
+      this.rocket.fuel = Math.max(0, this.rocket.fuel - 14);
+      this.effects.burst(this.rocket.position, 0x7deeff, 18);
+      this.audio.speak('Crash shield spent.', 'crashShield', 7000);
+      this.recalculateRocketStats();
+      return;
+    }
+    const insurance = this.boosts.activate('checkpoint_insurance');
+    if (insurance) {
+      this.audio.speak('Checkpoint insurance used.', 'checkpointInsurance', 8000);
+      this.restartLevel();
+      this.recalculateRocketStats();
+      return;
+    }
+    this.#crash(reason);
+  }
+
   #recordRun() {
     if (this.runRecorded || this.rocket.distance <= 0) return null;
     this.runRecorded = true;
@@ -433,6 +536,7 @@ export class Game {
     const elapsed = Math.max(0.1, this.rocket.flightTime - this.lastCheckpointTime);
     const points = this.score.scoreCheckpoint(marker, elapsed, marker.distance ?? this.rocket.distance);
     const reward = this.score.checkpointBreakdown(marker, elapsed, marker.distance ?? this.rocket.distance);
+    const starReward = this.stars.award(marker, elapsed, grade);
     const nextId = Math.min(this.levels.levels.length, Math.floor((marker.distance ?? 0) / 540) + 1);
     this.score.commitCheckpoint(marker, points, nextId);
     this.passedMarkers.add(marker.id);
@@ -450,7 +554,7 @@ export class Game {
       return;
     }
     this.state.transition(STATES.READY);
-    this.ui.showCheckpointReward(reward);
+    this.ui.showCheckpointReward({ ...reward, grade, stars: starReward, consumedBoosts: [...this.boosts.runConsumed] });
     this.audio.speak('Touchdown.', 'touchdown', 2500);
   }
 
@@ -480,6 +584,8 @@ export class Game {
     this.rocket.landed = false;
     this.landedPad = null;
     this.activeLanding = false;
+    this.boosts.beginCheckpoint();
+    this.recalculateRocketStats();
     if (!this.missionHintDone) {
       this.missionHintDone = true;
       localStorage.setItem('launch3001.missionHintDone', '1');
@@ -495,7 +601,8 @@ export class Game {
       }
       if (this.collectedDrops.has(pickup.id)) continue;
       this.collectedDrops.add(pickup.id);
-      this.rocket.fuel = Math.min(100, this.rocket.fuel + pickup.amount);
+      const amount = pickup.amount * (this.rocket.stats?.pickupValueMultiplier ?? 1);
+      this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + amount);
       const mesh = this.world.current.pickupMeshes?.find((item) => item.name === `Drop ${pickup.id}`);
       if (mesh) mesh.visible = false;
       this.effects.burst(this.rocket.position, 0x4de6ff, 12);
@@ -504,16 +611,16 @@ export class Game {
   }
 
   #refillFromPickup(pickup, dt) {
-    if (this.collectedDrops.has(pickup.id) || this.rocket.fuel >= 100) return;
+    if (this.collectedDrops.has(pickup.id) || this.rocket.fuel >= this.rocket.maxFuel) return;
     const remaining = this.refillRemaining.get(pickup.id) ?? pickup.amount;
     if (remaining <= 0) {
       this.#depleteFuelPickup(pickup);
       return;
     }
-    const transfer = Math.min(remaining, 100 - this.rocket.fuel, (pickup.refillRate ?? 26) * dt);
+    const transfer = Math.min(remaining, this.rocket.maxFuel - this.rocket.fuel, (pickup.refillRate ?? 26) * dt);
     if (transfer <= 0) return;
     this.refillRemaining.set(pickup.id, remaining - transfer);
-    this.rocket.fuel = Math.min(100, this.rocket.fuel + transfer);
+    this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + transfer);
     this.effects.burst(this.rocket.position, 0xffd166, 2);
     if (this.voiceFlags.activeRefill !== pickup.id) {
       this.audio.speak('Refueling Sir!', 'holdRefuel', 1800);
@@ -534,7 +641,8 @@ export class Game {
     const dz = this.rocket.position.z - pickup.position.z;
     const horizontal = Math.hypot(dx, dz);
     const vertical = Math.abs(this.rocket.position.y - pickup.position.y);
-    return horizontal <= pickup.radius + this.rocket.radius + 1.05 && vertical <= 2.2;
+    const radiusBonus = this.rocket.stats?.pickupRadiusBonus ?? 0;
+    return horizontal <= pickup.radius + this.rocket.radius + 1.05 + radiusBonus && vertical <= 2.2 + radiusBonus * 0.18;
   }
 
   #refuelOnPad(dt) {
@@ -549,7 +657,35 @@ export class Game {
       this.audio.speak('We will take some fuel Captain!', 'padRefuel', 5000);
       this.voiceFlags.refuelPad = pad.id;
     }
-    this.rocket.fuel = Math.min(100, this.rocket.fuel + 20 * dt);
+    this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + 20 * dt);
+  }
+
+  #applyEmergencyFuel() {
+    if (!this.state.is(STATES.FLYING) || this.rocket.fuel > 0) return;
+    const emergencyBoost = this.boosts.activate('emergency_fuel');
+    if (emergencyBoost) {
+      this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + (emergencyBoost.effects.instantFuelFlat ?? 0));
+      this.effects.burst(this.rocket.position, 0xffd166, 16);
+      this.audio.speak('Emergency fuel online.', 'emergencyFuel', 5000);
+      this.recalculateRocketStats();
+      return;
+    }
+    if (!this.reserveFuelUsed && (this.rocket.stats?.reserveFuel ?? 0) > 0) {
+      this.reserveFuelUsed = true;
+      this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.stats.reserveFuel);
+      this.effects.burst(this.rocket.position, 0x33ff8a, 14);
+      this.audio.speak('Reserve fuel engaged.', 'reserveFuel', 6000);
+    }
+  }
+
+  #applyAirBrake(dt, active) {
+    if (!active || this.rocket.landed) return;
+    const brake = Math.max(0, (this.rocket.stats?.airBrakeMultiplier ?? 1) - 1);
+    if (brake <= 0) return;
+    const factor = Math.max(0.88, 1 - brake * 0.18 * dt);
+    this.rocket.velocity.x *= factor;
+    this.rocket.velocity.z *= factor;
+    if (this.rocket.velocity.y < -0.1) this.rocket.velocity.y *= Math.max(0.9, 1 - brake * 0.1 * dt);
   }
 
   #currentPad() {
