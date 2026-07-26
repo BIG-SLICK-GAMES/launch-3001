@@ -4,6 +4,7 @@ import { formatNumber } from './utils.js';
 import { BUILD_LABEL } from './buildInfo.js';
 import { UPGRADE_DEFINITIONS } from './UpgradeDefinitions.js';
 import { BOOST_DEFINITIONS, BONUS_STAR_PACKAGES } from './BoostDefinitions.js';
+import { RocketPreview } from './RocketPreview.js';
 
 export class UIController {
   constructor(root, game) {
@@ -54,6 +55,7 @@ export class UIController {
   }
 
   showState(state, payload = {}) {
+    this.#disposeRocketPreview();
     this.root.dataset.state = state;
     delete this.root.dataset.settingsOpen;
     if (state === STATES.SPLASH) this.#splash();
@@ -151,6 +153,11 @@ export class UIController {
       if (!action) return;
       await this.#handleAction(action, event.target);
     });
+    this.root.addEventListener('pointerover', (event) => {
+      const focusTarget = event.target.closest('[data-focus-part]');
+      if (!focusTarget || !this.rocketPreview) return;
+      this.rocketPreview.focus(focusTarget.dataset.focusPart);
+    });
     this.root.addEventListener('input', (event) => {
       const input = event.target;
       if (!input.dataset.setting) return;
@@ -190,6 +197,7 @@ export class UIController {
   }
 
   #authLogin(error = '') {
+    this.#disposeRocketPreview();
     this.overlay.innerHTML = `
       <section class="auth-screen">
         <div class="auth-brand">
@@ -223,6 +231,7 @@ export class UIController {
   }
 
   #deviceSelect() {
+    this.#disposeRocketPreview();
     this.overlay.innerHTML = `
       <section class="device-screen">
         <div class="device-heading">
@@ -247,6 +256,7 @@ export class UIController {
   }
 
   #lobby() {
+    this.#disposeRocketPreview();
     const profile = this.game.profile.profile;
     const loggedIn = this.game.profile.isLoggedIn();
     const canPlay = this.game.isAuthReady();
@@ -300,7 +310,7 @@ export class UIController {
     const check = this.game.upgrades.canUpgrade(selected.upgradeId);
     const rows = UPGRADE_DEFINITIONS.map((upgrade) => {
       const current = this.game.upgrades.levelFor(upgrade.upgradeId);
-      return `<button class="upgrade-row ${upgrade.upgradeId === selected.upgradeId ? 'selected' : ''}" data-action="select-upgrade" data-upgrade-id="${upgrade.upgradeId}">
+      return `<button class="upgrade-row ${upgrade.upgradeId === selected.upgradeId ? 'selected' : ''}" data-action="select-upgrade" data-upgrade-id="${upgrade.upgradeId}" data-focus-part="${upgrade.upgradeId}">
         <strong>${upgrade.displayName}</strong><span>${upgrade.category} | ${current}/${upgrade.maximumLevel}</span>
       </button>`;
     }).join('');
@@ -312,15 +322,20 @@ export class UIController {
     this.overlay.innerHTML = `<section class="panel upgrade-panel">
       <h2>Upgrades</h2>
       <div class="wallet-strip"><span>Stars <b>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</b></span><span>Chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span><span>Complete <b>${this.game.upgrades.completionPercent()}%</b></span></div>
-      <div class="upgrade-layout"><div class="upgrade-list">${rows}</div><div class="upgrade-detail">
-        <h3>${selected.displayName}</h3>
-        <p>${selected.category} upgrade level ${level}/${selected.maximumLevel}</p>
-        ${effects}
-        <div class="cost-line">Cost: <b>${nextCost ?? 'MAX'}</b> stars</div>
-        <button data-action="upgrade" data-upgrade-id="${selected.upgradeId}" ${check.ok ? '' : 'disabled'}>${check.ok ? 'Upgrade' : check.reason}</button>
-      </div></div>
+      <div class="upgrade-layout">
+        <div class="rocket-preview" data-rocket-preview aria-label="Interactive rocket upgrade preview"></div>
+        <div class="upgrade-list">${rows}</div>
+        <div class="upgrade-detail">
+          <h3>${selected.displayName}</h3>
+          <p>${selected.category} upgrade level ${level}/${selected.maximumLevel}</p>
+          ${effects}
+          <div class="cost-line">Cost: <b>${nextCost ?? 'MAX'}</b> stars</div>
+          <button data-action="upgrade" data-upgrade-id="${selected.upgradeId}" ${check.ok ? '' : 'disabled'}>${check.ok ? 'Upgrade' : check.reason}</button>
+        </div>
+      </div>
       <div class="control-actions"><button data-action="buy-stars">Buy Stars</button><button data-action="reset-upgrades">Reset Upgrades</button><button data-action="back">Back</button></div>
     </section>`;
+    this.#mountRocketPreview(selected.upgradeId);
   }
 
   #boosts() {
@@ -328,7 +343,7 @@ export class UIController {
     const rows = BOOST_DEFINITIONS.map((boost) => {
       const isEquipped = equipped.includes(boost.boostId);
       const quantity = this.game.boosts.quantity(boost.boostId);
-      return `<div class="boost-row">
+      return `<div class="boost-row" data-focus-part="${boost.boostId}">
         <div><strong>${boost.displayName}</strong><span>${boost.activationType} | ${boost.durationType} | Owned ${quantity}</span></div>
         <button data-action="${isEquipped ? 'unequip-boost' : 'equip-boost'}" data-boost-id="${boost.boostId}" ${!isEquipped && quantity <= 0 ? 'disabled' : ''}>${isEquipped ? 'Unequip' : 'Equip'}</button>
       </div>`;
@@ -337,25 +352,34 @@ export class UIController {
       <h2>Boosts</h2>
       <p>Equip up to three boosts before launch. Entire-checkpoint boosts are consumed when the checkpoint starts; activation boosts are consumed only when triggered.</p>
       <div class="wallet-strip"><span>Equipped <b>${equipped.length}/3</b></span><span>Fuel <b>${formatNumber(this.game.rocket.maxFuel ?? 100, 0)}</b></span><span>Landing x<b>${formatNumber(this.game.rocket.stats?.landingAngleMultiplier ?? 1, 2)}</b></span></div>
-      <div class="boost-list">${rows}</div>
+      <div class="boost-layout">
+        <div class="rocket-preview" data-rocket-preview aria-label="Interactive rocket boost preview"></div>
+        <div class="boost-list">${rows}</div>
+      </div>
       <div class="control-actions"><button data-action="boost-shop">Boost Shop</button><button data-action="play">Launch</button><button data-action="back">Back</button></div>
     </section>`;
+    this.#mountRocketPreview(equipped[0] ?? 'fuel_saver');
   }
 
   #boostShop() {
-    const rows = BOOST_DEFINITIONS.map((boost) => `<div class="boost-row">
+    const rows = BOOST_DEFINITIONS.map((boost) => `<div class="boost-row" data-focus-part="${boost.boostId}">
       <div><strong>${boost.displayName}</strong><span>${this.#effectText(boost.effects)} | ${boost.chipPrice} chips</span></div>
       <button data-action="buy-boost" data-boost-id="${boost.boostId}">Buy</button>
     </div>`).join('');
     this.overlay.innerHTML = `<section class="panel upgrade-panel">
       <h2>Boost Shop</h2>
       <div class="wallet-strip"><span>BSG chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span></div>
-      <div class="boost-list">${rows}</div>
+      <div class="boost-layout">
+        <div class="rocket-preview" data-rocket-preview aria-label="Interactive rocket boost shop preview"></div>
+        <div class="boost-list">${rows}</div>
+      </div>
       <div class="control-actions"><button data-action="boosts">Boosts</button><button data-action="back">Back</button></div>
     </section>`;
+    this.#mountRocketPreview('emergency_fuel');
   }
 
   #buyStars() {
+    this.#disposeRocketPreview();
     const rows = BONUS_STAR_PACKAGES.map((pack) => `<div class="boost-row">
       <div><strong>${pack.stars} stars</strong><span>${pack.chipPrice} BSG chips</span></div>
       <button data-action="buy-star-pack" data-package-id="${pack.packageId}">Buy</button>
@@ -370,6 +394,7 @@ export class UIController {
   }
 
   #store() {
+    this.#disposeRocketPreview();
     this.overlay.innerHTML = `
       <section class="panel store-panel">
         <h2>Full Version</h2>
@@ -381,6 +406,7 @@ export class UIController {
   }
 
   #profile() {
+    this.#disposeRocketPreview();
     if (!this.game.profile.isLoggedIn()) {
       this.#loginRequired();
       return;
@@ -407,6 +433,7 @@ export class UIController {
   }
 
   #endActions() {
+    this.#disposeRocketPreview();
     this.overlay.innerHTML = `
       <section class="panel demo-panel">
         <button data-action="restart">Restart</button>
@@ -415,6 +442,7 @@ export class UIController {
   }
 
   showMobileTiltPrompt() {
+    this.#disposeRocketPreview();
     this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
       <section class="panel menu-panel mobile-tutorial-panel">
@@ -429,6 +457,7 @@ export class UIController {
   }
 
   showMobileCalibratePrompt() {
+    this.#disposeRocketPreview();
     this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
       <section class="panel menu-panel mobile-tutorial-panel">
@@ -443,6 +472,7 @@ export class UIController {
   }
 
   showMobileReadyPrompt() {
+    this.#disposeRocketPreview();
     this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
       <section class="panel menu-panel mobile-tutorial-panel">
@@ -453,6 +483,7 @@ export class UIController {
   }
 
   showVrPrompt() {
+    this.#disposeRocketPreview();
     this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
       <section class="panel menu-panel vr-ready-panel">
@@ -463,6 +494,7 @@ export class UIController {
   }
 
   showMissionHint() {
+    this.#disposeRocketPreview();
     this.overlay.innerHTML = `
       <section class="toast mission-hint">
         <strong>MISSION</strong>
@@ -471,6 +503,7 @@ export class UIController {
   }
 
   #levelSelect() {
+    this.#disposeRocketPreview();
     const levels = this.game.levels.levels.map((level) => {
       const markerId = level.markerId ?? Math.max(0, Math.floor(level.startDistance / 180));
       const score = this.game.score.progress.bestScores[markerId] ?? 0;
@@ -483,6 +516,7 @@ export class UIController {
   }
 
   #pause() {
+    this.#disposeRocketPreview();
     this.overlay.innerHTML = `<section class="panel control-panel">
       <h2>Menu</h2>
       <div class="control-actions">
@@ -493,6 +527,7 @@ export class UIController {
   }
 
   #leaderboard() {
+    this.#disposeRocketPreview();
     const board = this.game.score.progress.leaderboard ?? {};
     const rows = (board.runs ?? []).slice(0, 10).map((run, index) => `
       <div class="leader-row">
@@ -622,6 +657,18 @@ export class UIController {
     this.noticeTimer = window.setTimeout(() => notice.remove(), 2200);
   }
 
+  #mountRocketPreview(focusId) {
+    this.#disposeRocketPreview();
+    const container = this.root.querySelector('[data-rocket-preview]');
+    if (!container) return;
+    this.rocketPreview = new RocketPreview(container, focusId);
+  }
+
+  #disposeRocketPreview() {
+    this.rocketPreview?.dispose();
+    this.rocketPreview = null;
+  }
+
   #label(key) {
     return key.replace(/([A-Z])/g, ' $1').replace(/Percent|Flat/g, '').trim();
   }
@@ -635,6 +682,7 @@ export class UIController {
   }
 
   #launchSequence() {
+    this.#disposeRocketPreview();
     this.overlay.innerHTML = `
       <section class="launch-transition">
         <div class="hangar-door left-door"></div>
