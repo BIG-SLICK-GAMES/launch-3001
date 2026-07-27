@@ -83,16 +83,6 @@ export class Rocket {
     booster.position.y = -0.95;
     this.group.add(booster);
 
-    const upperTrim = new THREE.Mesh(new THREE.TorusGeometry(0.345, 0.018, 10, bodySegments), hazardMat);
-    upperTrim.position.y = 0.78;
-    upperTrim.rotation.x = Math.PI / 2;
-    this.group.add(upperTrim);
-
-    const lowerTrim = new THREE.Mesh(new THREE.TorusGeometry(0.415, 0.02, 10, bodySegments), hazardMat);
-    lowerTrim.position.y = -0.32;
-    lowerTrim.rotation.x = Math.PI / 2;
-    this.group.add(lowerTrim);
-
     for (let i = 0; i < 4; i += 1) {
       const fin = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.48, 0.42), orangeMat);
       fin.position.set(Math.cos(i * Math.PI / 2) * 0.42, -0.58, Math.sin(i * Math.PI / 2) * 0.42);
@@ -120,21 +110,6 @@ export class Rocket {
     window.position.set(0, 0.82, -0.31);
     window.scale.set(1, 0.75, 0.28);
     this.group.add(window);
-
-    if (desktopQuality) {
-      for (const [x, y] of [[-0.24, 0.28], [0.24, 0.28]]) {
-        const port = new THREE.Mesh(new THREE.SphereGeometry(0.075, 24, 14), glassMat);
-        port.position.set(x, y, -0.31);
-        port.scale.set(1, 0.72, 0.24);
-        this.group.add(port);
-      }
-      for (let i = 0; i < 12; i += 1) {
-        const angle = i * Math.PI * 2 / 12;
-        const bolt = new THREE.Mesh(new THREE.SphereGeometry(0.018, 10, 6), darkMat);
-        bolt.position.set(Math.cos(angle) * 0.405, -0.32, Math.sin(angle) * 0.405);
-        this.group.add(bolt);
-      }
-    }
 
     this.flame = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.9, detailSegments), new THREE.MeshBasicMaterial({ color: 0xff9a2e, transparent: true, opacity: 0.82 }));
     this.flame.position.y = -1.55;
