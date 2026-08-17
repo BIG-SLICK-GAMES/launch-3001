@@ -14,6 +14,7 @@ const gitSha = (() => {
 const buildLabel = gitSha ? `${pkg.version}-${gitSha}` : pkg.version;
 
 export default defineConfig({
+  base: '/launch3001/',
   plugins: process.env.LAUNCH3001_HTTPS === '1' ? [basicSsl()] : [],
   define: {
     __LAUNCH3001_BUILD__: JSON.stringify(buildLabel)
