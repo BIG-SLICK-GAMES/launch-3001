@@ -242,7 +242,6 @@ export class UIController {
             <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
           </div>
           ${this.game.fullAccess ? '<div class="access-pill owned">Full Game Owned</div>' : ''}
-          ${loggedIn ? '' : '<p class="login-note">Playing without a BSG account. Sign in only when you want wallet/profile sync.</p><button data-action="external-login">Open BSG Login</button>'}
           <dl>
             <dt>BSG chips</dt><dd>${formatNumber(profile.chips ?? 0, 0)}</dd>
             <dt>Stars</dt><dd>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</dd>
