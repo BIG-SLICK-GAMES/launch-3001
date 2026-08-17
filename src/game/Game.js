@@ -75,7 +75,6 @@ export class Game {
     this.voiceFlags = {};
     this.reserveFuelUsed = false;
     this.mobileTutorialDone = false;
-    this.authSkipped = false;
     this.deviceMode = this.settings.deviceMode ?? '';
     if (this.deviceMode) this.root.dataset.deviceMode = this.deviceMode;
     this.missionHintDone = localStorage.getItem('launch3001.missionHintDone') === '1';
@@ -87,7 +86,6 @@ export class Game {
     this.profile.refresh();
     this.fullAccess = true;
     this.ui.refreshProfile();
-    if (this.isAuthReady() && this.state.is(STATES.AUTH)) this.showDeviceSelect();
   }
 
   start() {
@@ -125,10 +123,6 @@ export class Game {
   }
 
   startLevel(id) {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
     if (!this.deviceMode) {
       this.showDeviceSelect();
       return;
@@ -204,10 +198,6 @@ export class Game {
   }
 
   showLobby() {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
     if (!this.deviceMode) {
       this.showDeviceSelect();
       return;
@@ -218,17 +208,7 @@ export class Game {
   }
 
   enterHangar() {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
     this.showDeviceSelect();
-  }
-
-  showAuth() {
-    this.audio.stopEngine();
-    this.state.clearTimers();
-    this.state.transition(STATES.AUTH);
   }
 
   showDeviceSelect() {
@@ -237,18 +217,8 @@ export class Game {
     this.state.transition(STATES.DEVICE_SELECT);
   }
 
-  async loginWithCredentials(email, password) {
-    await this.hub.loginWithCredentials(email, password);
-    this.showDeviceSelect();
-  }
-
-  skipLogin() {
-    this.authSkipped = true;
-    this.showDeviceSelect();
-  }
-
   isAuthReady() {
-    return this.authSkipped || this.profile.isLoggedIn();
+    return true;
   }
 
   selectDeviceMode(mode) {
@@ -271,10 +241,6 @@ export class Game {
   }
 
   enterGame() {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
     if (!this.deviceMode) {
       this.showDeviceSelect();
       return;
@@ -364,7 +330,7 @@ export class Game {
     if (!this.running) return;
     const dt = Math.min((time - this.lastTime) / 1000 || 0, MAX_FRAME_DELTA);
     this.lastTime = time;
-    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE) && !this.state.is(STATES.SPLASH) && !this.state.is(STATES.AUTH) && !this.state.is(STATES.DEVICE_SELECT) && !this.state.is(STATES.LOBBY)) {
+    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE) && !this.state.is(STATES.SPLASH) && !this.state.is(STATES.DEVICE_SELECT) && !this.state.is(STATES.LOBBY)) {
       this.accumulator += dt;
       while (this.accumulator >= FIXED_STEP) {
         this.#fixedUpdate(FIXED_STEP);

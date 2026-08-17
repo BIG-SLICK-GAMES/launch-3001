@@ -1,4 +1,4 @@
-import { BSG_HUB_ORIGINS, HOLDEN_AUTH_URL, LOCAL_PLATFORM_PROFILE_URL, LOGIN_URL, PRODUCT_ID, SHOP_URL } from './constants.js';
+import { BSG_HUB_ORIGINS, LOCAL_PLATFORM_PROFILE_URL, LOGIN_URL, PRODUCT_ID, SHOP_URL } from './constants.js';
 import { BUILD_LABEL } from './buildInfo.js';
 
 const PROFILE_TYPES = ['BSG_PROFILE', 'BSG_PROFILE_RESPONSE', 'BSG_AUTH_PROFILE'];
@@ -32,49 +32,6 @@ export class BSGHubBridge {
       returnUrl: window.location.href
     });
     this.#navigateTo(loginUrl);
-  }
-
-  async loginWithCredentials(email, password) {
-    const response = await fetch(HOLDEN_AUTH_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      credentials: 'include',
-      body: JSON.stringify({
-        email,
-        password,
-        productId: PRODUCT_ID,
-        game: PRODUCT_ID
-      })
-    });
-
-    let payload = null;
-    try {
-      payload = await response.json();
-    } catch {
-      // Some auth servers send status-only failures.
-    }
-
-    if (!response.ok) {
-      const message = payload?.message || payload?.error || 'Login failed. Check your email and password.';
-      throw new Error(message);
-    }
-
-    const profile = payload?.profile || payload?.user || payload;
-    if (!profile?.id && !profile?.email) throw new Error('Login succeeded, but no player profile was returned.');
-    this.applyProfile({
-      id: profile.id || profile.sUserID || profile.email,
-      name: profile.name || profile.username || profile.sUserName || profile.email || 'BSG Player',
-      email: profile.email || profile.sEmail || email,
-      avatar: profile.avatar || profile.sAvatar || '',
-      token: payload?.token || payload?.accessToken || profile.token || '',
-      chips: profile.chips ?? profile.nChips ?? 0,
-      purchases: profile.purchases || payload?.purchases || {},
-      entitlements: profile.entitlements || payload?.entitlements || {},
-      source: profile.source || '21-holden-db'
-    }, '21-holden-db');
   }
 
   openShop() {
