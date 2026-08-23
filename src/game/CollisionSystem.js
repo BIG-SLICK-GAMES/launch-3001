@@ -18,7 +18,7 @@ export class CollisionSystem {
     this.tmpSphere.radius = rocket.radius;
     for (const entry of this.world.current.boxes) {
       if (entry.box.intersectsSphere(this.tmpSphere)) {
-        const reason = entry.spec.type === 'roof' ? FAILURE_REASONS.roof : FAILURE_REASONS.wall;
+        const reason = entry.spec.type === 'roof' || entry.spec.type === 'caveRoof' ? FAILURE_REASONS.roof : FAILURE_REASONS.wall;
         return { type: 'crash', reason };
       }
     }
@@ -54,6 +54,7 @@ export class CollisionSystem {
     if (vertical < thresholds.verticalSpeed * 0.32 && horizontal < thresholds.horizontalSpeed * 0.32 && angle < thresholds.angle * 0.32) grade = LANDING_GRADES.perfect;
     else if (vertical < thresholds.verticalSpeed * 0.48 && horizontal < thresholds.horizontalSpeed * 0.5 && angle < thresholds.angle * 0.5) grade = LANDING_GRADES.excellent;
     else if (vertical < thresholds.verticalSpeed * 0.7 && horizontal < thresholds.horizontalSpeed * 0.72 && angle < thresholds.angle * 0.72) grade = LANDING_GRADES.good;
+    else if (vertical > thresholds.verticalSpeed * 0.86 || horizontal > thresholds.horizontalSpeed * 0.86 || angle > thresholds.angle * 0.86) grade = LANDING_GRADES.hard;
     return { type: 'landed', grade, marker };
   }
 }

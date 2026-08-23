@@ -17,10 +17,11 @@ export class LevelBuilder {
     const obstacleMeshes = [];
     const hazardSpecs = [...level.obstacles, ...level.roofs, ...level.walls, ...(level.tunnels ?? []), ...(level.movers ?? [])];
     hazardSpecs.forEach((spec) => {
-      const mesh = this.#box(spec);
+      const mesh = this.#box(spec, level);
       obstacleMeshes.push(mesh);
       group.add(mesh);
     });
+    const checkpointCollisionSpecs = (level.checkpoints ?? [level.landingPad]).flatMap((checkpoint) => this.#checkpointCollisionSpecs(checkpoint));
     const pickupGroup = new THREE.Group();
     for (const pickup of level.pickups ?? []) {
       pickupGroup.add(this.#pickup(pickup));
@@ -34,7 +35,10 @@ export class LevelBuilder {
       obstacleMeshes,
       pickupMeshes: pickupGroup.children,
       checkpointMeshes: checkpointGroup.children,
-      boxes: hazardSpecs.map((spec, index) => ({ spec, mesh: obstacleMeshes[index], box: makeBoxFromSpec(spec), origin: { ...spec.position } }))
+      boxes: [
+        ...hazardSpecs.map((spec, index) => ({ spec, mesh: obstacleMeshes[index], box: makeBoxFromSpec(spec), origin: { ...spec.position } })),
+        ...checkpointCollisionSpecs.map((spec) => ({ spec, mesh: null, box: makeBoxFromSpec(spec), origin: { ...spec.position } }))
+      ]
     };
   }
 
@@ -53,15 +57,7 @@ export class LevelBuilder {
         const worldZ = pz + centerZ;
         const safeLaunch = this.#nearPad(px, worldZ, level.launchPad, 5);
         const safeLanding = (level.checkpoints ?? [level.landingPad]).some((pad) => this.#nearPad(px, worldZ, pad, 6));
-        const routeDistance = Math.max(0, startDistance + level.launchPad.position.z - worldZ);
-        const terrainDifficulty = Math.min(2.4, 0.18 + routeDistance / 1500);
-        const wave = Math.sin((px + seed) * frequency) * Math.cos((pz - seed) * frequency * 0.72);
-        const ridge = Math.sin((px * 0.31 + pz * 0.19 + seed) * frequency * 1.7);
-        const brokenGround = Math.sin((px * 0.47 - pz * 0.23 + seed) * frequency * 3.1) * 0.22;
-        const sideRise = Math.max(0, Math.abs(px) / (width / 2) - 0.42);
-        const canyonWall = sideRise ** 2.2 * (4.2 + terrainDifficulty * 4.6);
-        const centerDip = Math.max(0, 1 - Math.abs(px) / 16) * terrainDifficulty * -0.18;
-        let h = ((wave * 0.65 + ridge * 0.35 + brokenGround) * amplitude * (0.85 + terrainDifficulty * 0.82)) + canyonWall + centerDip;
+        let h = this.#terrainHeight(level, px, worldZ, pz);
         if (safeLaunch || safeLanding) h = -0.06;
         positions.setY(i, h);
         heights[z][x] = h;
@@ -91,32 +87,209 @@ export class LevelBuilder {
     return Math.abs(x - pad.position.x) < pad.size.x / 2 + margin && Math.abs(z - pad.position.z) < pad.size.z / 2 + margin;
   }
 
+  #terrainHeight(level, px, worldZ, localZ = worldZ - (level.terrain.centerZ ?? 0)) {
+    const { width, amplitude, frequency, seed, startDistance = 0 } = level.terrain;
+    const routeDistance = Math.max(0, startDistance + level.launchPad.position.z - worldZ);
+    const terrainDifficulty = Math.min(2.4, 0.18 + routeDistance / 1500);
+    const wave = Math.sin((px + seed) * frequency) * Math.cos((localZ - seed) * frequency * 0.72);
+    const ridge = Math.sin((px * 0.31 + localZ * 0.19 + seed) * frequency * 1.7);
+    const brokenGround = Math.sin((px * 0.47 - localZ * 0.23 + seed) * frequency * 3.1) * 0.22;
+    const sideRise = Math.max(0, Math.abs(px) / (width / 2) - 0.42);
+    const canyonWall = sideRise ** 2.2 * (4.2 + terrainDifficulty * 4.6);
+    const centerDip = Math.max(0, 1 - Math.abs(px) / 16) * terrainDifficulty * -0.18;
+    return ((wave * 0.65 + ridge * 0.35 + brokenGround) * amplitude * (0.85 + terrainDifficulty * 0.82)) + canyonWall + centerDip;
+  }
+
   #pad(pad, color, label) {
     const group = new THREE.Group();
     group.name = label;
     group.position.set(pad.position.x, pad.position.y, pad.position.z);
+    const sx = pad.size.x;
+    const sz = pad.size.z;
+    const coreSize = Math.min(sx, sz);
+    const isLaunch = /launch/i.test(label);
+    const padText = isLaunch ? 'LAUNCH' : 'LAND';
+    const deckMaterial = this.#padDeckMaterial(color, padText);
+    const baseMaterial = new THREE.MeshStandardMaterial({ color: 0x1f252d, emissive: 0x050b10, emissiveIntensity: 0.35, roughness: 0.46, metalness: 0.62 });
+    const edgeMaterial = new THREE.MeshStandardMaterial({ color: 0x394552, emissive: 0x07131b, emissiveIntensity: 0.45, roughness: 0.32, metalness: 0.72 });
+    const glowMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.45, blending: THREE.AdditiveBlending, depthWrite: false });
+    const hotMaterial = new THREE.MeshBasicMaterial({ color: isLaunch ? 0xff8a24 : color, transparent: true, opacity: 0.92, blending: THREE.AdditiveBlending, depthWrite: false });
+
+    const foundation = new THREE.Mesh(
+      new THREE.BoxGeometry(sx + 1.1, 0.24, sz + 1.1),
+      baseMaterial
+    );
+    foundation.position.y = -0.03;
+    group.add(foundation);
+
     const base = new THREE.Mesh(
-      new THREE.BoxGeometry(pad.size.x, 0.18, pad.size.z),
-      new THREE.MeshStandardMaterial({ color, emissive: color, emissiveIntensity: 0.55, roughness: 0.28, metalness: 0.22 })
+      new THREE.BoxGeometry(sx, 0.18, sz),
+      deckMaterial
     );
+    base.position.y = 0.08;
     group.add(base);
+
     const glow = new THREE.Mesh(
-      new THREE.BoxGeometry(pad.size.x + 0.35, 0.03, pad.size.z + 0.35),
-      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.2, blending: THREE.AdditiveBlending })
+      new THREE.BoxGeometry(sx + 0.55, 0.03, sz + 0.55),
+      glowMaterial
     );
-    glow.position.y = 0.13;
+    glow.position.y = 0.18;
     group.add(glow);
+
+    const rails = [
+      { x: 0, z: -sz / 2 - 0.16, w: sx + 0.85, d: 0.16 },
+      { x: 0, z: sz / 2 + 0.16, w: sx + 0.85, d: 0.16 },
+      { x: -sx / 2 - 0.16, z: 0, w: 0.16, d: sz + 0.85 },
+      { x: sx / 2 + 0.16, z: 0, w: 0.16, d: sz + 0.85 }
+    ];
+    rails.forEach((rail) => {
+      const rim = new THREE.Mesh(new THREE.BoxGeometry(rail.w, 0.16, rail.d), edgeMaterial);
+      rim.position.set(rail.x, 0.22, rail.z);
+      group.add(rim);
+    });
+
     const ring = new THREE.Mesh(
-      new THREE.RingGeometry(Math.min(pad.size.x, pad.size.z) * 0.24, Math.min(pad.size.x, pad.size.z) * 0.34, 36),
-      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.95 })
+      new THREE.RingGeometry(coreSize * 0.25, coreSize * 0.36, 56),
+      hotMaterial
     );
     ring.rotation.x = -Math.PI / 2;
-    ring.position.y = 0.12;
+    ring.position.y = 0.235;
     group.add(ring);
+
+    const outerRing = new THREE.Mesh(
+      new THREE.RingGeometry(coreSize * 0.47, coreSize * 0.5, 64),
+      new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.55, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    outerRing.rotation.x = -Math.PI / 2;
+    outerRing.position.y = 0.238;
+    group.add(outerRing);
+
+    const crossMaterial = new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.78, blending: THREE.AdditiveBlending, depthWrite: false });
+    const crossA = new THREE.Mesh(new THREE.BoxGeometry(coreSize * 0.82, 0.025, 0.08), crossMaterial);
+    const crossB = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.025, coreSize * 0.82), crossMaterial);
+    crossA.position.y = 0.245;
+    crossB.position.y = 0.246;
+    group.add(crossA, crossB);
+
+    const lightGeometry = new THREE.BoxGeometry(0.32, 0.04, 0.09);
+    for (let i = -2; i <= 2; i += 1) {
+      const front = new THREE.Mesh(lightGeometry, hotMaterial);
+      front.position.set((sx / 6) * i, 0.31, sz / 2 + 0.28);
+      const back = front.clone();
+      back.position.z = -sz / 2 - 0.28;
+      group.add(front, back);
+    }
+    for (const x of [-sx / 2 - 0.22, sx / 2 + 0.22]) {
+      for (const z of [-sz / 2 - 0.22, sz / 2 + 0.22]) {
+        const beacon = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.12, 0.16, 0.18, 12),
+          hotMaterial
+        );
+        beacon.position.set(x, 0.38, z);
+        group.add(beacon);
+      }
+    }
+
+    const hoseMaterial = new THREE.MeshStandardMaterial({ color: 0x101820, roughness: 0.54, metalness: 0.44 });
+    const hose = new THREE.Mesh(new THREE.TorusGeometry(0.42, 0.045, 8, 32), hoseMaterial);
+    hose.rotation.x = Math.PI / 2;
+    hose.position.set(-sx / 2 - 0.58, 0.22, -sz * 0.18);
+    group.add(hose);
+    const pipe = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, sz * 0.52), hoseMaterial);
+    pipe.position.set(-sx / 2 - 0.48, 0.2, sz * 0.11);
+    group.add(pipe);
+
+    const consoleMaterial = new THREE.MeshStandardMaterial({ color: 0x26323c, emissive: 0x071923, emissiveIntensity: 0.38, roughness: 0.38, metalness: 0.68 });
+    const console = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.42, 0.32), consoleMaterial);
+    console.position.set(sx / 2 + 0.46, 0.31, -sz * 0.26);
+    const screen = new THREE.Mesh(
+      new THREE.BoxGeometry(0.3, 0.16, 0.02),
+      new THREE.MeshBasicMaterial({ color: 0x9ff7ff, transparent: true, opacity: 0.85, blending: THREE.AdditiveBlending })
+    );
+    screen.position.set(sx / 2 + 0.46, 0.38, -sz * 0.43);
+    group.add(console, screen);
+
+    const crateMaterial = new THREE.MeshStandardMaterial({ color: 0x515b64, roughness: 0.62, metalness: 0.36 });
+    const crateA = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.28, 0.34), crateMaterial);
+    crateA.position.set(-sx / 2 - 0.42, 0.22, sz * 0.34);
+    const crateB = crateA.clone();
+    crateB.scale.set(0.8, 0.7, 1.15);
+    crateB.position.set(-sx / 2 - 0.72, 0.19, sz * 0.48);
+    group.add(crateA, crateB);
+
+    const guideLight = new THREE.PointLight(color, 0.55, Math.max(sx, sz) * 3.2, 2.2);
+    guideLight.position.set(0, 1.4, 0);
+    group.add(guideLight);
     return group;
   }
 
-  #box(spec) {
+  #padDeckMaterial(color, label) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 512;
+    canvas.height = 512;
+    const context = canvas.getContext('2d');
+    context.fillStyle = '#252d35';
+    context.fillRect(0, 0, canvas.width, canvas.height);
+    context.strokeStyle = '#465461';
+    context.lineWidth = 5;
+    for (let i = 64; i < 512; i += 96) {
+      context.beginPath();
+      context.moveTo(i, 24);
+      context.lineTo(i, 488);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(24, i);
+      context.lineTo(488, i);
+      context.stroke();
+    }
+    context.strokeStyle = '#121820';
+    context.lineWidth = 14;
+    context.strokeRect(22, 22, 468, 468);
+    context.strokeStyle = '#f59a23';
+    context.lineWidth = 12;
+    for (let i = -120; i < 520; i += 56) {
+      context.beginPath();
+      context.moveTo(i, 492);
+      context.lineTo(i + 42, 452);
+      context.stroke();
+      context.beginPath();
+      context.moveTo(i, 60);
+      context.lineTo(i + 42, 20);
+      context.stroke();
+    }
+    context.strokeStyle = `#${color.toString(16).padStart(6, '0')}`;
+    context.lineWidth = 8;
+    context.beginPath();
+    context.arc(256, 256, 122, 0, Math.PI * 2);
+    context.stroke();
+    context.beginPath();
+    context.arc(256, 256, 178, 0, Math.PI * 2);
+    context.stroke();
+    context.fillStyle = 'rgba(5, 12, 18, 0.72)';
+    context.fillRect(155, 228, 202, 56);
+    context.shadowColor = `#${color.toString(16).padStart(6, '0')}`;
+    context.shadowBlur = 16;
+    context.fillStyle = '#eaffff';
+    context.font = '700 38px Arial, sans-serif';
+    context.textAlign = 'center';
+    context.textBaseline = 'middle';
+    context.fillText(label, 256, 257);
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+    texture.anisotropy = 4;
+    texture.needsUpdate = true;
+    return new THREE.MeshStandardMaterial({
+      color: 0xffffff,
+      map: texture,
+      emissive: 0x071018,
+      emissiveIntensity: 0.42,
+      roughness: 0.36,
+      metalness: 0.7
+    });
+  }
+
+  #box(spec, level) {
+    if (spec.type === 'caveRoof') return this.#invertedTerrainRoof(spec, level);
     const color = spec.type === 'tunnel' ? 0x24dfff : spec.type === 'roof' ? 0xff334f : spec.type === 'caveRoof' ? 0x536985 : spec.type === 'wall' || spec.type === 'sideWall' || spec.type === 'movingWall' ? 0xff2433 : spec.type === 'mountain' || spec.type === 'caveSpike' || spec.type === 'boulder' || spec.type === 'movingBoulder' ? 0x8a98a7 : 0xff8a24;
     const group = new THREE.Group();
     group.position.set(spec.position.x, spec.position.y, spec.position.z);
@@ -193,17 +366,69 @@ export class LevelBuilder {
     return group;
   }
 
+  #invertedTerrainRoof(spec, level) {
+    const group = new THREE.Group();
+    group.position.set(spec.position.x, spec.position.y, spec.position.z);
+    group.name = spec.type;
+    const segmentsX = 18;
+    const segmentsZ = Math.max(22, Math.min(52, Math.round(spec.size.z / 2.2)));
+    const geometry = new THREE.PlaneGeometry(spec.size.x, spec.size.z, segmentsX, segmentsZ);
+    geometry.rotateX(-Math.PI / 2);
+    const positions = geometry.attributes.position;
+    for (let i = 0; i < positions.count; i += 1) {
+      const localX = positions.getX(i);
+      const localZ = positions.getZ(i);
+      const worldX = spec.position.x + localX;
+      const worldZ = spec.position.z + localZ;
+      const sourceHeight = this.#terrainHeight(level, worldX, worldZ);
+      const relief = Math.max(0, Math.min(spec.size.y * 0.82, Math.abs(sourceHeight) * 0.34 + Math.max(0, sourceHeight) * 0.16));
+      positions.setY(i, -spec.size.y * 0.48 + relief);
+    }
+    geometry.computeVertexNormals();
+    const material = new THREE.MeshStandardMaterial({
+      color: level.visualTheme.terrain,
+      roughness: 0.9,
+      metalness: 0.1,
+      emissive: 0x0a2030,
+      emissiveIntensity: 0.26,
+      side: THREE.DoubleSide
+    });
+    const mesh = new THREE.Mesh(geometry, material);
+    group.add(mesh);
+    const wire = new THREE.LineSegments(
+      new THREE.WireframeGeometry(geometry),
+      new THREE.LineBasicMaterial({ color: 0x1f6f92, transparent: true, opacity: 0.28 })
+    );
+    mesh.add(wire);
+    return group;
+  }
+
   #checkpoint(marker) {
     const group = this.#pad(marker, 0x33ff8a, `Save ${marker.id}`);
     const archMat = new THREE.MeshStandardMaterial({ color: 0x21ffd4, emissive: 0x0fb48e, emissiveIntensity: 1.1, roughness: 0.24 });
     const left = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2, 10), archMat);
     const right = left.clone();
-    const top = new THREE.Mesh(new THREE.BoxGeometry(marker.size.x + 0.6, 0.16, 0.16), archMat);
     left.position.set(-marker.size.x * 0.5, 1.65, 0);
     right.position.set(marker.size.x * 0.5, 1.65, 0);
-    top.position.set(0, 3.25, 0);
-    group.add(left, right, top, this.#checkpointNumber(marker));
+    group.add(left, right, this.#checkpointNumber(marker));
     return group;
+  }
+
+  #checkpointCollisionSpecs(marker) {
+    const postHeight = 3.2;
+    const postWidth = 0.24;
+    return [
+      {
+        type: 'checkpointPillar',
+        position: { x: marker.position.x - marker.size.x * 0.5, y: marker.position.y + 1.65, z: marker.position.z },
+        size: { x: postWidth, y: postHeight, z: postWidth }
+      },
+      {
+        type: 'checkpointPillar',
+        position: { x: marker.position.x + marker.size.x * 0.5, y: marker.position.y + 1.65, z: marker.position.z },
+        size: { x: postWidth, y: postHeight, z: postWidth }
+      }
+    ];
   }
 
   #checkpointNumber(marker) {
@@ -280,17 +505,31 @@ export class LevelBuilder {
     const barB = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.52, 0.07), markMat);
     barA.position.z = 0.42;
     barB.position.z = 0.42;
+    const innerRing = this.#pickupRing(0.82, 0x9fffc7, 0.88);
+    const outerRing = this.#pickupRing(1.22, 0xffd166, 0.62);
+    const hoverZone = new THREE.Mesh(
+      new THREE.CylinderGeometry(1.08, 1.08, 2.7, 42, 1, true),
+      new THREE.MeshBasicMaterial({ color: 0x66ff9a, transparent: true, opacity: 0.11, blending: THREE.AdditiveBlending, depthWrite: false, side: THREE.DoubleSide })
+    );
+    hoverZone.position.y = -0.06;
+    const column = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.08, 0.08, 2.45, 18),
+      new THREE.MeshBasicMaterial({ color: 0xffd166, transparent: true, opacity: 0.46, blending: THREE.AdditiveBlending, depthWrite: false })
+    );
+    column.position.y = -0.05;
+    const holdHalo = this.#pickupRing(1.08, 0x66ff9a, 0.34);
+    holdHalo.position.y = -0.92;
+    group.add(drop, point, barA, barB, hoverZone, column, innerRing, outerRing, holdHalo);
+    return group;
+  }
+
+  #pickupRing(radius, color, opacity) {
     const ring = new THREE.Mesh(
-      new THREE.TorusGeometry(0.84, 0.035, 8, 34),
-      new THREE.MeshBasicMaterial({ color: 0x9fffc7, transparent: true, opacity: 0.72, blending: THREE.AdditiveBlending })
+      new THREE.TorusGeometry(radius, 0.035, 8, 42),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity, blending: THREE.AdditiveBlending, depthWrite: false })
     );
     ring.rotation.x = Math.PI / 2;
-    const outerRing = ring.clone();
-    outerRing.scale.set(1.22, 1.22, 1.22);
-    outerRing.material = ring.material.clone();
-    outerRing.material.opacity = 0.32;
-    group.add(drop, point, barA, barB, ring, outerRing);
-    return group;
+    return ring;
   }
 
   #bounds(bounds) {

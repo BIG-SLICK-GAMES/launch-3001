@@ -7,7 +7,6 @@ export const STORAGE_KEYS = {
 export const PRODUCT_ID = 'launch3001';
 export const DEMO_CHECKPOINT_LIMIT = 2;
 export const LOGIN_URL = 'https://bigslickgames.com/login/index.html';
-export const HOLDEN_AUTH_URL = globalThis.LAUNCH3001_AUTH_URL ?? '/api/21-holden/auth/login';
 export const SHOP_URL = 'https://bigslickgames.com/shop.html';
 export const LOCAL_PLATFORM_PROFILE_URL = '/platform/auth/session';
 export const BSG_HUB_ORIGINS = [
@@ -66,6 +65,7 @@ export const DEFAULT_SETTINGS = {
   tiltSensitivity: 1,
   tiltDeadZone: 0.06,
   tiltSmoothing: 0.18,
+  mobileControlMode: 'tilt',
   rocketTiltMax: 0.62,
   invertForward: false,
   volume: 0.55,

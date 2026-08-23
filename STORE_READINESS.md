@@ -13,7 +13,7 @@
 
 Current demo rule:
 
-- Players must have a logged-in BSG profile before Play or Load Checkpoint will launch.
+- Players can launch and load checkpoints without an in-game login gate.
 - Demo players can play through checkpoint 2.
 - Landing on checkpoint 2 shows the demo completion shop prompt.
 - Full-access players continue past checkpoint 2.
@@ -26,14 +26,14 @@ localStorage.setItem('launch3001.profile', JSON.stringify({ purchases: { launch3
 
 Production requirement:
 
-- The BSG website must pass the logged-in profile into the game with `purchases.launch3001 === true` after purchase.
-- The profile must include a non-guest `id`; otherwise the game treats the user as logged out and sends `BSG_LOGIN_REQUEST`.
+- The BSG website should pass the logged-in profile into the game with `purchases.launch3001 === true` after purchase.
+- If the profile is missing, gameplay still launches locally; BSG wallet/profile features ask the player to use the external BSG login.
 - Supported profile sources in the game are `window.BSG_PROFILE`, `window.launch3001Profile`, `window.launch3001SetProfile(profile)`, or a hub `postMessage`.
 - The game now sends `BSG_GAME_READY` and `BSG_PROFILE_REQUEST` to the parent/opener window when it loads.
 - The BSG hub should reply with `postMessage({ type: 'BSG_PROFILE', profile }, gameOrigin)`.
 - The profile can unlock the game with either `purchases: { launch3001: true }`, `purchases: ['launch3001']`, `entitlements: { launch3001: true }`, or `entitlements: ['launch3001']`.
 - Store clicks send `BSG_SHOP_REQUEST` to the hub and open `https://bigslickgames.com/shop.html?product=launch3001&currency=AUD&return=<game-url>`.
-- Login clicks send `BSG_LOGIN_REQUEST` to the hub with the current game URL as `returnUrl`, then navigate to `https://bigslickgames.com/login/index.html?product=launch3001&return=<game-url>` as a fallback.
+- BSG login clicks send `BSG_LOGIN_REQUEST` to the hub with the current game URL as `returnUrl`, then navigate to `https://bigslickgames.com/login/index.html?product=launch3001&return=<game-url>` as a fallback.
 
 Example hub response:
 

@@ -10,7 +10,7 @@ export class SaveSystem {
   }
 
   loadProgress() {
-    return {
+    const progress = {
       totalScore: 0,
       bestTotalScore: 0,
       highestUnlockedLevel: 1,
@@ -18,6 +18,19 @@ export class SaveSystem {
       bestGrades: {},
       attempts: {},
       perfectLandings: 0,
+      availableStars: 0,
+      totalStarsEarned: 0,
+      starsSpent: 0,
+      bonusStarsPurchased: 0,
+      checkpointStarResults: {},
+      upgradeLevels: {},
+      equippedUpgrades: [],
+      boostInventory: {},
+      equippedBoosts: [],
+      upgradeTransactions: [],
+      boostTransactions: [],
+      activeRocketId: 'default',
+      activeLoadoutId: 'default',
       leaderboard: {
         bestDistance: 0,
         bestDistanceTime: 0,
@@ -25,6 +38,11 @@ export class SaveSystem {
       },
       ...this.#read(STORAGE_KEYS.progress, {})
     };
+    if (this.#consumeLocalUnlockFlag()) {
+      progress.highestUnlockedLevel = Math.max(progress.highestUnlockedLevel ?? 1, 30);
+      this.saveProgress(progress);
+    }
+    return progress;
   }
 
   saveProgress(progress) {
@@ -44,5 +62,13 @@ export class SaveSystem {
     } catch {
       return fallback;
     }
+  }
+
+  #consumeLocalUnlockFlag() {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('unlockLevels') !== '1') return false;
+    url.searchParams.delete('unlockLevels');
+    window.history.replaceState(null, document.title, `${url.pathname}${url.search}${url.hash}`);
+    return true;
   }
 }

@@ -17,7 +17,7 @@ export class PhysicsController {
       rocket.velocity.y += level.thrustPower * dt;
       rocket.thrustUse += dt;
       if (!settings.noFuelDrain) {
-        rocket.fuel = clamp(rocket.fuel - level.fuelBurnRate * dt, 0, 100);
+        rocket.fuel = clamp(rocket.fuel - level.fuelBurnRate * dt, 0, rocket.maxFuel ?? 100);
       }
     }
     rocket.velocity.multiplyScalar(Math.pow(level.damping, dt * 60));

@@ -17,6 +17,12 @@ import { UIController } from './UIController.js';
 import { BSGHubBridge } from './BSGHubBridge.js';
 import { GameState, STATES } from './GameState.js';
 import { DEMO_CHECKPOINT_LIMIT, FIXED_STEP, LANDING_GRADES, MAX_FRAME_DELTA, ROCKET_STANDING_HEIGHT, SHOP_URL } from './constants.js';
+import { UpgradeManager } from './UpgradeManager.js';
+import { BoostManager } from './BoostManager.js';
+import { RocketStatResolver } from './RocketStatResolver.js';
+import { CheckpointStarSystem } from './CheckpointStarSystem.js';
+import { WalletClient } from './WalletClient.js';
+import { BONUS_STAR_PACKAGES } from './BoostDefinitions.js';
 
 export class Game {
   constructor(root) {
@@ -30,10 +36,17 @@ export class Game {
     this.profile = new ProfileSystem(this.save);
     this.fullAccess = true;
     this.score = new ScoreSystem(this.save);
+    this.upgrades = new UpgradeManager(this.save, this.score.progress);
+    this.boosts = new BoostManager(this.save, this.score.progress);
+    this.stars = new CheckpointStarSystem(this.save, this.boosts, this.score.progress);
+    this.statResolver = new RocketStatResolver(this.upgrades, this.boosts);
+    this.wallet = new WalletClient(this);
     this.audio = new AudioSystem(this.settings);
     this.levels = new LevelManager();
     this.world = new World(this.scene);
     this.rocket = new Rocket();
+    this.statResolver.recalculate();
+    this.statResolver.applyToRocket(this.rocket);
     this.scene.add(this.rocket.group);
     this.padShadow = this.#createPadShadow();
     this.scene.add(this.padShadow);
@@ -60,10 +73,11 @@ export class Game {
     this.collectedDrops = new Set();
     this.refillRemaining = new Map();
     this.voiceFlags = {};
+    this.reserveFuelUsed = false;
     this.mobileTutorialDone = false;
-    this.authSkipped = false;
     this.deviceMode = this.settings.deviceMode ?? '';
     if (this.deviceMode) this.root.dataset.deviceMode = this.deviceMode;
+    this.root.dataset.mobileControl = this.settings.mobileControlMode ?? 'tilt';
     this.missionHintDone = localStorage.getItem('launch3001.missionHintDone') === '1';
     this.state.onChange((next, previous, payload) => this.ui.showState(next, payload));
     this.#bindLifecycle();
@@ -73,13 +87,13 @@ export class Game {
     this.profile.refresh();
     this.fullAccess = true;
     this.ui.refreshProfile();
-    if (this.isAuthReady() && this.state.is(STATES.AUTH)) this.showDeviceSelect();
   }
 
   start() {
     this.loadLevel(1);
     this.hub.start();
-    this.state.transition(STATES.SPLASH);
+    if (this.deviceMode) this.state.transition(STATES.LOBBY);
+    else this.state.transition(STATES.DEVICE_SELECT);
     this.renderer.resize(this.camera);
     this.running = true;
     this.renderer.setAnimationLoop((time, frame) => this.#frame(time, frame));
@@ -93,6 +107,7 @@ export class Game {
     this.runRecorded = false;
     this.currentStartId = id;
     this.currentLevel = this.levels.load(id);
+    this.recalculateRocketStats();
     this.world.load(this.currentLevel);
     const launch = this.currentLevel.launchPad.position;
     this.rocket.reset({ x: launch.x, y: launch.y + 0.12 + ROCKET_STANDING_HEIGHT, z: launch.z });
@@ -104,15 +119,12 @@ export class Game {
     this.collectedDrops = new Set();
     this.refillRemaining = new Map();
     this.voiceFlags = { launch: false, lowFuel: false, approachMarkerId: null, refuelPad: null };
-    this.cameraController.update(this.rocket, 1);
+    this.reserveFuelUsed = false;
+    this.cameraController.update(this.rocket, 1, this.#roofCameraContext());
     this.renderer.resize(this.camera);
   }
 
   startLevel(id) {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
     if (!this.deviceMode) {
       this.showDeviceSelect();
       return;
@@ -121,6 +133,7 @@ export class Game {
     this.loadLevel(startId);
     this.score.recordAttempt(startId);
     this.state.transition(STATES.READY);
+    this.ui.showMissionHint();
   }
 
   restartLevel() {
@@ -130,16 +143,80 @@ export class Game {
     this.state.transition(STATES.READY);
   }
 
+  recalculateRocketStats() {
+    this.statResolver.recalculate();
+    this.statResolver.applyToRocket(this.rocket);
+    this.rocket.setUpgradeLoadout(this.upgrades.equippedDefinitions().map((definition) => ({
+      upgradeId: definition.upgradeId,
+      level: this.upgrades.levelFor(definition.upgradeId)
+    })));
+  }
+
+  purchaseUpgrade(upgradeId) {
+    const result = this.upgrades.purchase(upgradeId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  resetUpgrades() {
+    const result = this.upgrades.reset();
+    this.recalculateRocketStats();
+    return result;
+  }
+
+  equipUpgrade(upgradeId) {
+    const result = this.upgrades.equip(upgradeId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  unequipUpgrade(upgradeId) {
+    const result = this.upgrades.unequip(upgradeId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  equipBoost(boostId) {
+    const result = this.boosts.equip(boostId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  unequipBoost(boostId) {
+    const result = this.boosts.unequip(boostId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  async buyBoost(boostId) {
+    const result = await this.wallet.purchaseBoost(boostId, 1);
+    if (!result.ok) return result;
+    this.boosts.grant(boostId, 1, 'boost_purchase');
+    this.recalculateRocketStats();
+    return result;
+  }
+
+  async buyStars(packageId) {
+    const pack = BONUS_STAR_PACKAGES.find((entry) => entry.packageId === packageId);
+    if (!pack) return { ok: false, reason: 'Unknown star package' };
+    const result = await this.wallet.purchaseStars(packageId);
+    if (!result.ok) return result;
+    this.score.progress.availableStars = (this.score.progress.availableStars ?? 0) + pack.stars;
+    this.score.progress.bonusStarsPurchased = (this.score.progress.bonusStarsPurchased ?? 0) + pack.stars;
+    this.score.progress.upgradeTransactions = [
+      ...(this.score.progress.upgradeTransactions ?? []),
+      { id: result.transactionId, type: 'chip_purchased_stars', stars: pack.stars, chips: -pack.chipPrice, at: new Date().toISOString() }
+    ].slice(-100);
+    this.save.saveProgress(this.score.progress);
+    return { ok: true, ...result, stars: pack.stars };
+  }
+
   resetRun() {
     this.score.resetRun();
     this.startLevel(1);
   }
 
   showLobby() {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
     if (!this.deviceMode) {
       this.showDeviceSelect();
       return;
@@ -150,17 +227,7 @@ export class Game {
   }
 
   enterHangar() {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
-    this.showDeviceSelect();
-  }
-
-  showAuth() {
-    this.audio.stopEngine();
-    this.state.clearTimers();
-    this.state.transition(STATES.AUTH);
+    this.showLobby();
   }
 
   showDeviceSelect() {
@@ -169,18 +236,8 @@ export class Game {
     this.state.transition(STATES.DEVICE_SELECT);
   }
 
-  async loginWithCredentials(email, password) {
-    await this.hub.loginWithCredentials(email, password);
-    this.showDeviceSelect();
-  }
-
-  skipLogin() {
-    this.authSkipped = true;
-    this.showDeviceSelect();
-  }
-
   isAuthReady() {
-    return this.authSkipped || this.profile.isLoggedIn();
+    return true;
   }
 
   selectDeviceMode(mode) {
@@ -190,33 +247,30 @@ export class Game {
     this.settings.deviceMode = mode;
     this.save.saveSettings(this.settings);
     this.mobileTutorialDone = mode !== 'mobile';
+    if (mode === 'mobile') this.enterMobileFullscreen();
     if (mode === 'vr') {
       this.cameraController.setMode('COCKPIT');
       this.ui.showVrPrompt();
       return;
     }
     if (mode === 'mobile') {
-      this.ui.showMobileTiltPrompt();
+      this.ui.showMobileControlPrompt();
       return;
     }
     this.showLobby();
   }
 
   enterGame() {
-    if (!this.isAuthReady()) {
-      this.showAuth();
-      return;
-    }
     if (!this.deviceMode) {
       this.showDeviceSelect();
       return;
     }
+    if (this.deviceMode === 'mobile') this.enterMobileFullscreen();
     if (this.deviceMode === 'mobile' && !this.mobileTutorialDone) {
-      this.ui.showMobileTiltPrompt();
+      this.ui.showMobileControlPrompt();
       return;
     }
     this.startLevel(this.score.progress.highestUnlockedLevel);
-    if (!this.missionHintDone) this.ui.showMissionHint();
   }
 
   pause() {
@@ -264,10 +318,23 @@ export class Game {
   }
 
   async enableTiltFromPrompt() {
+    this.settings.mobileControlMode = 'tilt';
+    this.root.dataset.mobileControl = 'tilt';
+    this.save.saveSettings(this.settings);
+    await this.enterMobileFullscreen();
     const ok = await this.enableTilt();
     if (ok) this.ui.showMobileCalibratePrompt();
-    else this.ui.showMobileTiltPrompt();
+    else this.ui.showMobileControlPrompt();
     return ok;
+  }
+
+  enableJoystickFromPrompt() {
+    this.settings.mobileControlMode = 'joystick';
+    this.root.dataset.mobileControl = 'joystick';
+    this.save.saveSettings(this.settings);
+    this.enterMobileFullscreen();
+    this.input.clearJoystickSteering();
+    this.ui.showMobileJoystickReadyPrompt();
   }
 
   async enableAudio() {
@@ -281,9 +348,24 @@ export class Game {
   }
 
   completeMobileTutorial() {
+    this.enterMobileFullscreen();
     this.mobileTutorialDone = true;
     this.state.transition(STATES.LOBBY);
     this.ui.showState(STATES.LOBBY);
+  }
+
+  async enterMobileFullscreen() {
+    if (this.deviceMode !== 'mobile') return false;
+    try {
+      const target = document.documentElement;
+      if (!document.fullscreenElement && target.requestFullscreen) {
+        await target.requestFullscreen({ navigationUI: 'hide' });
+      }
+      await screen.orientation?.lock?.('landscape');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   skipMobileTutorial() {
@@ -296,7 +378,7 @@ export class Game {
     if (!this.running) return;
     const dt = Math.min((time - this.lastTime) / 1000 || 0, MAX_FRAME_DELTA);
     this.lastTime = time;
-    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE) && !this.state.is(STATES.SPLASH) && !this.state.is(STATES.AUTH) && !this.state.is(STATES.DEVICE_SELECT) && !this.state.is(STATES.LOBBY)) {
+    if (!document.hidden && !this.state.is(STATES.PAUSED) && !this.state.is(STATES.MENU) && !this.state.is(STATES.LEVEL_SELECT) && !this.state.is(STATES.DEMO_COMPLETE) && !this.state.is(STATES.SPLASH) && !this.state.is(STATES.DEVICE_SELECT) && !this.state.is(STATES.LOBBY)) {
       this.accumulator += dt;
       while (this.accumulator >= FIXED_STEP) {
         this.#fixedUpdate(FIXED_STEP);
@@ -309,6 +391,7 @@ export class Game {
 
   #fixedUpdate(dt) {
     this.input.update();
+    const runtimeLevel = this.statResolver.adjustedLevel(this.currentLevel);
     const steering = this.#combinedSteering();
     const thrust = this.#combinedThrust();
     if (!thrust) this.takeoffLocked = false;
@@ -328,16 +411,21 @@ export class Game {
     this.rocket.setFlame(active && thrust && this.rocket.fuel > 0);
     if (this.rocket.thrusting) this.audio.startEngine();
     else this.audio.stopEngine();
-    this.physics.step(this.rocket, this.currentLevel, steering, dt, active, this.settings);
+    this.physics.step(this.rocket, runtimeLevel, steering, dt, active, this.settings);
     this.world.updateMovingHazards(this.rocket.flightTime);
     this.#tickGroundTimer(dt, active);
-    this.rocket.updateVisual(dt, steering, this.settings);
+    this.#applyEmergencyFuel();
+    this.#applyAirBrake(dt, active);
+    this.rocket.updateVisual(dt, steering, {
+      ...this.settings,
+      rocketTiltMax: (this.settings.rocketTiltMax ?? 0.62) * (this.rocket.stats?.tiltResponseMultiplier ?? 1)
+    });
     this.#refuelOnPad(dt);
     this.score.updateLeaderboard(this.rocket.distance, this.rocket.flightTime);
     if (active) {
       this.#updateFuelPickups(dt);
-      const result = this.collision.check(this.rocket, this.currentLevel);
-      if (result?.type === 'crash') this.#crash(result.reason);
+      const result = this.collision.check(this.rocket, runtimeLevel);
+      if (result?.type === 'crash') this.#handleCrashResult(result.reason);
       if (result?.type === 'landed') this.#land(result.grade, result.marker);
       this.#checkDemoWall();
     }
@@ -360,20 +448,36 @@ export class Game {
     if (this.vr.enabled) {
       this.vr.update(this, dt);
     } else {
-      this.cameraController.update(this.rocket, dt);
+      this.cameraController.update(this.rocket, dt, this.#roofCameraContext());
     }
     this.effects.update(dt, this.rocket);
     const altitude = this.rocket.position.y - this.world.getTerrainHeight(this.rocket.position.x, this.rocket.position.z) - this.rocket.radius;
     this.#updatePadShadow();
     this.#voiceStatus(altitude);
       this.ui.update({
-      level: this.currentLevel,
+      level: this.statResolver.adjustedLevel(this.currentLevel),
       rocket: this.rocket,
       altitude,
       score: this.score,
       camera: this.cameraController,
       nextMarker: this.#nextMarker()
     });
+  }
+
+  #roofCameraContext() {
+    const position = this.rocket.position;
+    const roofs = this.currentLevel.roofs ?? [];
+    const roofedArea = roofs.some((roof) => {
+      if (roof.type !== 'caveRoof') return false;
+      const halfX = roof.size.x / 2;
+      const halfZ = roof.size.z / 2;
+      const roofTop = roof.position.y + roof.size.y / 2;
+      const withinLane = Math.abs(position.x - roof.position.x) <= halfX + 4;
+      const withinRun = position.z >= roof.position.z - halfZ - 10 && position.z <= roof.position.z + halfZ + 22;
+      const underOrApproaching = position.y <= roofTop + 6;
+      return withinLane && withinRun && underOrApproaching;
+    });
+    return { roofedArea };
   }
 
   #tickGroundTimer(dt, active) {
@@ -412,6 +516,35 @@ export class Game {
     this.state.transition(STATES.CRASHED, { reason, placement });
   }
 
+  #handleCrashResult(reason) {
+    const tolerance = this.rocket.stats?.collisionToleranceMultiplier ?? 1;
+    const impact = Math.hypot(this.rocket.velocity.x, this.rocket.velocity.y, this.rocket.velocity.z);
+    if (tolerance > 1 && impact < 2.2 * tolerance) {
+      this.rocket.velocity.multiplyScalar(-0.18);
+      this.rocket.fuel = Math.max(0, this.rocket.fuel - 8);
+      this.effects.burst(this.rocket.position, 0xffd166, 10);
+      this.audio.speak('Hull absorbed impact.', 'hullAbsorb', 5000);
+      return;
+    }
+    const shield = this.boosts.activate('crash_shield');
+    if (shield) {
+      this.rocket.velocity.multiplyScalar(-0.22);
+      this.rocket.fuel = Math.max(0, this.rocket.fuel - 14);
+      this.effects.burst(this.rocket.position, 0x7deeff, 18);
+      this.audio.speak('Crash shield spent.', 'crashShield', 7000);
+      this.recalculateRocketStats();
+      return;
+    }
+    const insurance = this.boosts.activate('checkpoint_insurance');
+    if (insurance) {
+      this.audio.speak('Checkpoint insurance used.', 'checkpointInsurance', 8000);
+      this.restartLevel();
+      this.recalculateRocketStats();
+      return;
+    }
+    this.#crash(reason);
+  }
+
   #recordRun() {
     if (this.runRecorded || this.rocket.distance <= 0) return null;
     this.runRecorded = true;
@@ -420,7 +553,6 @@ export class Game {
 
   #land(grade, marker = this.currentLevel.landingPad) {
     if (!this.state.is(STATES.FLYING) || this.activeLanding) return;
-    if (this.passedMarkers.has(marker.id)) return;
     this.activeLanding = true;
     this.rocket.landed = true;
     this.rocket.alive = false;
@@ -428,14 +560,13 @@ export class Game {
     this.audio.stopEngine();
     const pad = marker.position;
     this.landedPad = marker;
+    const elapsed = Math.max(0.1, this.rocket.flightTime);
+    const points = this.score.scoreLanding(this.currentLevel, this.rocket, grade, false);
     this.rocket.position.set(pad.x, pad.y + 0.12 + ROCKET_STANDING_HEIGHT, pad.z);
     this.rocket.velocity.set(0, 0, 0);
-    const elapsed = Math.max(0.1, this.rocket.flightTime - this.lastCheckpointTime);
-    const points = this.score.scoreCheckpoint(marker, elapsed, marker.distance ?? this.rocket.distance);
-    const reward = this.score.checkpointBreakdown(marker, elapsed, marker.distance ?? this.rocket.distance);
-    const nextId = Math.min(this.levels.levels.length, Math.floor((marker.distance ?? 0) / 540) + 1);
-    this.score.commitCheckpoint(marker, points, nextId);
-    this.passedMarkers.add(marker.id);
+    const starReward = this.stars.award(marker, elapsed, grade);
+    const nextLevel = this.levels.next();
+    this.score.commitLevel(this.currentLevel.id, grade, nextLevel?.id);
     this.lastCheckpointTime = this.rocket.flightTime;
     this.audio.playLanding(grade === LANDING_GRADES.perfect);
     this.audio.playCheckpoint();
@@ -445,17 +576,24 @@ export class Game {
     this.rocket.alive = true;
     this.activeLanding = false;
     this.#applyPadRefuel(marker, FIXED_STEP);
-    if (this.#isDemoComplete(marker)) {
+    if (this.#isDemoComplete()) {
       this.#completeDemo(marker);
       return;
     }
-    this.state.transition(STATES.READY);
-    this.ui.showCheckpointReward(reward);
-    this.audio.speak('Touchdown.', 'touchdown', 2500);
+    this.state.transition(nextLevel ? STATES.LEVEL_COMPLETE : STATES.GAME_COMPLETE, {
+      level: this.currentLevel,
+      grade,
+      points,
+      elapsed: Number(elapsed.toFixed(1)),
+      stars: starReward,
+      nextLevel,
+      consumedBoosts: [...this.boosts.runConsumed]
+    });
+    this.audio.speak(nextLevel ? 'Level complete.' : 'Mission complete.', 'touchdown', 2500);
   }
 
-  #isDemoComplete(marker) {
-    return !this.fullAccess && marker.id >= DEMO_CHECKPOINT_LIMIT;
+  #isDemoComplete() {
+    return !this.fullAccess && this.currentLevel.id >= DEMO_CHECKPOINT_LIMIT;
   }
 
   #checkDemoWall() {
@@ -480,6 +618,8 @@ export class Game {
     this.rocket.landed = false;
     this.landedPad = null;
     this.activeLanding = false;
+    this.boosts.beginCheckpoint();
+    this.recalculateRocketStats();
     if (!this.missionHintDone) {
       this.missionHintDone = true;
       localStorage.setItem('launch3001.missionHintDone', '1');
@@ -495,7 +635,8 @@ export class Game {
       }
       if (this.collectedDrops.has(pickup.id)) continue;
       this.collectedDrops.add(pickup.id);
-      this.rocket.fuel = Math.min(100, this.rocket.fuel + pickup.amount);
+      const amount = pickup.amount * (this.rocket.stats?.pickupValueMultiplier ?? 1);
+      this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + amount);
       const mesh = this.world.current.pickupMeshes?.find((item) => item.name === `Drop ${pickup.id}`);
       if (mesh) mesh.visible = false;
       this.effects.burst(this.rocket.position, 0x4de6ff, 12);
@@ -504,16 +645,16 @@ export class Game {
   }
 
   #refillFromPickup(pickup, dt) {
-    if (this.collectedDrops.has(pickup.id) || this.rocket.fuel >= 100) return;
+    if (this.collectedDrops.has(pickup.id) || this.rocket.fuel >= this.rocket.maxFuel) return;
     const remaining = this.refillRemaining.get(pickup.id) ?? pickup.amount;
     if (remaining <= 0) {
       this.#depleteFuelPickup(pickup);
       return;
     }
-    const transfer = Math.min(remaining, 100 - this.rocket.fuel, (pickup.refillRate ?? 26) * dt);
+    const transfer = Math.min(remaining, this.rocket.maxFuel - this.rocket.fuel, (pickup.refillRate ?? 26) * dt);
     if (transfer <= 0) return;
     this.refillRemaining.set(pickup.id, remaining - transfer);
-    this.rocket.fuel = Math.min(100, this.rocket.fuel + transfer);
+    this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + transfer);
     this.effects.burst(this.rocket.position, 0xffd166, 2);
     if (this.voiceFlags.activeRefill !== pickup.id) {
       this.audio.speak('Refueling Sir!', 'holdRefuel', 1800);
@@ -534,7 +675,8 @@ export class Game {
     const dz = this.rocket.position.z - pickup.position.z;
     const horizontal = Math.hypot(dx, dz);
     const vertical = Math.abs(this.rocket.position.y - pickup.position.y);
-    return horizontal <= pickup.radius + this.rocket.radius + 1.05 && vertical <= 2.2;
+    const radiusBonus = this.rocket.stats?.pickupRadiusBonus ?? 0;
+    return horizontal <= pickup.radius + this.rocket.radius + 1.05 + radiusBonus && vertical <= 2.2 + radiusBonus * 0.18;
   }
 
   #refuelOnPad(dt) {
@@ -549,7 +691,35 @@ export class Game {
       this.audio.speak('We will take some fuel Captain!', 'padRefuel', 5000);
       this.voiceFlags.refuelPad = pad.id;
     }
-    this.rocket.fuel = Math.min(100, this.rocket.fuel + 20 * dt);
+    this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + 20 * dt);
+  }
+
+  #applyEmergencyFuel() {
+    if (!this.state.is(STATES.FLYING) || this.rocket.fuel > 0) return;
+    const emergencyBoost = this.boosts.activate('emergency_fuel');
+    if (emergencyBoost) {
+      this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.fuel + (emergencyBoost.effects.instantFuelFlat ?? 0));
+      this.effects.burst(this.rocket.position, 0xffd166, 16);
+      this.audio.speak('Emergency fuel online.', 'emergencyFuel', 5000);
+      this.recalculateRocketStats();
+      return;
+    }
+    if (!this.reserveFuelUsed && (this.rocket.stats?.reserveFuel ?? 0) > 0) {
+      this.reserveFuelUsed = true;
+      this.rocket.fuel = Math.min(this.rocket.maxFuel, this.rocket.stats.reserveFuel);
+      this.effects.burst(this.rocket.position, 0x33ff8a, 14);
+      this.audio.speak('Reserve fuel engaged.', 'reserveFuel', 6000);
+    }
+  }
+
+  #applyAirBrake(dt, active) {
+    if (!active || this.rocket.landed) return;
+    const brake = Math.max(0, (this.rocket.stats?.airBrakeMultiplier ?? 1) - 1);
+    if (brake <= 0) return;
+    const factor = Math.max(0.88, 1 - brake * 0.18 * dt);
+    this.rocket.velocity.x *= factor;
+    this.rocket.velocity.z *= factor;
+    if (this.rocket.velocity.y < -0.1) this.rocket.velocity.y *= Math.max(0.9, 1 - brake * 0.1 * dt);
   }
 
   #currentPad() {
@@ -630,6 +800,8 @@ export class Game {
     const suppressTouch = (event) => {
       const tag = event.target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+      if (!this.state.is(STATES.READY) && !this.state.is(STATES.FLYING)) return;
+      if (event.target?.closest?.('.panel, .area-screen, .level-grid, .upgrade-panel, .boost-layout, .upgrade-layout')) return;
       event.preventDefault();
     };
     window.addEventListener('pointerdown', unlockAudio, { passive: true });
