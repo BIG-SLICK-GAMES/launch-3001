@@ -3,32 +3,32 @@ import { Rocket } from './Rocket.js';
 import { disposeObject3D } from './utils.js';
 
 const FOCUS_PRESETS = {
-  fuel_capacity: { label: 'Fuel Tank', targetY: 0.26, scale: 1.72, yaw: -0.22, pitch: 0.1, marker: [0, 0.22, 0] },
-  fuel_efficiency: { label: 'Efficiency Core', targetY: -0.42, scale: 1.75, yaw: 0.24, pitch: -0.08, marker: [0, -0.56, 0] },
-  boost_power: { label: 'Boost Engine', targetY: -0.92, scale: 2.12, yaw: 0.18, pitch: -0.18, marker: [0, -1.1, 0] },
-  boost_efficiency: { label: 'Boost Injector', targetY: -1.02, scale: 2.08, yaw: -0.2, pitch: -0.16, marker: [0, -1.16, 0] },
-  steering: { label: 'Steering Fins', targetY: -0.56, scale: 1.98, yaw: 0.94, pitch: -0.08, marker: [0.45, -0.58, 0] },
-  stability: { label: 'Stability Gyro', targetY: 0.48, scale: 1.66, yaw: -0.62, pitch: 0.08, marker: [0, 0.48, 0] },
-  landing_gear: { label: 'Landing Gear', targetY: -1.12, scale: 2.2, yaw: 0.72, pitch: -0.2, marker: [0.42, -1.2, 0.32] },
-  hull_strength: { label: 'Hull Plating', targetY: 0.54, scale: 1.85, yaw: -0.34, pitch: 0.08, marker: [0, 0.72, -0.36] },
-  fuel_collector: { label: 'Fuel Collector', targetY: 0.05, scale: 1.66, yaw: 0.76, pitch: 0.06, marker: [0.62, 0.06, 0] },
-  air_brake: { label: 'Air Brake Fins', targetY: -0.54, scale: 1.92, yaw: -0.95, pitch: -0.04, marker: [-0.44, -0.58, 0] },
-  emergency_reserve: { label: 'Emergency Reserve', targetY: 0.05, scale: 1.9, yaw: 0.08, pitch: 0.1, marker: [0, -0.08, 0.42] },
-  emergency_fuel: { label: 'Emergency Fuel', targetY: 0.04, scale: 1.9, yaw: 0.12, pitch: 0.1, marker: [0, -0.08, 0.42] },
-  fuel_saver: { label: 'Fuel Saver', targetY: -0.44, scale: 1.78, yaw: 0.2, pitch: -0.08, marker: [0, -0.56, 0] },
-  power_boost: { label: 'Power Boost', targetY: -0.96, scale: 2.12, yaw: 0.18, pitch: -0.18, marker: [0, -1.1, 0] },
-  landing_assist: { label: 'Landing Assist', targetY: -1.1, scale: 2.1, yaw: 0.7, pitch: -0.2, marker: [0.42, -1.2, 0.32] },
-  crash_shield: { label: 'Crash Shield', targetY: 0.46, scale: 1.74, yaw: -0.42, pitch: 0.08, marker: [0, 0.52, 0] },
-  fuel_magnet: { label: 'Fuel Magnet', targetY: 0.05, scale: 1.66, yaw: 0.76, pitch: 0.06, marker: [0.62, 0.06, 0] },
-  air_brake_booster: { label: 'Air Brake Booster', targetY: -0.54, scale: 1.92, yaw: -0.95, pitch: -0.04, marker: [-0.44, -0.58, 0] },
-  star_protector: { label: 'Star Protector', targetY: 0.78, scale: 1.82, yaw: -0.18, pitch: 0.04, marker: [0, 1.02, -0.2] },
-  repair_kit: { label: 'Repair Kit', targetY: 0.42, scale: 1.78, yaw: 0.32, pitch: 0.08, marker: [0, 0.54, 0.22] },
-  checkpoint_insurance: { label: 'Insurance Beacon', targetY: 0.12, scale: 1.62, yaw: 0.42, pitch: 0.04, marker: [0, 0.12, -0.5] },
-  default: { label: 'Rocket Overview', targetY: 0.02, scale: 1.36, yaw: -0.35, pitch: 0.08, marker: [0, 0.35, 0] }
+  fuel_capacity: { label: 'Lower Fuel Tanks', targetY: -1.08, scale: 2.72, yaw: -0.34, pitch: -0.16 },
+  fuel_efficiency: { label: 'Efficiency Core', targetY: -0.7, scale: 2.42, yaw: 0.24, pitch: -0.08 },
+  boost_power: { label: 'Boost Engine', targetY: -1.38, scale: 2.75, yaw: 0.18, pitch: -0.22 },
+  boost_efficiency: { label: 'Boost Injector', targetY: -1.32, scale: 2.72, yaw: -0.2, pitch: -0.2 },
+  steering: { label: 'Steering Fins', targetY: -1.12, scale: 2.62, yaw: 0.94, pitch: -0.12 },
+  stability: { label: 'Stability Gyro', targetY: -0.22, scale: 2.22, yaw: -0.62, pitch: 0.04 },
+  landing_gear: { label: 'Landing Pads', targetY: -1.42, scale: 2.9, yaw: 0.72, pitch: -0.24 },
+  hull_strength: { label: 'Hull Plating', targetY: -0.26, scale: 2.38, yaw: -0.34, pitch: 0.02 },
+  fuel_collector: { label: 'Fuel Collector Hoop', targetY: -0.56, scale: 2.34, yaw: 0.76, pitch: 0.02 },
+  air_brake: { label: 'Air Brake Fins', targetY: -0.8, scale: 2.54, yaw: -0.95, pitch: -0.08 },
+  emergency_reserve: { label: 'Lower Reserve Pod', targetY: -1.18, scale: 2.68, yaw: 0.08, pitch: -0.12 },
+  emergency_fuel: { label: 'Emergency Fuel', targetY: -1.18, scale: 2.68, yaw: 0.12, pitch: -0.12 },
+  fuel_saver: { label: 'Fuel Saver', targetY: -0.7, scale: 2.42, yaw: 0.2, pitch: -0.08 },
+  power_boost: { label: 'Power Boost', targetY: -1.38, scale: 2.75, yaw: 0.18, pitch: -0.22 },
+  landing_assist: { label: 'Landing Assist', targetY: -1.42, scale: 2.9, yaw: 0.7, pitch: -0.24 },
+  crash_shield: { label: 'Crash Shield', targetY: -0.24, scale: 2.28, yaw: -0.42, pitch: 0.04 },
+  fuel_magnet: { label: 'Fuel Magnet', targetY: -0.56, scale: 2.34, yaw: 0.76, pitch: 0.02 },
+  air_brake_booster: { label: 'Air Brake Booster', targetY: -0.8, scale: 2.54, yaw: -0.95, pitch: -0.08 },
+  star_protector: { label: 'Star Protector', targetY: -0.04, scale: 2.3, yaw: -0.18, pitch: 0.04 },
+  repair_kit: { label: 'Repair Kit', targetY: -0.24, scale: 2.34, yaw: 0.32, pitch: 0.04 },
+  checkpoint_insurance: { label: 'Insurance Beacon', targetY: -0.48, scale: 2.28, yaw: 0.42, pitch: 0.02 },
+  default: { label: 'Rocket Overview', targetY: 0, scale: 1.95, yaw: -0.35, pitch: 0.08, marker: [0, 0.22, 0] }
 };
 
 export class RocketPreview {
-  constructor(container, initialFocus = 'default') {
+  constructor(container, initialFocus = 'default', loadout = []) {
     this.container = container;
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(34, 1, 0.1, 24);
@@ -37,6 +37,8 @@ export class RocketPreview {
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.container.appendChild(this.renderer.domElement);
     this.rocket = new Rocket();
+    this.loadout = loadout;
+    this.rocket.setUpgradeLoadout(this.loadout);
     this.scene.add(this.rocket.group);
     this.target = { yaw: 0, pitch: 0, scale: 1.35, y: 0 };
     this.current = { yaw: 0, pitch: 0, scale: 1.35, y: 0 };
@@ -52,7 +54,9 @@ export class RocketPreview {
     const preset = FOCUS_PRESETS[focusId] ?? FOCUS_PRESETS.default;
     this.focusId = focusId;
     this.target = { yaw: preset.yaw, pitch: preset.pitch, scale: preset.scale, y: preset.targetY };
-    this.marker.position.set(...preset.marker);
+    this.rocket.setUpgradeLoadout(this.loadout);
+    if (focusId !== 'default') this.rocket.previewUpgrade(focusId, 1);
+    this.marker.position.set(...this.rocket.focusPointFor(focusId));
     this.marker.visible = true;
     this.label.textContent = preset.label;
   }

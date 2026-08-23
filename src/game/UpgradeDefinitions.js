@@ -15,7 +15,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Efficiency',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { fuelBurnPercent: [-8, -15, -23, -31, -40], boostFuelBurnPercent: [-3, -6, -9, -12, -15] }
+    statModifiers: { fuelBurnPercent: [-8, -15, -23, -31, -40], boostFuelBurnPercent: [-3, -6, -9, -12, -15], thrustPowerPercent: [-2, -4, -6, -8, -10] }
   },
   {
     upgradeId: 'boost_power',
@@ -31,7 +31,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Boost',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { boostFuelBurnPercent: [-8, -15, -23, -31, -40], thrustPowerPercent: [2, 4, 6, 8, 10] }
+    statModifiers: { boostFuelBurnPercent: [-8, -15, -23, -31, -40], thrustPowerPercent: [2, 4, 6, 8, 10], steeringPowerPercent: [-1, -2, -3, -4, -5] }
   },
   {
     upgradeId: 'steering',
@@ -39,7 +39,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Steering',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { steeringPowerPercent: [8, 16, 25, 35, 46], tiltResponsePercent: [4, 8, 12, 16, 20] }
+    statModifiers: { steeringPowerPercent: [8, 16, 25, 35, 46], tiltResponsePercent: [4, 8, 12, 16, 20], fuelBurnPercent: [1, 2, 3, 4, 5] }
   },
   {
     upgradeId: 'stability',
@@ -47,7 +47,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Stability',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { dampingPercent: [1.5, 3, 4.5, 6, 8], landingAnglePercent: [4, 8, 12, 17, 22] }
+    statModifiers: { dampingPercent: [1.5, 3, 4.5, 6, 8], landingAnglePercent: [4, 8, 12, 17, 22], steeringPowerPercent: [-2, -4, -6, -8, -10] }
   },
   {
     upgradeId: 'landing_gear',
@@ -55,7 +55,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Landing',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { landingVerticalPercent: [8, 16, 25, 35, 46], landingHorizontalPercent: [6, 12, 19, 27, 36], landingAnglePercent: [6, 12, 19, 27, 36] }
+    statModifiers: { landingVerticalPercent: [8, 16, 25, 35, 46], landingHorizontalPercent: [6, 12, 19, 27, 36], landingAnglePercent: [6, 12, 19, 27, 36], massPercent: [2, 4, 6, 8, 10] }
   },
   {
     upgradeId: 'hull_strength',
@@ -63,7 +63,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Hull',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { collisionTolerancePercent: [8, 16, 25, 35, 46] }
+    statModifiers: { collisionTolerancePercent: [8, 16, 25, 35, 46], massPercent: [3, 6, 9, 12, 15] }
   },
   {
     upgradeId: 'fuel_collector',
@@ -71,7 +71,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Fuel Collection',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { pickupRadiusFlat: [0.4, 0.8, 1.25, 1.75, 2.3], pickupValuePercent: [5, 10, 16, 23, 31] }
+    statModifiers: { pickupRadiusFlat: [0.4, 0.8, 1.25, 1.75, 2.3], pickupValuePercent: [5, 10, 16, 23, 31], steeringPowerPercent: [-1, -2, -3, -4, -5] }
   },
   {
     upgradeId: 'air_brake',
@@ -87,7 +87,7 @@ export const UPGRADE_DEFINITIONS = [
     category: 'Emergency',
     maximumLevel: 5,
     starCosts: UPGRADE_COSTS,
-    statModifiers: { reserveFuelFlat: [6, 10, 15, 21, 28] }
+    statModifiers: { reserveFuelFlat: [6, 10, 15, 21, 28], massPercent: [2, 4, 6, 8, 10], fuelBurnPercent: [1, 2, 3, 4, 5] }
   }
 ];
 

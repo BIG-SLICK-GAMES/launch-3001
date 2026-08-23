@@ -29,7 +29,7 @@ export class WalletClient {
   async #securePurchase(type, payload) {
     const profile = this.game.profile.profile;
     if (!profile?.id || profile.id === 'guest') return { ok: false, reason: 'BSG login required' };
-    if ((profile.chips ?? 0) < payload.chipCost) return { ok: false, reason: 'Not enough BSG chips' };
+    if ((profile.chips ?? 0) < payload.chipCost) return { ok: false, reason: 'Not enough balance' };
     const transactionId = `${type}-${payload.itemId}-${Date.now()}-${Math.random().toString(16).slice(2)}`;
     try {
       const response = await fetch('/platform/wallet/launch3001/purchase', {

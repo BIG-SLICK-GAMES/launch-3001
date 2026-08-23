@@ -18,7 +18,7 @@ export class CollisionSystem {
     this.tmpSphere.radius = rocket.radius;
     for (const entry of this.world.current.boxes) {
       if (entry.box.intersectsSphere(this.tmpSphere)) {
-        const reason = entry.spec.type === 'roof' ? FAILURE_REASONS.roof : FAILURE_REASONS.wall;
+        const reason = entry.spec.type === 'roof' || entry.spec.type === 'caveRoof' ? FAILURE_REASONS.roof : FAILURE_REASONS.wall;
         return { type: 'crash', reason };
       }
     }

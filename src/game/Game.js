@@ -77,6 +77,7 @@ export class Game {
     this.mobileTutorialDone = false;
     this.deviceMode = this.settings.deviceMode ?? '';
     if (this.deviceMode) this.root.dataset.deviceMode = this.deviceMode;
+    this.root.dataset.mobileControl = this.settings.mobileControlMode ?? 'tilt';
     this.missionHintDone = localStorage.getItem('launch3001.missionHintDone') === '1';
     this.state.onChange((next, previous, payload) => this.ui.showState(next, payload));
     this.#bindLifecycle();
@@ -91,7 +92,8 @@ export class Game {
   start() {
     this.loadLevel(1);
     this.hub.start();
-    this.state.transition(STATES.SPLASH);
+    if (this.deviceMode) this.state.transition(STATES.LOBBY);
+    else this.state.transition(STATES.DEVICE_SELECT);
     this.renderer.resize(this.camera);
     this.running = true;
     this.renderer.setAnimationLoop((time, frame) => this.#frame(time, frame));
@@ -118,7 +120,7 @@ export class Game {
     this.refillRemaining = new Map();
     this.voiceFlags = { launch: false, lowFuel: false, approachMarkerId: null, refuelPad: null };
     this.reserveFuelUsed = false;
-    this.cameraController.update(this.rocket, 1);
+    this.cameraController.update(this.rocket, 1, this.#roofCameraContext());
     this.renderer.resize(this.camera);
   }
 
@@ -131,6 +133,7 @@ export class Game {
     this.loadLevel(startId);
     this.score.recordAttempt(startId);
     this.state.transition(STATES.READY);
+    this.ui.showMissionHint();
   }
 
   restartLevel() {
@@ -143,6 +146,10 @@ export class Game {
   recalculateRocketStats() {
     this.statResolver.recalculate();
     this.statResolver.applyToRocket(this.rocket);
+    this.rocket.setUpgradeLoadout(this.upgrades.equippedDefinitions().map((definition) => ({
+      upgradeId: definition.upgradeId,
+      level: this.upgrades.levelFor(definition.upgradeId)
+    })));
   }
 
   purchaseUpgrade(upgradeId) {
@@ -154,6 +161,18 @@ export class Game {
   resetUpgrades() {
     const result = this.upgrades.reset();
     this.recalculateRocketStats();
+    return result;
+  }
+
+  equipUpgrade(upgradeId) {
+    const result = this.upgrades.equip(upgradeId);
+    if (result.ok) this.recalculateRocketStats();
+    return result;
+  }
+
+  unequipUpgrade(upgradeId) {
+    const result = this.upgrades.unequip(upgradeId);
+    if (result.ok) this.recalculateRocketStats();
     return result;
   }
 
@@ -208,7 +227,7 @@ export class Game {
   }
 
   enterHangar() {
-    this.showDeviceSelect();
+    this.showLobby();
   }
 
   showDeviceSelect() {
@@ -228,13 +247,14 @@ export class Game {
     this.settings.deviceMode = mode;
     this.save.saveSettings(this.settings);
     this.mobileTutorialDone = mode !== 'mobile';
+    if (mode === 'mobile') this.enterMobileFullscreen();
     if (mode === 'vr') {
       this.cameraController.setMode('COCKPIT');
       this.ui.showVrPrompt();
       return;
     }
     if (mode === 'mobile') {
-      this.ui.showMobileTiltPrompt();
+      this.ui.showMobileControlPrompt();
       return;
     }
     this.showLobby();
@@ -245,12 +265,12 @@ export class Game {
       this.showDeviceSelect();
       return;
     }
+    if (this.deviceMode === 'mobile') this.enterMobileFullscreen();
     if (this.deviceMode === 'mobile' && !this.mobileTutorialDone) {
-      this.ui.showMobileTiltPrompt();
+      this.ui.showMobileControlPrompt();
       return;
     }
     this.startLevel(this.score.progress.highestUnlockedLevel);
-    if (!this.missionHintDone) this.ui.showMissionHint();
   }
 
   pause() {
@@ -298,10 +318,23 @@ export class Game {
   }
 
   async enableTiltFromPrompt() {
+    this.settings.mobileControlMode = 'tilt';
+    this.root.dataset.mobileControl = 'tilt';
+    this.save.saveSettings(this.settings);
+    await this.enterMobileFullscreen();
     const ok = await this.enableTilt();
     if (ok) this.ui.showMobileCalibratePrompt();
-    else this.ui.showMobileTiltPrompt();
+    else this.ui.showMobileControlPrompt();
     return ok;
+  }
+
+  enableJoystickFromPrompt() {
+    this.settings.mobileControlMode = 'joystick';
+    this.root.dataset.mobileControl = 'joystick';
+    this.save.saveSettings(this.settings);
+    this.enterMobileFullscreen();
+    this.input.clearJoystickSteering();
+    this.ui.showMobileJoystickReadyPrompt();
   }
 
   async enableAudio() {
@@ -315,9 +348,24 @@ export class Game {
   }
 
   completeMobileTutorial() {
+    this.enterMobileFullscreen();
     this.mobileTutorialDone = true;
     this.state.transition(STATES.LOBBY);
     this.ui.showState(STATES.LOBBY);
+  }
+
+  async enterMobileFullscreen() {
+    if (this.deviceMode !== 'mobile') return false;
+    try {
+      const target = document.documentElement;
+      if (!document.fullscreenElement && target.requestFullscreen) {
+        await target.requestFullscreen({ navigationUI: 'hide' });
+      }
+      await screen.orientation?.lock?.('landscape');
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   skipMobileTutorial() {
@@ -400,7 +448,7 @@ export class Game {
     if (this.vr.enabled) {
       this.vr.update(this, dt);
     } else {
-      this.cameraController.update(this.rocket, dt);
+      this.cameraController.update(this.rocket, dt, this.#roofCameraContext());
     }
     this.effects.update(dt, this.rocket);
     const altitude = this.rocket.position.y - this.world.getTerrainHeight(this.rocket.position.x, this.rocket.position.z) - this.rocket.radius;
@@ -414,6 +462,22 @@ export class Game {
       camera: this.cameraController,
       nextMarker: this.#nextMarker()
     });
+  }
+
+  #roofCameraContext() {
+    const position = this.rocket.position;
+    const roofs = this.currentLevel.roofs ?? [];
+    const roofedArea = roofs.some((roof) => {
+      if (roof.type !== 'caveRoof') return false;
+      const halfX = roof.size.x / 2;
+      const halfZ = roof.size.z / 2;
+      const roofTop = roof.position.y + roof.size.y / 2;
+      const withinLane = Math.abs(position.x - roof.position.x) <= halfX + 4;
+      const withinRun = position.z >= roof.position.z - halfZ - 10 && position.z <= roof.position.z + halfZ + 22;
+      const underOrApproaching = position.y <= roofTop + 6;
+      return withinLane && withinRun && underOrApproaching;
+    });
+    return { roofedArea };
   }
 
   #tickGroundTimer(dt, active) {
@@ -489,7 +553,6 @@ export class Game {
 
   #land(grade, marker = this.currentLevel.landingPad) {
     if (!this.state.is(STATES.FLYING) || this.activeLanding) return;
-    if (this.passedMarkers.has(marker.id)) return;
     this.activeLanding = true;
     this.rocket.landed = true;
     this.rocket.alive = false;
@@ -497,15 +560,13 @@ export class Game {
     this.audio.stopEngine();
     const pad = marker.position;
     this.landedPad = marker;
+    const elapsed = Math.max(0.1, this.rocket.flightTime);
+    const points = this.score.scoreLanding(this.currentLevel, this.rocket, grade, false);
     this.rocket.position.set(pad.x, pad.y + 0.12 + ROCKET_STANDING_HEIGHT, pad.z);
     this.rocket.velocity.set(0, 0, 0);
-    const elapsed = Math.max(0.1, this.rocket.flightTime - this.lastCheckpointTime);
-    const points = this.score.scoreCheckpoint(marker, elapsed, marker.distance ?? this.rocket.distance);
-    const reward = this.score.checkpointBreakdown(marker, elapsed, marker.distance ?? this.rocket.distance);
     const starReward = this.stars.award(marker, elapsed, grade);
-    const nextId = Math.min(this.levels.levels.length, Math.floor((marker.distance ?? 0) / 540) + 1);
-    this.score.commitCheckpoint(marker, points, nextId);
-    this.passedMarkers.add(marker.id);
+    const nextLevel = this.levels.next();
+    this.score.commitLevel(this.currentLevel.id, grade, nextLevel?.id);
     this.lastCheckpointTime = this.rocket.flightTime;
     this.audio.playLanding(grade === LANDING_GRADES.perfect);
     this.audio.playCheckpoint();
@@ -515,17 +576,24 @@ export class Game {
     this.rocket.alive = true;
     this.activeLanding = false;
     this.#applyPadRefuel(marker, FIXED_STEP);
-    if (this.#isDemoComplete(marker)) {
+    if (this.#isDemoComplete()) {
       this.#completeDemo(marker);
       return;
     }
-    this.state.transition(STATES.READY);
-    this.ui.showCheckpointReward({ ...reward, grade, stars: starReward, consumedBoosts: [...this.boosts.runConsumed] });
-    this.audio.speak('Touchdown.', 'touchdown', 2500);
+    this.state.transition(nextLevel ? STATES.LEVEL_COMPLETE : STATES.GAME_COMPLETE, {
+      level: this.currentLevel,
+      grade,
+      points,
+      elapsed: Number(elapsed.toFixed(1)),
+      stars: starReward,
+      nextLevel,
+      consumedBoosts: [...this.boosts.runConsumed]
+    });
+    this.audio.speak(nextLevel ? 'Level complete.' : 'Mission complete.', 'touchdown', 2500);
   }
 
-  #isDemoComplete(marker) {
-    return !this.fullAccess && marker.id >= DEMO_CHECKPOINT_LIMIT;
+  #isDemoComplete() {
+    return !this.fullAccess && this.currentLevel.id >= DEMO_CHECKPOINT_LIMIT;
   }
 
   #checkDemoWall() {
@@ -732,6 +800,8 @@ export class Game {
     const suppressTouch = (event) => {
       const tag = event.target?.tagName?.toLowerCase();
       if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
+      if (!this.state.is(STATES.READY) && !this.state.is(STATES.FLYING)) return;
+      if (event.target?.closest?.('.panel, .area-screen, .level-grid, .upgrade-panel, .boost-layout, .upgrade-layout')) return;
       event.preventDefault();
     };
     window.addEventListener('pointerdown', unlockAudio, { passive: true });

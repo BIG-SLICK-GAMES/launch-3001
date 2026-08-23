@@ -7,6 +7,7 @@ export class InputController {
     this.thrust = false;
     this.keyboard = new Set();
     this.keyboardSteering = { x: 0, z: 0 };
+    this.joystickSteering = { x: 0, z: 0 };
     this.rawTilt = { x: 0, z: 0 };
     this.smoothed = { x: 0, z: 0 };
     this.calibration = { beta: 0, gamma: 0 };
@@ -17,9 +18,19 @@ export class InputController {
   }
 
   getSteering() {
-    let x = this.keyboardSteering.x + this.smoothed.x;
-    let z = this.keyboardSteering.z + this.smoothed.z;
+    let x = this.keyboardSteering.x + this.smoothed.x + this.joystickSteering.x;
+    let z = this.keyboardSteering.z + this.smoothed.z + this.joystickSteering.z;
     return { x: clamp(x, -1, 1), z: clamp(z, -1, 1) };
+  }
+
+  setJoystickSteering(x, z) {
+    this.joystickSteering.x = clamp(x, -1, 1);
+    this.joystickSteering.z = clamp(z, -1, 1);
+  }
+
+  clearJoystickSteering() {
+    this.joystickSteering.x = 0;
+    this.joystickSteering.z = 0;
   }
 
   async enableTilt() {

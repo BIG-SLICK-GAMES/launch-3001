@@ -5,6 +5,7 @@ import { BUILD_LABEL } from './buildInfo.js';
 import { UPGRADE_DEFINITIONS } from './UpgradeDefinitions.js';
 import { BOOST_DEFINITIONS, BONUS_STAR_PACKAGES } from './BoostDefinitions.js';
 import { RocketPreview } from './RocketPreview.js';
+import { AnimationDirector } from './AnimationDirector.js';
 
 export class UIController {
   constructor(root, game) {
@@ -16,6 +17,7 @@ export class UIController {
     this.warning = root.querySelector('[data-warning]');
     this.boostHeld = false;
     this.lastTouchActionAt = 0;
+    this.joystickPointerId = null;
     this.hudSide = 'left';
     this.root.dataset.hudSide = this.hudSide;
     this.#bind();
@@ -27,21 +29,21 @@ export class UIController {
   }
 
   update(data) {
-    const markerDistance = data.nextMarker ? Math.max(0, data.nextMarker.distance - data.rocket.distance) : 0;
-    const markerTime = Math.max(0, data.rocket.flightTime - this.game.lastCheckpointTime);
+    const targetDistance = data.nextMarker ? Math.max(0, data.nextMarker.distance - data.rocket.distance) : 0;
+    const levelTime = Math.max(0, data.rocket.flightTime);
     const fuelPercent = Math.max(0, Math.min(100, (data.rocket.fuel / (data.rocket.maxFuel ?? 100)) * 100));
     const altitudePercent = Math.max(0, Math.min(1, data.altitude / 24));
     this.hud?.style.setProperty('--fuel', `${fuelPercent}%`);
     this.hud?.style.setProperty('--altitude-angle', `${-135 + altitudePercent * 270}deg`);
-    this.#set('level', 'ENDLESS');
+    this.#set('level', data.level.id ?? this.game.currentLevel.id);
     this.#set('score', data.score.progress.totalScore);
     this.#set('best', data.score.progress.bestTotalScore);
     this.#set('best-distance', formatNumber(data.score.progress.leaderboard?.bestDistance ?? 0, 0));
     this.#set('best-distance-time', formatNumber(data.score.progress.leaderboard?.bestDistanceTime ?? 0, 1));
     this.#set('distance', formatNumber(data.rocket.distance, 0));
-    this.#set('marker', formatNumber(markerDistance, 0));
+    this.#set('marker', formatNumber(targetDistance, 0));
     this.#set('fuel', formatNumber(data.rocket.fuel, 0));
-    this.#set('time', formatNumber(markerTime, 1));
+    this.#set('time', formatNumber(levelTime, 1));
     this.#set('altitude', formatNumber(data.altitude));
     this.#set('altitude-dial', formatNumber(data.altitude, 1));
     this.#set('vertical', formatNumber(data.rocket.velocity.y));
@@ -58,18 +60,17 @@ export class UIController {
     this.#disposeRocketPreview();
     this.root.dataset.state = state;
     delete this.root.dataset.settingsOpen;
-    if (state === STATES.SPLASH) this.#splash();
     if (state === STATES.DEVICE_SELECT) this.#deviceSelect();
     if (state === STATES.LOBBY) this.#lobby();
     if (state === STATES.MENU) this.#menu();
     if (state === STATES.LEVEL_SELECT) this.#levelSelect();
     if (state === STATES.PAUSED) this.#pause();
     if (state === STATES.READY) this.overlay.innerHTML = '';
-    if (state === STATES.CRASHED) this.#endActions();
+    if (state === STATES.CRASHED) this.#endActions(payload);
     if (state === STATES.DEMO_COMPLETE) this.#demoComplete(payload.shopUrl, payload.reason);
-    if (state === STATES.LANDED) this.#endActions();
-    if (state === STATES.LEVEL_COMPLETE) this.#endActions();
-    if (state === STATES.GAME_COMPLETE) this.#endActions();
+    if (state === STATES.LANDED) this.#endActions(payload);
+    if (state === STATES.LEVEL_COMPLETE) this.#endActions(payload);
+    if (state === STATES.GAME_COMPLETE) this.#endActions(payload);
   }
 
   showCheckpointReward(reward) {
@@ -87,6 +88,11 @@ export class UIController {
     this.rewardTimer = window.setTimeout(() => {
       if (this.game.state.is(STATES.READY)) this.overlay.innerHTML = '';
     }, 2600);
+  }
+
+  #starsText(stars) {
+    if (!stars) return '';
+    return `${'*'.repeat(stars.finalStars).padEnd(3, '-')} | +${stars.newStarsEarned} new stars | ${stars.availableStars} available`;
   }
 
   #set(key, value) {
@@ -119,6 +125,46 @@ export class UIController {
   }
 
   #bind() {
+    const joystick = this.root.querySelector('[data-mobile-joystick]');
+    const updateJoystick = (event) => {
+      if (!joystick) return;
+      const rect = joystick.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const max = rect.width * 0.36;
+      const dx = event.clientX - cx;
+      const dy = event.clientY - cy;
+      const length = Math.min(max, Math.hypot(dx, dy));
+      const angle = Math.atan2(dy, dx);
+      const x = Math.cos(angle) * length;
+      const y = Math.sin(angle) * length;
+      joystick.style.setProperty('--joy-x', `${x}px`);
+      joystick.style.setProperty('--joy-y', `${y}px`);
+      this.game.input.setJoystickSteering(x / max, y / max);
+    };
+    const clearJoystick = (event) => {
+      if (this.joystickPointerId !== event.pointerId) return;
+      this.joystickPointerId = null;
+      joystick?.releasePointerCapture?.(event.pointerId);
+      joystick?.style.setProperty('--joy-x', '0px');
+      joystick?.style.setProperty('--joy-y', '0px');
+      this.game.input.clearJoystickSteering();
+    };
+    joystick?.addEventListener('pointerdown', (event) => {
+      if (this.game.settings.mobileControlMode !== 'joystick') return;
+      event.preventDefault();
+      this.joystickPointerId = event.pointerId;
+      joystick.setPointerCapture?.(event.pointerId);
+      updateJoystick(event);
+      this.game.audio.unlock();
+    }, { passive: false });
+    joystick?.addEventListener('pointermove', (event) => {
+      if (this.joystickPointerId !== event.pointerId) return;
+      event.preventDefault();
+      updateJoystick(event);
+    }, { passive: false });
+    joystick?.addEventListener('pointerup', clearJoystick, { passive: false });
+    joystick?.addEventListener('pointercancel', clearJoystick, { passive: false });
     this.root.addEventListener('pointerdown', (event) => {
       const boost = event.target.closest('[data-boost]');
       if (!boost) return;
@@ -180,21 +226,12 @@ export class UIController {
     this.#lobby();
   }
 
-  #splash() {
-    this.overlay.innerHTML = `
-      <section class="splash-screen">
-        <div class="splash-mark">LAUNCH <b>3001</b></div>
-        <div class="splash-sub">BIG SLICK GAMES</div>
-        <button data-action="enter-hangar">Enter Hangar</button>
-      </section>`;
-  }
-
   #deviceSelect() {
     this.#disposeRocketPreview();
     this.overlay.innerHTML = `
       <section class="device-screen">
         <div class="device-heading">
-          <span>HANGAR ENTRY CHECK</span>
+          <span>CONTROL CHECK</span>
           <h2>What device are you playing on?</h2>
         </div>
         <div class="device-grid">
@@ -217,46 +254,22 @@ export class UIController {
   #lobby() {
     this.#disposeRocketPreview();
     const profile = this.game.profile.profile;
-    const loggedIn = this.game.profile.isLoggedIn();
-    const best = this.game.score.progress.leaderboard ?? {};
     this.overlay.innerHTML = `
-      <section class="lobby-screen">
-        <div class="lobby-brand">
-          <span>BIG SLICK GAMES</span>
-          <h1>Launch 3001</h1>
-          ${this.game.fullAccess ? '<p>FULL ACCESS</p>' : ''}
+      <section class="lobby-screen lobby-command">
+        <div class="lobby-status">
+          <span>${profile.name ?? 'Guest Pilot'}</span>
+          <span>${formatNumber(profile.chips ?? 0, 0)} chips</span>
+          <span>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)} stars</span>
+          <span>${this.game.upgrades.completionPercent()}% upgrades</span>
         </div>
-        <div class="lobby-panel lobby-menu">
-          <button class="primary" data-action="play">Play</button>
-          <button data-action="upgrades">Upgrades</button>
-          <button data-action="boosts">Boosts</button>
-          <button data-action="store">Store</button>
-          ${loggedIn ? '<button data-action="profile">Profile</button>' : ''}
-          <button data-action="level-select">Load Checkpoint</button>
-          <button data-action="leaderboard">Leaderboard</button>
-        </div>
-        <div class="lobby-panel profile-card">
-          <h2>Profile</h2>
-          <div class="pilot-row">
-            <div class="pilot-avatar">${this.#initials(profile.name)}</div>
-            <div><b>${profile.name ?? 'Guest Pilot'}</b><span>${profile.source ?? 'guest'} profile</span></div>
-          </div>
-          ${this.game.fullAccess ? '<div class="access-pill owned">Full Game Owned</div>' : ''}
-          <dl>
-            <dt>BSG chips</dt><dd>${formatNumber(profile.chips ?? 0, 0)}</dd>
-            <dt>Stars</dt><dd>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</dd>
-            <dt>Upgrades</dt><dd>${this.game.upgrades.completionPercent()}%</dd>
-            <dt>Best distance</dt><dd>${formatNumber(best.bestDistance ?? 0, 0)}m</dd>
-            <dt>Best time</dt><dd>${formatNumber(best.bestDistanceTime ?? 0, 1)}s</dd>
-          </dl>
-        </div>
-        <div class="lobby-panel store-card">
-          <h2>Rocket</h2>
-          <p>Fuel ${formatNumber(this.game.rocket.maxFuel ?? 100, 0)} | Burn x${formatNumber(this.game.rocket.stats?.fuelBurnMultiplier ?? 1, 2)} | Boost x${formatNumber(this.game.rocket.stats?.thrustPowerMultiplier ?? 1, 2)}</p>
-          <p>Equipped: ${this.game.boosts.equipped().length ? this.game.boosts.equipped().join(', ') : 'None'}</p>
-          <button data-action="buy-stars">Buy Stars</button>
-          <button data-action="boost-shop">Boost Shop</button>
-        </div>
+        <button class="lobby-hotspot hotspot-launch" data-action="play" aria-label="Launch">Launch</button>
+        <button class="lobby-hotspot hotspot-upgrades" data-action="upgrades" aria-label="Upgrades">Upgrades</button>
+        <button class="lobby-hotspot hotspot-boosts" data-action="boosts" aria-label="Boosts">Boosts</button>
+        <button class="lobby-hotspot hotspot-leaderboard" data-action="leaderboard" aria-label="Leaderboard">Leaderboard</button>
+        <button class="lobby-hotspot hotspot-levels" data-action="level-select" aria-label="Select Level">Select Level</button>
+        <button class="lobby-hotspot hotspot-profile" data-action="profile" aria-label="Profile">Profile</button>
+        <button class="lobby-chip-button" data-action="buy-stars">Buy Stars</button>
+        <button class="lobby-store-button" data-action="store">Store</button>
       </section>`;
   }
 
@@ -265,10 +278,14 @@ export class UIController {
     const level = this.game.upgrades.levelFor(selected.upgradeId);
     const nextCost = this.game.upgrades.nextCost(selected.upgradeId);
     const check = this.game.upgrades.canUpgrade(selected.upgradeId);
+    const equipped = this.game.upgrades.equipped();
+    const isEquipped = this.game.upgrades.isEquipped(selected.upgradeId);
+    const equipCheck = this.game.upgrades.canEquip(selected.upgradeId);
     const rows = UPGRADE_DEFINITIONS.map((upgrade) => {
       const current = this.game.upgrades.levelFor(upgrade.upgradeId);
+      const status = this.game.upgrades.isEquipped(upgrade.upgradeId) ? 'EQUIPPED' : current > 0 ? 'OWNED' : 'LOCKED';
       return `<button class="upgrade-row ${upgrade.upgradeId === selected.upgradeId ? 'selected' : ''}" data-action="select-upgrade" data-upgrade-id="${upgrade.upgradeId}" data-focus-part="${upgrade.upgradeId}">
-        <strong>${upgrade.displayName}</strong><span>${upgrade.category} | ${current}/${upgrade.maximumLevel}</span>
+        <strong>${upgrade.displayName}</strong><span>${upgrade.category} | ${current}/${upgrade.maximumLevel} | ${status}</span>
       </button>`;
     }).join('');
     const effects = Object.entries(selected.statModifiers ?? {}).map(([key, values]) => {
@@ -276,18 +293,24 @@ export class UIController {
       const next = values[Math.min(level, values.length - 1)] ?? current;
       return `<div class="stat-row"><span>${this.#label(key)}</span><b>${formatNumber(current, 1)} -> ${formatNumber(next, 1)}</b></div>`;
     }).join('');
-    this.overlay.innerHTML = `<section class="panel upgrade-panel">
+    const equipButton = level <= 0
+      ? '<button disabled>Install before equip</button>'
+      : isEquipped
+        ? `<button data-action="unequip-upgrade" data-upgrade-id="${selected.upgradeId}">Remove</button>`
+        : `<button data-action="equip-upgrade" data-upgrade-id="${selected.upgradeId}" ${equipCheck.ok ? '' : 'disabled'}>${equipCheck.ok ? 'Equip' : equipCheck.reason}</button>`;
+    this.overlay.innerHTML = `<section class="panel area-screen upgrade-panel">
       <h2>Upgrades</h2>
-      <div class="wallet-strip"><span>Stars <b>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</b></span><span>Chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span><span>Complete <b>${this.game.upgrades.completionPercent()}%</b></span></div>
+      <div class="wallet-strip"><span>Stars <b>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</b></span><span>Equipped <b>${equipped.length}/4</b></span><span>Owned <b>${this.game.upgrades.completionPercent()}%</b></span></div>
       <div class="upgrade-layout">
         <div class="rocket-preview" data-rocket-preview aria-label="Interactive rocket upgrade preview"></div>
         <div class="upgrade-list">${rows}</div>
         <div class="upgrade-detail">
           <h3>${selected.displayName}</h3>
-          <p>${selected.category} upgrade level ${level}/${selected.maximumLevel}</p>
+          <p>${selected.category} module level ${level}/${selected.maximumLevel}. ${isEquipped ? 'Active in current loadout.' : 'Stored until equipped.'}</p>
           ${effects}
           <div class="cost-line">Cost: <b>${nextCost ?? 'MAX'}</b> stars</div>
           <button data-action="upgrade" data-upgrade-id="${selected.upgradeId}" ${check.ok ? '' : 'disabled'}>${check.ok ? 'Upgrade' : check.reason}</button>
+          ${equipButton}
         </div>
       </div>
       <div class="control-actions"><button data-action="buy-stars">Buy Stars</button><button data-action="reset-upgrades">Reset Upgrades</button><button data-action="back">Back</button></div>
@@ -297,42 +320,44 @@ export class UIController {
 
   #boosts() {
     const equipped = this.game.boosts.equipped();
-    const rows = BOOST_DEFINITIONS.map((boost) => {
+    const slots = BOOST_DEFINITIONS.map((boost, index) => {
       const isEquipped = equipped.includes(boost.boostId);
       const quantity = this.game.boosts.quantity(boost.boostId);
-      return `<div class="boost-row" data-focus-part="${boost.boostId}">
-        <div><strong>${boost.displayName}</strong><span>${boost.activationType} | ${boost.durationType} | Owned ${quantity}</span></div>
-        <button data-action="${isEquipped ? 'unequip-boost' : 'equip-boost'}" data-boost-id="${boost.boostId}" ${!isEquipped && quantity <= 0 ? 'disabled' : ''}>${isEquipped ? 'Unequip' : 'Equip'}</button>
+      const code = `${String.fromCharCode(65 + Math.floor(index / 3))}${(index % 3) + 1}`;
+      return `<div class="vending-slot ${isEquipped ? 'loaded' : ''}" data-boost-id="${boost.boostId}">
+        <div class="vending-code">${code}</div>
+        <div class="vending-can" aria-hidden="true"><span>${boost.displayName.split(/\s+/).map((part) => part[0]).join('').slice(0, 2)}</span></div>
+        <div class="vending-info">
+          <strong>${boost.displayName}</strong>
+          <span>${this.#effectText(boost.effects) || boost.activationType}</span>
+          <small>One use | Stock ${quantity}</small>
+        </div>
+        <div class="vending-actions">
+          <b>${this.#money(boost.chipPrice)}</b>
+          <button data-action="buy-boost" data-boost-id="${boost.boostId}">Buy</button>
+          <button data-action="${isEquipped ? 'unequip-boost' : 'equip-boost'}" data-boost-id="${boost.boostId}" ${!isEquipped && quantity <= 0 ? 'disabled' : ''}>${isEquipped ? 'Eject' : 'Load'}</button>
+        </div>
       </div>`;
     }).join('');
-    this.overlay.innerHTML = `<section class="panel upgrade-panel">
-      <h2>Boosts</h2>
-      <p>Equip up to three boosts before launch. Entire-checkpoint boosts are consumed when the checkpoint starts; activation boosts are consumed only when triggered.</p>
-      <div class="wallet-strip"><span>Equipped <b>${equipped.length}/3</b></span><span>Fuel <b>${formatNumber(this.game.rocket.maxFuel ?? 100, 0)}</b></span><span>Landing x<b>${formatNumber(this.game.rocket.stats?.landingAngleMultiplier ?? 1, 2)}</b></span></div>
-      <div class="boost-layout">
-        <div class="rocket-preview" data-rocket-preview aria-label="Interactive rocket boost preview"></div>
-        <div class="boost-list">${rows}</div>
+    this.overlay.innerHTML = `<section class="panel area-screen vending-panel">
+      <div class="vending-head">
+        <div>
+          <span>BIG SLICK BOOST-O-MATIC</span>
+          <h2>Boost Vending</h2>
+        </div>
+        <div class="vending-wallet">
+          <span>Balance</span>
+          <b>${this.#money(this.game.profile.profile.chips ?? 0)}</b>
+        </div>
       </div>
-      <div class="control-actions"><button data-action="boost-shop">Boost Shop</button><button data-action="play">Launch</button><button data-action="back">Back</button></div>
+      <div class="vending-status"><span>Loaded <b>${equipped.length}/3</b></span><span>Every boost is consumed once when used.</span></div>
+      <div class="vending-machine">${slots}</div>
+      <div class="control-actions"><button data-action="play">Launch</button><button data-action="back">Back</button></div>
     </section>`;
-    this.#mountRocketPreview(equipped[0] ?? 'fuel_saver');
   }
 
   #boostShop() {
-    const rows = BOOST_DEFINITIONS.map((boost) => `<div class="boost-row" data-focus-part="${boost.boostId}">
-      <div><strong>${boost.displayName}</strong><span>${this.#effectText(boost.effects)} | ${boost.chipPrice} chips</span></div>
-      <button data-action="buy-boost" data-boost-id="${boost.boostId}">Buy</button>
-    </div>`).join('');
-    this.overlay.innerHTML = `<section class="panel upgrade-panel">
-      <h2>Boost Shop</h2>
-      <div class="wallet-strip"><span>BSG chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span></div>
-      <div class="boost-layout">
-        <div class="rocket-preview" data-rocket-preview aria-label="Interactive rocket boost shop preview"></div>
-        <div class="boost-list">${rows}</div>
-      </div>
-      <div class="control-actions"><button data-action="boosts">Boosts</button><button data-action="back">Back</button></div>
-    </section>`;
-    this.#mountRocketPreview('emergency_fuel');
+    this.#boosts();
   }
 
   #buyStars() {
@@ -341,7 +366,7 @@ export class UIController {
       <div><strong>${pack.stars} stars</strong><span>${pack.chipPrice} BSG chips</span></div>
       <button data-action="buy-star-pack" data-package-id="${pack.packageId}">Buy</button>
     </div>`).join('');
-    this.overlay.innerHTML = `<section class="panel upgrade-panel">
+    this.overlay.innerHTML = `<section class="panel area-screen upgrade-panel">
       <h2>Buy Stars</h2>
       <p>Bonus stars spend like earned stars. Chip balance is validated by the BSG wallet server.</p>
       <div class="wallet-strip"><span>Stars <b>${formatNumber(this.game.score.progress.availableStars ?? 0, 0)}</b></span><span>Chips <b>${formatNumber(this.game.profile.profile.chips ?? 0, 0)}</b></span></div>
@@ -353,7 +378,7 @@ export class UIController {
   #store() {
     this.#disposeRocketPreview();
     this.overlay.innerHTML = `
-      <section class="panel store-panel">
+      <section class="panel area-screen store-panel">
         <h2>Full Version</h2>
         <p>Finish the demo to unlock the full Launch 3001 route from your BSG profile.</p>
         <button data-action="shop" data-shop-url="${SHOP_URL}">Go To BSG Shop</button>
@@ -366,7 +391,7 @@ export class UIController {
     this.#disposeRocketPreview();
     if (!this.game.profile.isLoggedIn()) {
       this.overlay.innerHTML = `
-        <section class="panel profile-panel">
+        <section class="panel area-screen profile-panel">
           <h2>BSG Profile</h2>
           <p>No BSG profile is connected for this session. You can keep playing, or sign in through the BSG login page for wallet and profile sync.</p>
           <button data-action="external-login">Open BSG Login</button>
@@ -376,7 +401,7 @@ export class UIController {
     }
     const profile = this.game.profile.profile;
     this.overlay.innerHTML = `
-      <section class="panel profile-panel">
+      <section class="panel area-screen profile-panel">
         <h2>Profile</h2>
         <div class="pilot-row">
           <div class="pilot-avatar">${this.#initials(profile.name)}</div>
@@ -395,16 +420,44 @@ export class UIController {
     this.#endActions();
   }
 
-  #endActions() {
+  #endActions(payload = {}) {
     this.#disposeRocketPreview();
+    const state = this.game.state.current;
+    const title = state === STATES.LEVEL_COMPLETE
+      ? 'Level Complete'
+      : state === STATES.GAME_COMPLETE
+        ? 'Mission Complete'
+        : state === STATES.CRASHED
+          ? 'Crashed'
+          : 'Landed';
+    if (state === STATES.LEVEL_COMPLETE || state === STATES.GAME_COMPLETE) {
+      this.overlay.innerHTML = AnimationDirector.levelResults({
+        title,
+        level: payload.level ?? this.game.currentLevel,
+        grade: payload.grade,
+        points: payload.points,
+        elapsed: payload.elapsed,
+        stars: payload.stars,
+        nextLevel: payload.nextLevel
+      });
+      return;
+    }
+    const summary = state === STATES.LEVEL_COMPLETE || state === STATES.GAME_COMPLETE
+      ? `<p>${payload.level?.name ?? this.game.currentLevel.name} | ${payload.grade} | +${payload.points ?? 0} | ${payload.elapsed ?? 0}s</p>
+        <p>${this.#starsText(payload.stars)}</p>`
+      : '';
     this.overlay.innerHTML = `
       <section class="panel demo-panel">
+        <h2>${title}</h2>
+        ${summary}
+        ${payload.nextLevel ? `<button data-action="next-level" data-level-id="${payload.nextLevel.id}">Next Level</button>` : ''}
         <button data-action="restart">Restart</button>
+        <button data-action="level-select">Levels</button>
         <button data-action="menu">Lobby</button>
       </section>`;
   }
 
-  showMobileTiltPrompt() {
+  showMobileControlPrompt() {
     this.#disposeRocketPreview();
     this.root.dataset.state = STATES.LOBBY;
     this.overlay.innerHTML = `
@@ -414,8 +467,11 @@ export class UIController {
           <div class="phone-shape"><div class="phone-screen"></div></div>
           <div class="comfort-lines"><span></span><span></span><span></span></div>
         </div>
-        <p>Hold the phone in a comfortable flying position.</p>
-        <button data-action="mobile-tilt">Enable Tilt</button>
+        <p>Choose how you want to steer on mobile.</p>
+        <div class="mobile-control-actions">
+          <button data-action="mobile-joystick">Joystick</button>
+          <button data-action="mobile-tilt">Tilt</button>
+        </div>
       </section>`;
   }
 
@@ -458,24 +514,73 @@ export class UIController {
 
   showMissionHint() {
     this.#disposeRocketPreview();
+    const level = this.game.currentLevel;
+    const steps = (level.tutorialMessages ?? ['Reach the landing pad to complete the level.'])
+      .map((message) => `<span>${message}</span>`)
+      .join('');
     this.overlay.innerHTML = `
       <section class="toast mission-hint">
-        <strong>MISSION</strong>
-        <span>Thread the gates, collect fuel, land on numbered markers.</span>
+        <strong>LEVEL ${level.id}: ${level.name}</strong>
+        ${steps}
+      </section>`;
+  }
+
+  showMobileJoystickReadyPrompt() {
+    this.#disposeRocketPreview();
+    this.root.dataset.state = STATES.LOBBY;
+    this.overlay.innerHTML = `
+      <section class="panel menu-panel mobile-tutorial-panel">
+        <h2>Joystick Ready</h2>
+        <div class="joystick-demo" aria-hidden="true"><span></span></div>
+        <p>Use the left joystick to steer. Hold Boost to thrust.</p>
+        <button data-action="mobile-ok">OK</button>
       </section>`;
   }
 
   #levelSelect() {
     this.#disposeRocketPreview();
     const levels = this.game.levels.levels.map((level) => {
-      const markerId = level.markerId ?? Math.max(0, Math.floor(level.startDistance / 180));
-      const score = this.game.score.progress.bestScores[markerId] ?? 0;
-      const grade = markerId === 0 ? 'START' : (this.game.score.progress.bestGrades[markerId] ?? 'READY');
-      return `<button class="level-card" data-action="level" data-level-id="${level.id}">
-        <strong>${level.name}</strong><span>${formatNumber(level.startDistance, 0)}m | ${grade} | ${score}</span>
+      const locked = level.id > (this.game.score.progress.highestUnlockedLevel ?? 1);
+      const score = this.game.score.progress.bestScores[level.id] ?? 0;
+      const grade = this.game.score.progress.bestGrades[level.id] ?? (locked ? 'LOCKED' : 'READY');
+      return `<button class="level-card" data-action="level" data-level-id="${level.id}" ${locked ? 'disabled' : ''}>
+        ${this.#levelPreview(level)}
+        <strong>${level.id}. ${level.name}</strong><span>${formatNumber(level.landingPad.distance, 0)}m | ${grade} | ${score}</span>
       </button>`;
     }).join('');
-    this.overlay.innerHTML = `<section class="panel level-panel"><h2>Load Checkpoint</h2><div class="level-grid">${levels}</div><button data-action="back">Back</button></section>`;
+    this.overlay.innerHTML = `<section class="panel area-screen level-panel"><h2>Select Level</h2><div class="level-grid">${levels}</div><button data-action="back">Back</button></section>`;
+  }
+
+  #levelPreview(level) {
+    const bounds = level.worldBounds;
+    const toX = (x) => ((x - bounds.minX) / (bounds.maxX - bounds.minX)) * 100;
+    const toY = (z) => (1 - ((z - bounds.minZ) / (bounds.maxZ - bounds.minZ))) * 100;
+    const point = (className, position) => `<i class="${className}" style="left:${toX(position.x).toFixed(1)}%;top:${toY(position.z).toFixed(1)}%"></i>`;
+    const hazards = [...(level.obstacles ?? []), ...(level.walls ?? [])]
+      .slice(0, 8)
+      .map((spec) => point('level-preview__hazard', spec.position))
+      .join('');
+    const roofs = (level.roofs ?? [])
+      .slice(0, 3)
+      .map((spec) => point('level-preview__roof', spec.position))
+      .join('');
+    const pickups = (level.pickups ?? [])
+      .slice(0, 9)
+      .map((pickup) => point(pickup.type === 'refill' ? 'level-preview__refill' : 'level-preview__fuel', pickup.position))
+      .join('');
+    const start = level.launchPad.position;
+    const end = level.landingPad.position;
+    const dx = toX(end.x) - toX(start.x);
+    const dy = toY(end.z) - toY(start.z);
+    const routeLength = Math.hypot(dx, dy).toFixed(1);
+    const routeAngle = Math.atan2(dy, dx).toFixed(3);
+    return `<span class="level-preview" style="--start-x:${toX(start.x).toFixed(1)}%;--start-y:${toY(start.z).toFixed(1)}%;--end-x:${toX(end.x).toFixed(1)}%;--end-y:${toY(end.z).toFixed(1)}%;--route:${routeLength}%;--route-angle:${routeAngle}rad">
+      <i class="level-preview__route"></i>
+      ${roofs}${hazards}${pickups}
+      ${point('level-preview__start', start)}
+      ${point('level-preview__end', end)}
+      <i class="level-preview__ship"></i>
+    </span>`;
   }
 
   #pause() {
@@ -499,7 +604,7 @@ export class UIController {
         <span>${formatNumber(run.time, 1)}s</span>
       </div>
     `).join('');
-    this.overlay.innerHTML = `<section class="panel level-panel">
+    this.overlay.innerHTML = `<section class="panel area-screen level-panel">
       <h2>Leaderboard</h2>
       <div class="leader-summary">Best distance <b>${formatNumber(board.bestDistance ?? 0, 0)}m</b> in <b>${formatNumber(board.bestDistanceTime ?? 0, 1)}s</b></div>
       <div class="leader-list">${rows || '<div class="leader-empty">No runs yet</div>'}</div>
@@ -521,9 +626,9 @@ export class UIController {
     }
     await this.game.audio.unlock();
     this.game.audio.playClick();
-    if (action === 'enter-hangar') this.game.enterHangar();
+    await this.#travelToLobbyArea(target);
     if (action === 'play') {
-      this.#launchSequence();
+      this.game.enterGame();
     }
     if (action === 'lobby') this.game.showLobby();
     if (action === 'store') this.#store();
@@ -549,6 +654,7 @@ export class UIController {
     if (action === 'restart') this.game.restartLevel();
     if (action === 'reset-run') this.game.resetRun();
     if (action === 'mobile-tilt') this.game.enableTiltFromPrompt();
+    if (action === 'mobile-joystick') this.game.enableJoystickFromPrompt();
     if (action === 'mobile-calibrate') this.game.calibrateTiltFromPrompt();
     if (action === 'mobile-ok') this.game.completeMobileTutorial();
     if (action === 'mobile-skip') this.game.skipMobileTutorial();
@@ -583,10 +689,10 @@ export class UIController {
     if (action === 'buy-boost') {
       const boostId = target.closest('[data-boost-id]').dataset.boostId;
       const boost = BOOST_DEFINITIONS.find((entry) => entry.boostId === boostId);
-      if (boost && window.confirm(`Buy ${boost.displayName} for ${boost.chipPrice} BSG chips?`)) {
+      if (boost && window.confirm(`Buy one ${boost.displayName} for ${this.#money(boost.chipPrice)}?`)) {
         const result = await this.game.buyBoost(boostId);
-        this.#notice(result.ok ? 'Boost added' : result.reason);
-        this.#boostShop();
+        this.#notice(result.ok ? 'Boost dispensed' : result.reason);
+        this.#boosts();
       }
     }
     if (action === 'buy-star-pack') {
@@ -601,6 +707,37 @@ export class UIController {
     if (action === 'level') {
       this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
     }
+    if (action === 'equip-upgrade') {
+      const result = this.game.equipUpgrade(target.closest('[data-upgrade-id]').dataset.upgradeId);
+      if (!result.ok) this.#notice(result.reason);
+      this.#upgrades(target.closest('[data-upgrade-id]').dataset.upgradeId);
+    }
+    if (action === 'unequip-upgrade') {
+      this.game.unequipUpgrade(target.closest('[data-upgrade-id]').dataset.upgradeId);
+      this.#upgrades(target.closest('[data-upgrade-id]').dataset.upgradeId);
+    }
+    if (action === 'next-level') {
+      this.game.startLevel(Number(target.closest('[data-level-id]').dataset.levelId));
+    }
+  }
+
+  async #travelToLobbyArea(target) {
+    const hotspot = target.closest?.('.lobby-hotspot');
+    if (!hotspot || !this.game.state.is(STATES.LOBBY) || this.lobbyTraveling) return;
+    const lobby = hotspot.closest('.lobby-command');
+    if (!lobby) return;
+    const lobbyBounds = lobby.getBoundingClientRect();
+    const hotspotBounds = hotspot.getBoundingClientRect();
+    const x = ((hotspotBounds.left + hotspotBounds.width / 2 - lobbyBounds.left) / lobbyBounds.width) * 100;
+    const y = ((hotspotBounds.top + hotspotBounds.height / 2 - lobbyBounds.top) / lobbyBounds.height) * 100;
+    lobby.style.setProperty('--travel-x', `${x}%`);
+    lobby.style.setProperty('--travel-y', `${y}%`);
+    this.lobbyTraveling = true;
+    lobby.classList.remove('is-travelling');
+    void lobby.offsetWidth;
+    lobby.classList.add('is-travelling');
+    await new Promise((resolve) => window.setTimeout(resolve, 620));
+    this.lobbyTraveling = false;
   }
 
   #notice(text) {
@@ -617,7 +754,11 @@ export class UIController {
     this.#disposeRocketPreview();
     const container = this.root.querySelector('[data-rocket-preview]');
     if (!container) return;
-    this.rocketPreview = new RocketPreview(container, focusId);
+    const loadout = this.game.upgrades.equippedDefinitions().map((definition) => ({
+      upgradeId: definition.upgradeId,
+      level: this.game.upgrades.levelFor(definition.upgradeId)
+    }));
+    this.rocketPreview = new RocketPreview(container, focusId, loadout);
   }
 
   #disposeRocketPreview() {
@@ -633,17 +774,8 @@ export class UIController {
     return Object.entries(effects).slice(0, 2).map(([key, value]) => `${this.#label(key)} ${value > 0 ? '+' : ''}${value}`).join(', ');
   }
 
-  #launchSequence() {
-    this.#disposeRocketPreview();
-    this.overlay.innerHTML = `
-      <section class="launch-transition">
-        <div class="hangar-door left-door"></div>
-        <div class="hangar-door right-door"></div>
-        <div class="walkway-light"></div>
-        <strong>HANGAR DOORS OPENING</strong>
-        <span>Walking out to the rocket</span>
-      </section>`;
-    window.setTimeout(() => this.game.enterGame(), 1800);
+  #money(cents = 0) {
+    return `$${(Number(cents || 0) / 100).toFixed(2)}`;
   }
 
   #initials(name = 'Guest Pilot') {
@@ -684,12 +816,19 @@ export class UIController {
   #template() {
     return `
       <div class="overlay"></div>
+      <div class="rotate-phone" aria-hidden="true">
+        <div class="rotate-phone__device"></div>
+        <strong>Rotate Phone</strong>
+        <span>Launch 3001 plays in landscape on mobile.</span>
+      </div>
+      <div class="mobile-joystick" data-mobile-joystick aria-label="Steering joystick"><span></span></div>
+      <button class="mobile-thrust" data-boost aria-label="Thrust">Thrust</button>
       <div class="top-stats">
         <span>SCORE <b data-value="score">0</b></span>
         <span>BEST <b data-value="best">0</b></span>
         <span>BEST DIST <b data-value="best-distance">0</b>m/<b data-value="best-distance-time">0.0</b>s</span>
         <span>DIST <b data-value="distance">0</b>m</span>
-        <span>MARKER <b data-value="marker">0</b>m</span>
+        <span>TARGET <b data-value="marker">0</b>m</span>
         <span>TIME <b data-value="time">0.0</b>s</span>
       </div>
       <div class="hud">
@@ -712,8 +851,8 @@ export class UIController {
           <button class="hud-boost" data-boost aria-label="Boost">Boost</button>
         </div>
         <div class="readouts">
-          <span data-stat="level">ROUTE <b data-value="level">ENDLESS</b></span><span data-stat="score">SCORE <b data-value="score">0</b></span><span data-stat="best">BEST <b data-value="best">0</b></span>
-          <span data-stat="distance">DIST <b data-value="distance">0</b>m</span><span data-stat="marker">MARKER <b data-value="marker">0</b>m</span><span data-stat="fuel">FUEL <b data-value="fuel">100</b>%</span>
+          <span data-stat="level">LEVEL <b data-value="level">1</b></span><span data-stat="score">SCORE <b data-value="score">0</b></span><span data-stat="best">BEST <b data-value="best">0</b></span>
+          <span data-stat="distance">DIST <b data-value="distance">0</b>m</span><span data-stat="marker">TARGET <b data-value="marker">0</b>m</span><span data-stat="fuel">FUEL <b data-value="fuel">100</b>%</span>
           <span data-stat="altitude">ALT <b data-value="altitude">0</b></span><span data-stat="vertical">V/S <b data-value="vertical">0</b></span><span data-stat="horizontal">H/S <b data-value="horizontal">0</b></span>
           <span data-stat="angle">ANGLE <b data-value="angle">0deg</b></span><span data-stat="wind">WIND <b data-value="wind">0</b></span><span data-stat="tolerance">TOL <b data-value="tolerance">0deg</b></span>
           <span data-stat="time">TIME <b data-value="time">0.0</b>s</span><span data-stat="thrust">THRUST <b data-value="thrust">OFF</b></span><span data-stat="camera">CAM <b data-value="camera">CHASE</b></span>

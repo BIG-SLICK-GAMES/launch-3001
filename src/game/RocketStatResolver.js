@@ -1,4 +1,3 @@
-import { UPGRADE_DEFINITIONS } from './UpgradeDefinitions.js';
 import { boostById } from './BoostDefinitions.js';
 
 const BASE_STATS = Object.freeze({
@@ -55,7 +54,7 @@ export class RocketStatResolver {
 
   recalculate() {
     const stats = { ...this.baseStats };
-    for (const definition of UPGRADE_DEFINITIONS) {
+    for (const definition of this.upgrades.equippedDefinitions()) {
       const level = this.upgrades.levelFor(definition.upgradeId);
       this.#applyDefinition(stats, definition.statModifiers, level);
     }
@@ -67,6 +66,7 @@ export class RocketStatResolver {
     stats.boostFuelBurnMultiplier = Math.max(0.05, stats.boostFuelBurnMultiplier);
     stats.thrustPowerMultiplier = Math.max(0.1, stats.thrustPowerMultiplier);
     stats.steeringPowerMultiplier = Math.max(0.1, stats.steeringPowerMultiplier);
+    stats.massMultiplier = Math.max(0.5, stats.massMultiplier);
     this.current = stats;
     return stats;
   }
@@ -81,11 +81,13 @@ export class RocketStatResolver {
 
   adjustedLevel(level) {
     const stats = this.current;
+    const massPenalty = Math.max(0.5, stats.massMultiplier);
+    const massFuelPenalty = 1 + Math.max(0, massPenalty - 1) * 0.35;
     return {
       ...level,
-      fuelBurnRate: level.fuelBurnRate * stats.fuelBurnMultiplier * stats.boostFuelBurnMultiplier,
-      thrustPower: level.thrustPower * stats.thrustPowerMultiplier,
-      steeringPower: level.steeringPower * stats.steeringPowerMultiplier,
+      fuelBurnRate: level.fuelBurnRate * stats.fuelBurnMultiplier * stats.boostFuelBurnMultiplier * massFuelPenalty,
+      thrustPower: level.thrustPower * stats.thrustPowerMultiplier / massPenalty,
+      steeringPower: level.steeringPower * stats.steeringPowerMultiplier / massPenalty,
       damping: Math.min(0.998, 1 - ((1 - level.damping) * stats.dampingMultiplier)),
       maxSpeed: {
         ...level.maxSpeed,
